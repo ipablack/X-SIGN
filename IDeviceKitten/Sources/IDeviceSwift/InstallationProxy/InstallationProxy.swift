@@ -30,7 +30,7 @@ public class InstallationProxy: Identifiable, ObservableObject {
 		var fileHandle: AfcFileHandle?
 		var installproxy: InstallationProxyClientHandle?
 		
-		try await Task.detached(priority: .utility) {
+		let worker = Task.detached(priority: .utility) {
 			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
 				throw IDeviceSwiftError(message: "Missing Pairing")
 			}
@@ -46,6 +46,7 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			}
 			
 			defer {
+                if let openFile = fileHandle { _ = afc_file_close(openFile) }
 				afc_client_free(afcClient)
 				installation_proxy_client_free(installproxy)
 			}
@@ -80,8 +81,7 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			guard afc_make_directory_result == nil else {
 				throw IDeviceSwiftError(afc_make_directory_result)
 			}
-			
-			print("1")
+
 			
 			let remoteDir = "/\(stagingDir)/\(self._uuid).ipa"
 			
@@ -89,43 +89,34 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			guard afc_file_open_result == nil else {
 				throw IDeviceSwiftError(afc_file_open_result)
 			}
-			
-			print("2")
+
 			
 			try await self._updateStatus(with: .sendingPayload)
 			
-			guard let fileHandle = fileHandle else {
+			guard let openedFile = fileHandle else {
 				throw IDeviceSwiftError(message: "Missing File Handle")
 			}
 			
-			let data = try Data(contentsOf: url)
-			let totalSize = data.count
-			let chunkSize = 64 * 1024 * 1024 // 67mb
-			var totalBytesWritten = 0
-			
-			guard let rawBuffer = data.withUnsafeBytes({ $0.baseAddress })?.assumingMemoryBound(to: UInt8.self) else {
-				throw IDeviceSwiftError(message: "Error writing to AFC")
-			}
-			
-			while totalBytesWritten < totalSize {
-				let bytesLeft = totalSize - totalBytesWritten
-				let bytesToWrite = min(chunkSize, bytesLeft)
-				let writePtr = rawBuffer.advanced(by: totalBytesWritten)
-				
-				let result = afc_file_write(fileHandle, writePtr, bytesToWrite)
-				if result != nil {
-					throw IDeviceSwiftError(result)
-				}
-				
-				totalBytesWritten += bytesToWrite
-				
-				let progress = Double(totalBytesWritten) / Double(totalSize)
-				try await self._updateUploadProgress(with: progress)
-			}
-			
-			print(2)
-			
-			let afc_file_close_result = afc_file_close(fileHandle)
+            try await IDeviceFileTransfer.stream(
+                from: url,
+                checkCancellation: { try Task.checkCancellation() },
+                write: { chunk in
+                    // Never retain a pointer outside Data.withUnsafeBytes.
+                    try chunk.withUnsafeBytes { bytes in
+                        guard let pointer = bytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                            throw IDeviceSwiftError(message: "Empty transfer buffer")
+                        }
+                        if let error = afc_file_write(openedFile, pointer, chunk.count) {
+                            throw IDeviceSwiftError(error)
+                        }
+                    }
+                },
+                progress: { value in try? await self._updateUploadProgress(with: value) }
+            )
+            try Task.checkCancellation()
+
+			let afc_file_close_result = afc_file_close(openedFile)
+            fileHandle = nil
 			guard afc_file_close_result == nil else {
 				throw IDeviceSwiftError(afc_file_close_result)
 			}
@@ -141,8 +132,7 @@ public class InstallationProxy: Identifiable, ObservableObject {
 				guard let handshake = heartbeat.handshake else {
 					throw IDeviceSwiftError(message: "Cannot find RSD handshake")
 				}
-				
-				print(3)
+
 				
 				let installation_proxy_connect_rsd_result = installation_proxy_connect_rsd(adapter, handshake, &installproxy)
 				guard installation_proxy_connect_rsd_result == nil else {
@@ -157,8 +147,7 @@ public class InstallationProxy: Identifiable, ObservableObject {
 					throw IDeviceSwiftError(installation_proxy_connect_result)
 				}
 			}
-			
-			print(4)
+
 			
 			let installError: UnsafeMutablePointer<IdeviceFfiError>? = remoteDir.withCString { cString in
 				let context = Unmanaged.passUnretained(self).toOpaque()
@@ -184,7 +173,12 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			
 			try await Task.sleep(nanoseconds: 350_000_000)
 			try await self._updateStatus(with: .completed(.success(())))
-		}.value
+        }
+        try await withTaskCancellationHandler(operation: {
+            try await worker.value
+        }, onCancel: {
+            worker.cancel()
+        })
 	}
 	
 	private func _updateStatus(with status: InstallerStatusViewModel.InstallerStatus) async throws {

@@ -38,18 +38,7 @@ extension ServerInstaller {
 		return comps.url!
 	}
 	
-    var externalServerLink: String {
-        var components = URLComponents(string: "https://api.palera.in/genPlist")
-        components?.queryItems = [
-            URLQueryItem(name: "bundleid", value: app.identifier ?? ""),
-            URLQueryItem(name: "name", value: app.name ?? "X-Sign"),
-            URLQueryItem(name: "version", value: app.version ?? "1.0"),
-            URLQueryItem(name: "fetchurl", value: payloadEndpoint.absoluteString)
-        ]
-        let encodedQuery = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-        components?.percentEncodedQuery = encodedQuery
-        return components?.url?.absoluteString ?? ""
-    }
+    var externalServerLink: String { plistEndpoint.absoluteString }
 
 	var iTunesLink: String {
 		_iTunesLink(with: plistEndpoint.absoluteString)
@@ -70,61 +59,9 @@ extension ServerInstaller {
         return components.url?.absoluteString ?? ""
     }
 
-    // iOS shows the HTTPS manifest origin. The app must not impersonate that
-    // origin by changing its local TLS hostname or by accepting an HTML redirect.
-    var brandedManifestEndpoint: URL? {
-        guard payloadEndpoint.scheme == "https", let bundle = app.identifier, !bundle.isEmpty else { return nil }
-        var components = URLComponents(string: "https://x-sign.web.app/native/manifest.plist")
-        components?.queryItems = [
-            URLQueryItem(name: "bundle", value: bundle),
-            URLQueryItem(name: "version", value: app.version ?? "1.0"),
-            URLQueryItem(name: "title", value: app.name ?? "X-Sign"),
-            URLQueryItem(name: "ipa", value: payloadEndpoint.absoluteString),
-            URLQueryItem(name: "icon", value: displayImageSmallEndpoint.absoluteString),
-            URLQueryItem(name: "expires", value: String(Int(Date().timeIntervalSince1970) + 600))
-        ]
-        let encodedQuery = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-        components?.percentEncodedQuery = encodedQuery
-        return components?.url
-    }
-
-    @MainActor private static var brandedEndpointUnavailableUntil = Date.distantPast
-
+    // Compatibility only. The installation view uses the local device proxy.
     @MainActor
-    func verifiedBrandedInstallLink() async -> URL? {
-        guard Date() >= Self.brandedEndpointUnavailableUntil,
-              let manifestURL = brandedManifestEndpoint else { return nil }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 5
-        configuration.timeoutIntervalForResource = 7
-        configuration.urlCache = nil
-        let session = URLSession(configuration: configuration)
-        defer { session.invalidateAndCancel() }
-        var request = URLRequest(url: manifestURL, cachePolicy: .reloadIgnoringLocalCacheData)
-        request.setValue("application/xml", forHTTPHeaderField: "Accept")
-        guard let (data, response) = try? await session.data(for: request), !Task.isCancelled else {
-            Self.brandedEndpointUnavailableUntil = Date().addingTimeInterval(30)
-            return nil
-        }
-        guard let http = response as? HTTPURLResponse else { return nil }
-        if http.statusCode == 404 || http.mimeType?.lowercased() == "text/html" {
-            Self.brandedEndpointUnavailableUntil = Date().addingTimeInterval(300)
-            return nil
-        }
-        guard http.statusCode == 200,
-              http.url?.host == "x-sign.web.app", http.url?.path == "/native/manifest.plist",
-              data.count <= 32_768,
-              ["application/xml", "text/xml", "application/x-plist"].contains(http.mimeType?.lowercased() ?? ""),
-              let root = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [String: Any],
-              let items = root["items"] as? [[String: Any]], let item = items.first,
-              let metadata = item["metadata"] as? [String: Any],
-              metadata["bundle-identifier"] as? String == app.identifier,
-              metadata["bundle-version"] as? String == (app.version ?? "1.0"),
-              let assets = item["assets"] as? [[String: Any]],
-              assets.contains(where: { ($0["kind"] as? String) == "software-package" && ($0["url"] as? String) == payloadEndpoint.absoluteString })
-        else { return nil }
-        return URL(string: _iTunesLink(with: manifestURL.absoluteString))
-    }
+    func verifiedBrandedInstallLink() async -> URL? { nil }
 
 
 	var displayImageSmallEndpoint: URL {

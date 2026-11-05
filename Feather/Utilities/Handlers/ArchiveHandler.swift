@@ -91,6 +91,10 @@ final class ArchiveHandler: NSObject {
 		return dest
 	}
 	
+    func clean() {
+        try? _fileManager.removeItem(at: _uniqueWorkDir)
+    }
+
 	static func getCompressionLevel() -> Int {
 		UserDefaults.standard.integer(forKey: "Feather.compressionLevel")
 	}

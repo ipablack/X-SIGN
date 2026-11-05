@@ -20,7 +20,6 @@ struct LibraryView: View {
 	@State private var _selectedInstallAppPresenting: AnyApp?
 	@State private var _isImportingPresenting = false
 	@State private var _isDownloadingPresenting = false
-    @State private var _isAppStoreLinkPresenting = false
     @State private var _batchApps: [any AppInfoPresentable] = []
     @State private var _isBulkSigningPresenting = false
     @State private var _isImportingFiles = false
@@ -91,11 +90,8 @@ struct LibraryView: View {
 		NBNavigationView("التوقيع") {
 			NBListAdaptable {
                 Section {
-                    Button { _isAppStoreLinkPresenting = true } label: {
-                        Label("رابط App Store", systemImage: "link.badge.plus")
-                    }
                     if _filteredSignedApps.isEmpty && _filteredImportedApps.isEmpty {
-                        Text("استورد ملف IPA لتعديل معلوماته وتوقيعه، أو افتح رابط التطبيق في App Store.")
+                        Text("استورد ملف IPA من جهازك لتعديل معلوماته وتوقيعه محلياً.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
@@ -224,9 +220,6 @@ struct LibraryView: View {
 							Button("استيراد ملفات IPA", systemImage: "arrow.down.doc") {
 								_isImportingPresenting = true
 							}
-                            Button("رابط App Store", systemImage: "link.badge.plus") {
-                                _isAppStoreLinkPresenting = true
-                            }
 							Button("استيراد وتوقيع من رابط مباشر", systemImage: "link") {
 								_isDownloadingPresenting = true
 							}
@@ -267,9 +260,6 @@ struct LibraryView: View {
 				)
 				.ignoresSafeArea()
 			}
-            .sheet(isPresented: $_isAppStoreLinkPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
-                XSignAppStoreLinkView()
-            }
 			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
 				AppStore2026SettingsPopup(sources: _sources, viewModel: sourcesViewModel)
 			}

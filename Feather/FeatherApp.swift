@@ -153,7 +153,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 			Task { @MainActor [weak self] in
 				guard let self = self else { return }
 				if !connected { self.didCompleteOnlineHandshake = false }
-                let shouldBlock = (self.locks.anti_vpn_proxy ?? true) && detected
+                let shouldBlock = false // A local installation tunnel must not lock the application.
 				if self.isVPNOrProxyDetected != shouldBlock {
 					self.isVPNOrProxyDetected = shouldBlock
                     NotificationCenter.default.post(name: .xsignPolicyChanged, object: nil)
@@ -164,7 +164,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 	}
 	
 	func evaluateNetworkSecurity() {
-		let antiVPNEnabled = locks.anti_vpn_proxy ?? true
+		let antiVPNEnabled = false // Local installation requires a local tunnel.
 		DispatchQueue.global(qos: .utility).async { [weak self] in
 			let detected = antiVPNEnabled ? Self.isVPNOrProxyActiveOnDevice() : false
 			DispatchQueue.main.async {
@@ -213,12 +213,6 @@ final class XSignSecurityEnforcer: ObservableObject {
 		didModifyIcon: Bool,
 		injectedDylibCount: Int
 	) -> (allowed: Bool, errorMessage: String?) {
-		if (locks.require_online_handshake ?? true) && !didCompleteOnlineHandshake {
-			return (false, "يجب الاتصال بالإنترنت للتحقق من صلاحيات التوقيع والأمان.")
-		}
-		if isVPNOrProxyDetected {
-			return (false, locks.vpn_warning_message ?? "يرجى إيقاف الـ VPN أو مراقب الشبكة أولاً.")
-		}
 		if !locks.allowsAppMetadataEditing && (originalName != newName || originalBundleID != newBundleID) {
 			return (false, "غير مسموح بتعديل اسم التطبيق أو معرف الحزمة (Bundle ID).")
 		}
@@ -280,21 +274,13 @@ final class XSignRemoteManager: ObservableObject {
     var blockingReason: String? {
         if isMaintenanceActive { return config?.maintenance?.message ?? "التطبيق قيد الصيانة." }
         if isForceUpdateRequired { return config?.force_update?.message ?? "يرجى تحديث التطبيق أولاً." }
-        let security = XSignSecurityEnforcer.shared
-        if security.isVPNOrProxyDetected { return security.locks.vpn_warning_message ?? "يرجى إيقاف VPN أو Proxy." }
         return nil
     }
 
     func prepareProtectedOperation() async -> String? {
-        await fetchRemoteConfig()
-        let security = XSignSecurityEnforcer.shared
-        security.isVPNOrProxyDetected = (security.locks.anti_vpn_proxy ?? true) && XSignSecurityEnforcer.isVPNOrProxyActiveOnDevice()
-        if let reason = blockingReason { return reason }
-        if (security.locks.require_online_handshake ?? true) &&
-            (!security.didCompleteOnlineHandshake || Date().timeIntervalSince(lastSuccess) > 60) {
-            return "يلزم اتصال ناجح بالخادم للتحقق من صلاحيات التوقيع والتحميل."
-        }
-        return nil
+        // Signing uses local credentials; panel connectivity is not authorization.
+        // Keep cached owner maintenance/update policy, without a network round trip.
+        return blockingReason
     }
 
     func fetchRemoteConfig(storeCache: AppStoreCacheManager? = nil, sourcesViewModel: SourcesViewModel? = nil) async {

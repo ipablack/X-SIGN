@@ -3,7 +3,6 @@ SCHEME := Feather
 PLATFORMS := iphoneos
 
 TMP := $(TMPDIR)/$(NAME)
-CERT_JSON_URL := https://backloop.dev/pack.json
 
 .PHONY: all clean deps $(PLATFORMS)
 
@@ -16,13 +15,6 @@ clean:
 
 deps:
 	python3 Tools/Prepare_Zsign.py
-	rm -rf deps || true
-	mkdir -p deps
-
-	curl -fsSL "$(CERT_JSON_URL)" -o cert.json
-	jq -r '.cert' cert.json > deps/server.crt
-	jq -r '.key1, .key2' cert.json > deps/server.pem
-	jq -r '.info.domains.commonName' cert.json > deps/commonName.txt
 
 $(PLATFORMS): deps
 	rm -rf _build
@@ -47,7 +39,6 @@ $(PLATFORMS): deps
 	
 	chmod -R 0755 _build/Payload/$(NAME).app
 	codesign --force --sign - --timestamp=none _build/Payload/$(NAME).app || true
-	cp deps/* _build/Payload/$(NAME).app/ || true
 
 	mkdir -p packages
 	ditto -c -k --sequesterRsrc --keepParent _build/Payload "packages/$(NAME).ipa"

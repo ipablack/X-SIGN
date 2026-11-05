@@ -1,0 +1,127 @@
+name: Setup XSign native installation domain
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: Existing Firebase project ID
+        type: string
+        default: xsign-bd088
+        required: true
+      blaze_already_enabled:
+        description: I already use Blaze and authorize deploying this manifest function
+        type: boolean
+        default: false
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: xsign-hosting
+  cancel-in-progress: false
+jobs:
+  setup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check explicit deployment choice
+        env:
+          BLAZE_READY: ${{ inputs.blaze_already_enabled }}
+        run: |
+          if [ "$BLAZE_READY" != true ]; then
+            echo '::error::This optional endpoint requires an existing Blaze plan. This workflow will not enable billing.'
+            exit 1
+          fi
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare manifest-only function and preserve site settings
+        shell: bash
+        env:
+          FIREBASE_PROJECT_ID: ${{ inputs.project_id }}
+          FIREBASE_SITE_ID: x-sign
+          SIGN_API_URL: ${{ vars.SIGN_API_URL }}
+        run: |
+          set -euo pipefail
+          python3 - <<'XSIGN_DOMAIN_FILES'
+          from pathlib import Path
+          FILES = {'functions_xsign_native/manifest.cjs': '\'use strict\';\n// Stateless manifest generation only: no IPA uploads, signing keys or network fetches.\nfunction invalid() { const error = new Error(\'Invalid installation request\'); error.statusCode = 400; throw error; }\nfunction xml(value) { return String(value).replace(/[<>&"\']/g, char => ({\'<\':\'&lt;\',\'>\':\'&gt;\',\'&\':\'&amp;\',\'"\':\'&quot;\',"\'":\'&apos;\'}[char])); }\nfunction text(params, key, maximum) {\n  const value = params.get(key);\n  if (typeof value !== \'string\' || !value.trim() || value.length > maximum || /[\\x00-\\x1f\\x7f]/.test(value)) invalid();\n  return value;\n}\nfunction httpsURL(value) {\n  let parsed; try { parsed = new URL(value); } catch { invalid(); }\n  if (parsed.protocol !== \'https:\' || !parsed.hostname || parsed.username || parsed.password || parsed.hash || value.length > 2048) invalid();\n  return value;\n}\nfunction buildManifest(params, now = Math.floor(Date.now() / 1000)) {\n  if (params.toString().length > 8192) invalid();\n  for (const key of [\'bundle\',\'version\',\'title\',\'ipa\',\'expires\',\'icon\']) if (params.getAll(key).length > 1) invalid();\n  const bundle = text(params, \'bundle\', 200);\n  if (!/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(bundle)) invalid();\n  const version = text(params, \'version\', 80), title = text(params, \'title\', 160);\n  const ipa = httpsURL(text(params, \'ipa\', 2048));\n  const expiration = text(params, \'expires\', 16);\n  if (!/^\\d+$/.test(expiration)) invalid();\n  const expires = Number(expiration);\n  if (!Number.isSafeInteger(expires) || expires <= now || expires > now + 900) invalid();\n  const assets = [{kind:\'software-package\',url:ipa}];\n  const icon = params.get(\'icon\'); if (icon) assets.push({kind:\'display-image\',url:httpsURL(icon)});\n  return `<?xml version="1.0" encoding="UTF-8"?>\\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\\n<plist version="1.0"><dict><key>items</key><array><dict><key>assets</key><array>${assets.map(asset=>`<dict><key>kind</key><string>${asset.kind}</string><key>url</key><string>${xml(asset.url)}</string></dict>`).join(\'\')}</array><key>metadata</key><dict><key>bundle-identifier</key><string>${xml(bundle)}</string><key>bundle-version</key><string>${xml(version)}</string><key>kind</key><string>software</string><key>title</key><string>${xml(title)}</string></dict></dict></array></dict></plist>`;\n}\nfunction handler(req, res) {\n  res.setHeader(\'Cache-Control\',\'private, no-store, max-age=0\');\n  res.setHeader(\'X-Content-Type-Options\',\'nosniff\');\n  res.setHeader(\'Referrer-Policy\',\'no-referrer\');\n  if (![\'GET\',\'HEAD\'].includes(req.method)) { res.setHeader(\'Allow\',\'GET, HEAD\'); return res.status(405).send(\'Method not allowed\'); }\n  try {\n    const url = new URL(req.originalUrl || req.url, \'https://x-sign.web.app\');\n    if (url.pathname !== \'/native/manifest.plist\') return res.status(404).send(\'Not found\');\n    const manifest = buildManifest(url.searchParams);\n    res.setHeader(\'Content-Type\',\'application/xml; charset=utf-8\');\n    return res.status(200).send(req.method === \'HEAD\' ? \'\' : manifest);\n  } catch {\n    res.setHeader(\'Content-Type\',\'text/plain; charset=utf-8\');\n    return res.status(400).send(\'Invalid or expired installation request\');\n  }\n}\nmodule.exports = { buildManifest, handler };\n', 'functions_xsign_native/index.cjs': "'use strict';\nconst { onRequest } = require('firebase-functions/v2/https');\nconst { handler } = require('./manifest.cjs');\nexports.xsignNativeManifest = onRequest({\n  region: 'us-central1', memory: '128MiB', cpu: 'gcf_gen1',\n  minInstances: 0, maxInstances: 1, concurrency: 1, timeoutSeconds: 10,\n  invoker: 'public'\n}, handler);\n", 'functions_xsign_native/package.json': '{\n  "name": "xsign-native-install-manifest",\n  "version": "1.0.0",\n  "private": true,\n  "main": "index.cjs",\n  "engines": { "node": "22" },\n  "dependencies": { "firebase-functions": "6.4.0" }\n}\n', 'scripts/configure_native_manifest.py': '"""Merge an exact manifest rewrite into existing Firebase Hosting; never enable billing."""\nimport json\nfrom pathlib import Path\n\ndef configure(data):\n    functions = data.get(\'functions\', [])\n    if isinstance(functions, dict): functions = [functions]\n    if not isinstance(functions, list): raise ValueError(\'Unsupported functions configuration\')\n    item = {\'source\': \'functions_xsign_native\', \'codebase\': \'xsign-native\', \'runtime\': \'nodejs22\'}\n    existing = next((x for x in functions if x.get(\'codebase\') == \'xsign-native\'), None)\n    if existing is not None and existing != item: raise ValueError(\'xsign-native codebase already has different configuration\')\n    if existing is None: functions.append(item)\n    data[\'functions\'] = functions\n    hosting = data.get(\'hosting\')\n    choices = hosting if isinstance(hosting,list) else [hosting]\n    selected = [x for x in choices if isinstance(x,dict) and (x.get(\'target\') == \'xsign\' or x.get(\'site\') == \'x-sign\')]\n    if len(selected) != 1: raise ValueError(\'Expected one xsign Hosting target or x-sign site\')\n    site = selected[0]\n    rewrites = site.setdefault(\'rewrites\', [])\n    rule = {\'source\': \'/native/manifest.plist\', \'function\': {\'functionId\': \'xsignNativeManifest\', \'region\': \'us-central1\'}}\n    prior = next((x for x in rewrites if x.get(\'source\') == rule[\'source\']), None)\n    if prior and prior != rule: raise ValueError(\'Manifest rewrite is already used by another backend\')\n    if not prior: rewrites.insert(0,rule)\n    # Keep every other Hosting setting, static file and backend intact.\n    return data\n\nif __name__ == \'__main__\':\n    path = Path(\'firebase.json\')\n    data = configure(json.loads(path.read_text()))\n    path.write_text(json.dumps(data,ensure_ascii=False,indent=2)+\'\\n\')\n    print(\'Prepared manifest-only backend rewrite. Billing was not changed.\')\n', 'tests/manifest.test.cjs': 'const assert = require(\'node:assert/strict\');\nconst { buildManifest, handler } = require(\'../functions_xsign_native/manifest.cjs\');\nconst now=Math.floor(Date.now()/1000);\nconst params=()=>new URLSearchParams({bundle:\'com.example.test\',version:\'1.0+2\',title:\'تطبيق & <X> " +\',ipa:\'https://device.example:7443/test.ipa\',icon:\'https://device.example:7443/icon.png\',expires:String(now+600)});\nconst doc=buildManifest(params(),now);\nassert(doc.includes(\'تطبيق &amp; &lt;X&gt; &quot; +\'));\nassert(doc.includes(\'1.0+2\'));assert(doc.includes(\'https://device.example:7443/test.ipa\'));\nfor(const [key,value] of [[\'ipa\',\'file:///private/app.ipa\'],[\'ipa\',\'http://example.org/a.ipa\'],[\'ipa\',\'https://user:pass@example.org/a.ipa\'],[\'title\',\'hello\\0\'],[\'bundle\',\'<script>\'],[\'expires\',String(now-1)],[\'expires\',String(now+901)]]) {\n const p=params();p.set(key,value);assert.throws(()=>buildManifest(p,now));\n}\nconst duplicate=params();duplicate.append(\'ipa\',\'https://other.example/a.ipa\');assert.throws(()=>buildManifest(duplicate,now));\nfunction request(method,path=\'/native/manifest.plist?\'+params().toString()) {\n const response={headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.code=n;return this},send(body){this.body=body;return this}};\n handler({method,originalUrl:path},response);return response;\n}\nassert.equal(request(\'GET\').code,200);assert.equal(request(\'HEAD\').body,\'\');assert.equal(request(\'POST\').code,405);assert.equal(request(\'GET\',\'/\').code,404);\nassert.equal(request(\'GET\',\'/native/manifest.plist\').code,400);\nprocess.stdout.write(\'PASS: XML escaping, Arabic, URL validation, expiry, duplicate fields and HTTP methods\\n\');\nif(process.argv[2])require(\'node:fs\').writeFileSync(process.argv[2],doc);\n'}
+          root = Path.cwd().resolve()
+          if not (root/'firebase.json').is_file() or not (root/'public').is_dir():
+              raise SystemExit('Run this workflow in the Firebase website repository, not X-SIGN.')
+          for name, content in FILES.items():
+              path = (root/name).resolve()
+              if not path.is_relative_to(root) or (path.exists() and path.read_text() != content):
+                  raise SystemExit('Existing file differs; no files were replaced: '+name)
+          for name,content in FILES.items():
+              path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
+          XSIGN_DOMAIN_FILES
+          if [ -f scripts/configure_hosting.py ]; then
+            python3 scripts/configure_hosting.py
+          fi
+          python3 scripts/configure_native_manifest.py
+          python3 - <<'XSIGN_DOMAIN_CONFIG'
+          import json,os,re,urllib.request
+          from pathlib import Path
+          project=os.environ['FIREBASE_PROJECT_ID']
+          if not re.fullmatch(r'[a-z][a-z0-9-]{4,28}[a-z0-9]',project):
+              raise SystemExit('Invalid Firebase project ID')
+          path=Path('.firebaserc')
+          rc=json.loads(path.read_text()) if path.exists() else {}
+          rc.setdefault('projects',{})['default']=project
+          rc.setdefault('targets',{}).setdefault(project,{}).setdefault('hosting',{})['xsign']=['x-sign']
+          path.write_text(json.dumps(rc,indent=2)+'\n')
+          config=Path('public/config.json')
+          if config.is_file():
+              current=json.loads(config.read_text())
+              if not current.get('apiBaseUrl'):
+                  try:
+                      with urllib.request.urlopen('https://x-sign.web.app/config.json',timeout=10) as response:
+                          live=json.load(response)
+                      if isinstance(live.get('apiBaseUrl'),str) and live['apiBaseUrl'].startswith('https://'):
+                          current['apiBaseUrl']=live['apiBaseUrl']
+                          config.write_text(json.dumps(current,ensure_ascii=False,indent=2)+'\n')
+                  except Exception:
+                      raise SystemExit('Could not preserve the live signing API; set SIGN_API_URL before deployment.')
+          XSIGN_DOMAIN_CONFIG
+          node tests/manifest.test.cjs
+          if [ -f scripts/build_certificates.py ]; then python3 scripts/build_certificates.py; fi
+          if [ -f scripts/check_frontend.py ]; then python3 scripts/check_frontend.py; fi
+          npm install --prefix functions_xsign_native --no-audit --no-fund
+          git diff --check
+      - name: Authenticate to the existing Firebase project
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Deploy only this function codebase and the existing website
+        env:
+          FIREBASE_PROJECT_ID: ${{ inputs.project_id }}
+        run: npx --yes firebase-tools@14.17.0 deploy --only functions:xsign-native,hosting:xsign --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - name: Verify the public HTTPS manifest
+        run: |
+          python3 - <<'XSIGN_DOMAIN_VERIFY'
+          import plistlib,time,urllib.parse,urllib.request
+          query=urllib.parse.urlencode({'bundle':'com.xsign.manifest.check','version':'1.0','title':'X-Sign',
+              'ipa':'https://example.com/verify-only.ipa','expires':int(time.time())+600})
+          url='https://x-sign.web.app/native/manifest.plist?'+query
+          with urllib.request.urlopen(url,timeout=30) as response:
+              assert response.status==200 and urllib.parse.urlsplit(response.url).hostname=='x-sign.web.app'
+              data=plistlib.loads(response.read(32768))
+          assert data['items'][0]['metadata']['bundle-identifier']=='com.xsign.manifest.check'
+          print('Verified: real manifest served from x-sign.web.app; no IPA was downloaded or installed.')
+          XSIGN_DOMAIN_VERIFY
+      - name: Save successful source configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- firebase.json .firebaserc functions_xsign_native/manifest.cjs functions_xsign_native/index.cjs functions_xsign_native/package.json functions_xsign_native/package-lock.json scripts/configure_native_manifest.py tests/manifest.test.cjs
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m "Serve native XSign installation manifests on the website domain"
+            git push origin HEAD:refs/heads/main
+          fi

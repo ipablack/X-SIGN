@@ -1,0 +1,3779 @@
+{
+  "source_commit": "793ca4485371a1ac5efb8cf79a7e4dfe0e9c98ab",
+  "original_files": 535,
+  "layout": "repository root",
+  "dependencies": "vendored pinned source",
+  "sources": [
+    {
+      "name": "XSign",
+      "prefix": "",
+      "commit": "793ca4485371a1ac5efb8cf79a7e4dfe0e9c98ab",
+      "repo": "claration/feather",
+      "sha256": "8de837dc2c310fa8225c7351a1a6b6fe46dc952b273228b96dee76aef261c6ae",
+      "count": 263
+    },
+    {
+      "name": "IDeviceKitten",
+      "prefix": "IDeviceKitten/",
+      "commit": "837cf1e14d4875771dd5ee1b754a4c86215c5db3",
+      "repo": "claration/idevicekit",
+      "sha256": "e63af9ad39084d22a1aba44a56504a26afb843d42a2556407bf39416e3b27fef",
+      "count": 25
+    },
+    {
+      "name": "Zsign",
+      "prefix": "Zsign/",
+      "commit": "c4ba9da4283031c07efa03bce42c4b8602d22e73",
+      "repo": "claration/zsign",
+      "sha256": "a1a0f59f5c49acc8ab8e691d4a2dc029f4b885faceff9cd59bc5f15950bdafd3",
+      "count": 247
+    }
+  ],
+  "files": [
+    {
+      "path": ".editorconfig",
+      "sha256": "557d9ed949341efcf5b0f2ff80545c5b13087e268390142dfa59aabca60d6851",
+      "git_blob": "e31ab9ec01fe9dfa197b8a28af13bef82cf64188",
+      "mode": 420,
+      "size": 199
+    },
+    {
+      "path": ".gitattributes",
+      "sha256": "d60f352d0db1404c70afb4bb8b2ca3fd1c610572aa40720e8a0b7baa7885418c",
+      "git_blob": "6313b56c57848efce05faa7aa7e901ccfc2886ea",
+      "mode": 420,
+      "size": 19
+    },
+    {
+      "path": ".github/CODE_OF_CONDUCT.md",
+      "sha256": "9f81a1cffc03531540730fcd2ff4645ebfdc19b8687246b56f3832388cda2e83",
+      "git_blob": "e69d72e30efe48684ccabedf6ad11c27eaae82f2",
+      "mode": 420,
+      "size": 650
+    },
+    {
+      "path": ".github/CONTRIBUTING.md",
+      "sha256": "69f123cab3ceef1e78f19d382090ffce1e44c1e90bb17bac5414e4ff0948f267",
+      "git_blob": "96c2d0744c30d9c6355f402c7db5731be475e3cc",
+      "mode": 420,
+      "size": 3040
+    },
+    {
+      "path": ".github/FUNDING.yml",
+      "sha256": "e33149f09f0f3801a62c255728b57401b817a212d14d5c4ba3dcc85187c0a56f",
+      "git_blob": "a69c5f10020b0f50955c03007321dcfc47058dd8",
+      "mode": 420,
+      "size": 29
+    },
+    {
+      "path": ".github/HOW_IT_WORKS.md",
+      "sha256": "3baee8bce9e36b0e0ea4266c0a7352200cf3bea56ebb97e4d4a08af7954d61ce",
+      "git_blob": "b7161db5e84fe369f83f2e379be6c631680cbb28",
+      "mode": 420,
+      "size": 3310
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/blank.yml",
+      "sha256": "c01d3fc164862217c30f6efc582d1efa674a9c93306ae67f10d276c257a9ad10",
+      "git_blob": "ec46a9dee04b9664520360a8d5c4662b969b4212",
+      "mode": 420,
+      "size": 718
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug.yml",
+      "sha256": "9e7637ae8d8b1a7b6058f685fd89fab44270dedb773048ef9fb674274ade3d1a",
+      "git_blob": "69fc2fdc4859d23ca0e6d8b88b709757732107a8",
+      "mode": 420,
+      "size": 901
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "sha256": "1f103c6a9dd07cd13a9a6f17ace6b813f47747eb9cb7e00488cb2073caaf91bb",
+      "git_blob": "3ba13e0cec6cbbfd462e9ebf529dd2093148cd69",
+      "mode": 420,
+      "size": 28
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature.yml",
+      "sha256": "745d7dc975a9079223f6edb723de9aed5a2f99b0b2ca69b50d26ade97ea9f300",
+      "git_blob": "3119bb05642092ded3f551e3d6f71266b2accfb0",
+      "mode": 420,
+      "size": 946
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/repo.yml",
+      "sha256": "f2a380f979f3343ee6a3df8108448d63cfd4753941de43571851015a95b171c8",
+      "git_blob": "80641b10452dd33a38cd7ff5b39e9e099bc4decb",
+      "mode": 420,
+      "size": 1389
+    },
+    {
+      "path": ".github/README.md",
+      "sha256": "7ceeea8567ea80ccf98e2168dcdb1015ff7849aec140fd00bf07a370a2a1f318",
+      "git_blob": "6dae75d8e454d836c74aa771700bd6332e5c9888",
+      "mode": 420,
+      "size": 4502
+    },
+    {
+      "path": ".github/demo-dark.png",
+      "sha256": "812005f2d3af4e9cce5c1ac17809b17c7b90eb2e7818c2cd46774efb9bf4168a",
+      "git_blob": "5999a0e9eecd2d5aa4ad204dcbb5b4929047ed0a",
+      "mode": 420,
+      "size": 1208421
+    },
+    {
+      "path": ".github/demo-light.png",
+      "sha256": "3769f6df3a2a764a57b06e268ffebeef3eca82a4c854faf90ae03f26f1c997a1",
+      "git_blob": "02d043a1f84275c3479f124cd5f6e9b48ffe0ed4",
+      "mode": 420,
+      "size": 1210884
+    },
+    {
+      "path": ".github/landing.png",
+      "sha256": "3309ad2a758efa1c9f11824d25356e3fa66a28a70ce70e51a933101783800ec4",
+      "git_blob": "5532199545385bc43561ec0818bb1ada331e7783",
+      "mode": 420,
+      "size": 39520
+    },
+    {
+      "path": ".github/workflows/Fix_XSign_Build.yml",
+      "sha256": "bd96d5aea86e67a13571a1d73cad80433545e36996c9659cd56146a2b52fcd2d",
+      "git_blob": "081c8ceeae5aca65fb2f976ecf7506b941c33932",
+      "mode": 420,
+      "size": 319273
+    },
+    {
+      "path": ".github/workflows/Setup_XSign_Install_Domain.yml",
+      "sha256": "3cec497792a30ac362313b48c305382ead76339b167515242f4cb5bbecb5522d",
+      "git_blob": "adad834ba8c3f20539bfa68b923dbb837857fae7",
+      "mode": 420,
+      "size": 14140
+    },
+    {
+      "path": ".github/workflows/XSign_AppStore_Experience.yml",
+      "sha256": "cbedc0bd8a864c67ee5fb794a1fa748335ec880fc344d261d752742116597ad8",
+      "git_blob": "59d305ab1dd0ea9b2a7fcb2b5d7990745368e42d",
+      "mode": 420,
+      "size": 64007
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "da441433b76690e155def2b38d187e6afd96250912091a152697b1b79621ca4a",
+      "git_blob": "1f333ac1ea945b78b3b1a06027bade9a763edae0",
+      "mode": 420,
+      "size": 2185
+    },
+    {
+      "path": ".github/workflows/update_repo.yml",
+      "sha256": "929f8351c4453eae7fbf047e61fc8d571a49a52f830f89d6fe81101c933763fd",
+      "git_blob": "5b37dd4fb7f82d8bff7c38e6c18eac2925edae41",
+      "mode": 420,
+      "size": 1479
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "06a94bc7fb67b72647f15bed7d149cf3399e09cfec5367bc7d726bed8357fb68",
+      "git_blob": "eea17a7d52a5dfd583024528a597daabc8ff46b9",
+      "mode": 420,
+      "size": 93
+    },
+    {
+      "path": ".gitmodules",
+      "sha256": "8579b5a918f728930d141fe09c11da1c85ea860da5ba2510aa20987a24b3a0ac",
+      "git_blob": "bcacb169a5db20aad9e7e653b65d9495ac100be1",
+      "mode": 420,
+      "size": 201
+    },
+    {
+      "path": "AltSourceKit/.gitignore",
+      "sha256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "git_blob": "0023a5340637983755c8c19c18cc2c2bb1dbda1c",
+      "mode": 420,
+      "size": 159
+    },
+    {
+      "path": "AltSourceKit/LICENSE",
+      "sha256": "607ac70e79e5ee7350a86acb570128f65cdb1ca729a42fe9dac4e6c4e6de3ced",
+      "git_blob": "f969429275b567d0ca4e8beddd40adeb2f70a86f",
+      "mode": 420,
+      "size": 1049
+    },
+    {
+      "path": "AltSourceKit/Package.swift",
+      "sha256": "a44e7de25dc6daac93dd56e03f75a51f372eabc9846c5b38b4d8869a66d1a6c6",
+      "git_blob": "40b5bc43b11a0c26f7640cb8a0d015270a017b80",
+      "mode": 420,
+      "size": 717
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Extensions/Array/Array+Sorted.swift",
+      "sha256": "be9c31f10117dde38ce12f968fddd6dc8c5c559437610f16af950d971c91a004",
+      "git_blob": "7725c434354e55b7eb42b790377f8f6fc2c980ea",
+      "mode": 420,
+      "size": 335
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Extensions/Array/Array+safe.swift",
+      "sha256": "f1509603033979153c3934fee8b025c4a622cfd0d2d803ca839258d9c15acddc",
+      "git_blob": "45b9b7a90ac94287b38b77b20058c3d15a912939",
+      "mode": 420,
+      "size": 465
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Extensions/Color/Color+Codable.swift",
+      "sha256": "5f513a00bd11ecbba4b45388d95e2d16305fe6f9f23385734484dc4763550fd8",
+      "git_blob": "dcf4bb62cee1bedbb7c4c3efa8e5087af6332f20",
+      "mode": 420,
+      "size": 3084
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Models/ASRepository.swift",
+      "sha256": "79062825f6e6791035a94458327cded127d883a64cf651a12ccb29c4eff10028",
+      "git_blob": "b8400c036194d635ced56998bdf690d7c39e439a",
+      "mode": 420,
+      "size": 19580
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Utilities/ASDecrypt.swift",
+      "sha256": "482fc6520500d745f89f76d936b14d79ce7aaad6804551c876fdb94403b5048c",
+      "git_blob": "3f61dc8581e8c4e5765b53a86d1382d74686f66f",
+      "mode": 420,
+      "size": 1324
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Utilities/ASDeobfuscator.swift",
+      "sha256": "08381ee9fff8d733bb32cd4b88d0025ba3f6181bc8e373cbdba980d0eefdad2d",
+      "git_blob": "c8beab49252e283515ecfa4ed67d20f329e98518",
+      "mode": 420,
+      "size": 1550
+    },
+    {
+      "path": "AltSourceKit/Sources/AltSourceKit/Utilities/Key/EsignSourceKey.swift",
+      "sha256": "e7d4b8cf51d6263b8fb1fe5a18fe00dd9376158498a52c0c0567555d8eefcbdd",
+      "git_blob": "863da26a630e88cf40a9c717e82bd7080171be3d",
+      "mode": 420,
+      "size": 30882
+    },
+    {
+      "path": "Feather.xcconfig",
+      "sha256": "62d585e9964054db82269d8573d525594b8138f480020786cdd069797ed9bdb7",
+      "git_blob": "7c1ff2afb2abb03d9856909fb79a1c711cfbefef",
+      "mode": 420,
+      "size": 297
+    },
+    {
+      "path": "Feather.xcodeproj/project.pbxproj",
+      "sha256": "bed7d59566f36fcaef049c2056939d48d810a0b2ddbe60cad0341830498973dd",
+      "git_blob": "d36be267d757a4a14979ff17054d6732d3a84dbb",
+      "mode": 420,
+      "size": 24487
+    },
+    {
+      "path": "Feather.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "sha256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+      "git_blob": "919434a6254f0e9651f402737811be6634a03e9c",
+      "mode": 420,
+      "size": 135
+    },
+    {
+      "path": "Feather.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "sha256": "b75df4c5ba8013f7fdac454656165ec3af133d8994df784ddb3f9066e330afe8",
+      "git_blob": "90db12f219247d5d50d23732c4adbce2645bcf50",
+      "mode": 420,
+      "size": 9872
+    },
+    {
+      "path": "Feather.xcodeproj/xcshareddata/xcschemes/Feather.xcscheme",
+      "sha256": "7deab2fe4ef141beebfe09d6b620a5ce04dbd4112f984e96ee9a86159829f27a",
+      "git_blob": "878542a35a2bca6dd228b714a7609f11398d379f",
+      "mode": 420,
+      "size": 2881
+    },
+    {
+      "path": "Feather.xcworkspace/contents.xcworkspacedata",
+      "sha256": "69ba5fd68906e6cde8e040ff4d8189fcb875695df2aec73aee02c9061ba2ab17",
+      "git_blob": "2b2e8877bd329df56c1b68368746763e328210f6",
+      "mode": 420,
+      "size": 472
+    },
+    {
+      "path": "Feather.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "sha256": "ee656458c546050d9ad7267d08660b25e60483cc99a6b62404b8dee108c8531c",
+      "git_blob": "992a1b413351d003c26f4c3430e43a695f3784ec",
+      "mode": 420,
+      "size": 7631
+    },
+    {
+      "path": "Feather/Backend/Observable/DownloadManager.swift",
+      "sha256": "099c6c1f75c32cfb18e1600bc320accb28e370c738cd8b9a6e2b8d02b0e646c1",
+      "git_blob": "d1e8cb091a9f4f6e9d26f10b63605c6580abba72",
+      "mode": 420,
+      "size": 10958
+    },
+    {
+      "path": "Feather/Backend/Observable/InstallerStatusViewModel.swift",
+      "sha256": "b7612eaeb7057fa4a972ac5e8d745e69e50afad34ed19ca4fecf1348023a7718",
+      "git_blob": "0a321205a6ba7bf6c5eb9502fbcd148e7f763bf1",
+      "mode": 420,
+      "size": 842
+    },
+    {
+      "path": "Feather/Backend/Observable/OptionsManager.swift",
+      "sha256": "4c8ca5b9a2523aa42cadb05af07dfa31b156fc022b1a72748ad2fb84e47013b7",
+      "git_blob": "65c885a98fe7dade243be938641ac0697058bdc6",
+      "mode": 420,
+      "size": 7134
+    },
+    {
+      "path": "Feather/Backend/Observable/UpdateManager.swift",
+      "sha256": "43f3fe420612443596ff8e8532acd4a74ecc5cd549df5fb4ea1cf5149c476ffe",
+      "git_blob": "33731bcd74c2e530589e5063a769b4b99a4caded",
+      "mode": 420,
+      "size": 6667
+    },
+    {
+      "path": "Feather/Backend/Server/Models/AppDataModel.swift",
+      "sha256": "92be04e09e96c6093f5c3075d67651daf37141e8b3a7658f13488b73fda843a4",
+      "git_blob": "9d3efa3b37c7ff72b75f81e61499c5e4ca3c7225",
+      "mode": 420,
+      "size": 179
+    },
+    {
+      "path": "Feather/Backend/Server/ServerInstaller+Compute.swift",
+      "sha256": "9252f46f6141f9e76e42801f87a1cdf2ba459ca0a1647e97ef7a2dcca005e848",
+      "git_blob": "95b99c53a70739742ce16784cbd739c83cd55a83",
+      "mode": 420,
+      "size": 7366
+    },
+    {
+      "path": "Feather/Backend/Server/ServerInstaller+TLS.swift",
+      "sha256": "9c045e5f92e6cbe05ce7a9068fe31810afe1e5a2235a81037b96c4d6323b1beb",
+      "git_blob": "38c5d8578639a5c702f84b4250f1fd8418181f96",
+      "mode": 420,
+      "size": 3843
+    },
+    {
+      "path": "Feather/Backend/Server/ServerInstaller.swift",
+      "sha256": "cfde0868a70da483cd530731bd6e32a4a74c5c784fe12e331e480a2899303b6c",
+      "git_blob": "4e3b9604212de9cf79241a3bf2e3a0cdaaf5bdfb",
+      "mode": 420,
+      "size": 3394
+    },
+    {
+      "path": "Feather/Backend/Storage/Feather.xcdatamodeld/.xccurrentversion",
+      "sha256": "371750e2964b053135d014a682be9b87fa0e89c4706bdec8844af0e82699b9b5",
+      "git_blob": "3666fcca2f6da46ff3fa140e966055f0169f36c9",
+      "mode": 420,
+      "size": 260
+    },
+    {
+      "path": "Feather/Backend/Storage/Feather.xcdatamodeld/Feather.xcdatamodel/contents",
+      "sha256": "f97d117fb71d32ef8641de29735be620e23a69f2e95e61e9dd1d55fee31d13cc",
+      "git_blob": "566e108cd5060f407925dc5269ccaecafaa0428e",
+      "mode": 420,
+      "size": 4208
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+Certificate.swift",
+      "sha256": "2f00a8647c0c7cb5fded265d954e34653ffc09a47f74982a3f41c682a512939f",
+      "git_blob": "2a841b9aa6a889a227ff0851cfa79e2342b1eeff",
+      "mode": 420,
+      "size": 2995
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+Imported.swift",
+      "sha256": "8f95f442bfc4523c5f05b99b259c81a1e8dfe8b91354eb4945a96d43531176d4",
+      "git_blob": "30d49ef9e2f277937ab881489b219fb437a18620",
+      "mode": 420,
+      "size": 947
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+Shared.swift",
+      "sha256": "afff6e95a423a120f7064a9b837d8e761405bb2698e7de6bb5545a8654198491",
+      "git_blob": "709a72517404ad0b3845af111e8ddd368ac01a64",
+      "mode": 420,
+      "size": 1589
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+Signed.swift",
+      "sha256": "c2692e02cffa420e003568de9867aec5781529ce2504831b662c5444d115577a",
+      "git_blob": "3edbad671273c40fb38c7ae022e73a1314acf124",
+      "mode": 420,
+      "size": 1077
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+SourceMetadata.swift",
+      "sha256": "cae2a04de36272ec7409e4301022e77f92c256eae380671d274241b2d20e2d72",
+      "git_blob": "81fec36301360172c0c30218b50377e88650e869",
+      "mode": 420,
+      "size": 5416
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage+Sources.swift",
+      "sha256": "4e8227983b96d138793910cdc115cd67c3e5c1f095074fd92539c79f38ac38e5",
+      "git_blob": "29a2669e81e81e3ee051c50c01689f360c2f2b83",
+      "mode": 420,
+      "size": 2429
+    },
+    {
+      "path": "Feather/Backend/Storage/Storage.swift",
+      "sha256": "250876e39d187f828218b1ac0138df96a2d67012c7b1d3c4d08f59f9c66ead8a",
+      "git_blob": "4b3f55e3af718d0946affa07a3568f2059089942",
+      "mode": 420,
+      "size": 2369
+    },
+    {
+      "path": "Feather/Extensions/FileManager+documents.swift",
+      "sha256": "aa7e0f966561db147b99a5ceea12fb64ff1d1ca5686b5ca84d143461b79c814e",
+      "git_blob": "60838ddeadf4017b7e779c16d8e87816f429c0a8",
+      "mode": 420,
+      "size": 1081
+    },
+    {
+      "path": "Feather/Extensions/Image++.swift",
+      "sha256": "fde37464db0d6cf7b1d3fb5a7854bfe91eb972a14a8590c2401d0d864600c4b1",
+      "git_blob": "3fc7e6bbe38ffbf69bf064aa10ef3ca57ecca8f4",
+      "mode": 420,
+      "size": 909
+    },
+    {
+      "path": "Feather/Extensions/Logger++.swift",
+      "sha256": "84fa74e0f31110e66aeafc55366bc7d0a091097265b7ac517be60f7e7fa473ff",
+      "git_blob": "cc360a79ca40eb29f081adfd0de4109836f10b9d",
+      "mode": 420,
+      "size": 313
+    },
+    {
+      "path": "Feather/Extensions/UIUserInterfaceStyle+cases.swift",
+      "sha256": "0d9b96603a0782e04772ff6bf73938a0c4ed54103546dafb35a2427d6f6d9903",
+      "git_blob": "140722fcef050ef49dc7af02d3e5c3026bb07845",
+      "mode": 420,
+      "size": 460
+    },
+    {
+      "path": "Feather/Extensions/UTType++.swift",
+      "sha256": "79bda5cae7b654f784ac3bf21c77a3b39caf6fed34dad15cf9f63aa0d980609d",
+      "git_blob": "efdac3666e8880288a53fe93fd7aed9bd3e3072f",
+      "mode": 420,
+      "size": 656
+    },
+    {
+      "path": "Feather/Extensions/ZipCompression+cases.swift",
+      "sha256": "2a9c3f654e73107cce70196338adf1f4b26341439c6ef0d8c20ff01d112a5333",
+      "git_blob": "26942ae4a23ae61540857e1f495944db578c2c99",
+      "mode": 420,
+      "size": 466
+    },
+    {
+      "path": "Feather/FeatherApp.swift",
+      "sha256": "3502b4a95dcfd34ec44913f6ec573052b80463b4ab34b55b237355d06c31a683",
+      "git_blob": "1da862b4b93e1787df73c8b9988e739ebc9722c0",
+      "mode": 420,
+      "size": 45893
+    },
+    {
+      "path": "Feather/Resources/AppIcon.icon/Assets/feather 5.png",
+      "sha256": "bab35b61ccebe3f96ebc20313eec4b4ef244a6bdffcf04a3fa604e3404b48110",
+      "git_blob": "5d7ebb460d30639cc2c9068924a48e986d3a5f25",
+      "mode": 420,
+      "size": 114323
+    },
+    {
+      "path": "Feather/Resources/AppIcon.icon/Assets/feather.png",
+      "sha256": "1dadb145af28f560eb85889ce3ef065aff68f454a75d0cc1f83de9412e989754",
+      "git_blob": "2d8094e485a8f34ea2501cf57371ed64e4d34aa3",
+      "mode": 420,
+      "size": 46512
+    },
+    {
+      "path": "Feather/Resources/AppIcon.icon/icon.json",
+      "sha256": "fb8de2b655d0d7fa658f4acbed9028684f04422baaa166bba7f5593da251582c",
+      "git_blob": "47a6249e0ce6a5bd8f39151614bbdb82b4766402",
+      "mode": 420,
+      "size": 1057
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "sha256": "5fcc6bdc12c71d1d972b2624e2299180311d64a3505fa50eb2331e69059f0a27",
+      "git_blob": "86f8a69b8d17cd86bdd393e60864188e1792b270",
+      "mode": 420,
+      "size": 1541
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather.png",
+      "sha256": "57102c788b79b6f62e61bde0febc91026cb1c9d48ed1fe534530fc139e80ac5c",
+      "git_blob": "3f1062f5868c2cf626255fc78156e81227e53e1e",
+      "mode": 420,
+      "size": 350889
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather_dark.png",
+      "sha256": "80859cc3dc40e3bccf646578721ddc14977f42364d10bd4419c32c626bed5279",
+      "git_blob": "6dac2a8c2b3df7033f1638eb8ded150b9d1e3e23",
+      "mode": 420,
+      "size": 94691
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather_tint.png",
+      "sha256": "14e3bdc127757499dbccd949a622226400e72f81ea46de96c5ca8d04313b5eaf",
+      "git_blob": "39999bd3472a4e309ab89b858d63fd37a1e388cd",
+      "mode": 420,
+      "size": 77403
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/App_Unknown.imageset/Contents.json",
+      "sha256": "138fc5fdc884620e57b7f0716054df6083c17c29282893a0d0ec2903e324316c",
+      "git_blob": "bd2bc74b5b35c97bf59bed22eb3f213329222e1d",
+      "mode": 420,
+      "size": 158
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/App_Unknown.imageset/unknown2.png",
+      "sha256": "512bc18ae72eb7eb0d979a73ce3da58608505ed468c92cefb8ec41309c9fa1e8",
+      "git_blob": "758fb1658780c78e9f586fc77a7ae0c57d3185c7",
+      "mode": 420,
+      "size": 21279
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Cert.imageset/Cert.png",
+      "sha256": "cd78d3c3a57a370c84b04ffc2b73538a627c6c1cd62a18528091ece7a21a1544",
+      "git_blob": "99e68b2fdbf00fae74510e75d657b66d03c09a9b",
+      "mode": 420,
+      "size": 37929
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Cert.imageset/Contents.json",
+      "sha256": "4eaeeac124a8eed7416f76af61fa08d79a1abd1e7aa083d29aa07c291d6cab83",
+      "git_blob": "1f5629e23c9868149af4f388413c4149fa0728db",
+      "mode": 420,
+      "size": 154
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Contents.json",
+      "sha256": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+      "git_blob": "73c00596a7fca3f3d4bdd64053b69d86745f9e10",
+      "mode": 420,
+      "size": 63
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Glyph.imageset/Contents.json",
+      "sha256": "ad155a7079baae6f3e12a12b78ab3df020ffdcf5e14166784f1198bca2e8c678",
+      "git_blob": "099c8bf70f0070dc1b6fb5f06aa4f3f5c0c1eeca",
+      "mode": 420,
+      "size": 226
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Glyph.imageset/feather.png",
+      "sha256": "4fe24c5e0daa0842c81f2987f6d45ce27bd417e094983ce935404f63c41f14d8",
+      "git_blob": "846a3996b327d1b412c472940b250b2824845b4a",
+      "mode": 420,
+      "size": 2951
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Repositories.imageset/Contents.json",
+      "sha256": "e8224f59560ccbaffab43a1daeee13c34db071bf2fe07c6cbaefe16343722493",
+      "git_blob": "dee40531bfd9f9d3e74f094a8974c06aa83932e4",
+      "mode": 420,
+      "size": 166
+    },
+    {
+      "path": "Feather/Resources/Assets.xcassets/Repositories.imageset/nekofiles_folder.png",
+      "sha256": "a6b857750e1664d7932450020a511557afe44fc79adb539dbfe2a7d08cd53f77",
+      "git_blob": "bbc3b0d3330084e07d68d9a04af9032dca2e3b88",
+      "mode": 420,
+      "size": 11061
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/Donor@2x.png",
+      "sha256": "b4c4b577f5e2b778e28078d2249443bffa7f89a5cd40d7839447b475377ac2f9",
+      "git_blob": "7b7c186cf956a4df69cdc7c5790ae12783b07267",
+      "mode": 420,
+      "size": 12795
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/Donor@3x.png",
+      "sha256": "f13325c03113b73efe5ced00395e93c050d6927a585406f60f44fc09ad756a60",
+      "git_blob": "3990b6a981411f049e543204d5201d78aa3160ba",
+      "mode": 420,
+      "size": 23183
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V0@2x.png",
+      "sha256": "cd476bd8083df37cb409bcf7d3c753ee36061b42e57adfb5c4392956634696db",
+      "git_blob": "b0f3e1be37f5abf5b606aacb27667fdf3f558951",
+      "mode": 420,
+      "size": 12709
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V0@3x.png",
+      "sha256": "ae1429bbc0cb6b11ebef85ce35770dd3880bf9981143d90d8f02ca464314e429",
+      "git_blob": "c9e1ce70056ccf2c950ad731392fbe9968ff8aa3",
+      "mode": 420,
+      "size": 22697
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V1@2x.png",
+      "sha256": "ab13cfea44e360707f4a34007ec57557d88b2ae908e3b5297d95a671fef20b78",
+      "git_blob": "12d040eaf01081b0bebbbf37a20e349226579806",
+      "mode": 420,
+      "size": 10633
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V1@3x.png",
+      "sha256": "164ef3d3a5f42f8e5b773492ccb3e278a33241a8a80098598baa8190896b428d",
+      "git_blob": "1d03508577a4823eb2a3553b0068df5d1742424e",
+      "mode": 420,
+      "size": 20344
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V1Mac@2x.png",
+      "sha256": "486f72a2ae3877368774753a8f46b01a1459224ad9f16e6946c9ed1efccbfaa3",
+      "git_blob": "e3e9706303c7c36cf9027d2d59d8d00adc86383d",
+      "mode": 420,
+      "size": 11818
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V1Mac@3x.png",
+      "sha256": "c7b0528ed70666ba1e07c893a7ce9791dc418e2cf6543784e5234e694bbd08f2",
+      "git_blob": "f4dd5cc5b68e900252ed7aca275717a170af9908",
+      "mode": 420,
+      "size": 23814
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V2Mac@2x.png",
+      "sha256": "dec4eab29adcc2318f39e33b146c14b8363dedc47a74dafb5b781efabd9d0616",
+      "git_blob": "7a79359e3164fff87689a3cf0c6e0c007255e906",
+      "mode": 420,
+      "size": 13605
+    },
+    {
+      "path": "Feather/Resources/Icons/Main/V2Mac@3x.png",
+      "sha256": "41e8d5dc99e7400b75f92f905cc378ccccb0275f5779aed12b55281f2ad13503",
+      "git_blob": "be48ea08c103e910bde48aded62ef64fb2a98809",
+      "mode": 420,
+      "size": 26146
+    },
+    {
+      "path": "Feather/Resources/Icons/Wing/Wing@2x.png",
+      "sha256": "75be2cf4faf20145e9d7f5c9019427ce4dba9040cf010b6277876f1d9edd54f5",
+      "git_blob": "fe494a2bede494215c7a40497db3709d251e31f9",
+      "mode": 420,
+      "size": 9886
+    },
+    {
+      "path": "Feather/Resources/Icons/Wing/Wing@3x.png",
+      "sha256": "c5a09196a9e4d8e94fa4e212323c3dd1679293871e4b15cdda644f1c92c28580",
+      "git_blob": "a17c2245227fe0f37e5ae2bd4dd59e1d400bea3b",
+      "mode": 420,
+      "size": 18182
+    },
+    {
+      "path": "Feather/Resources/Info.plist",
+      "sha256": "8d80b308b166200d034807f41f636e492f2ff049f0eec65204b10331524cab49",
+      "git_blob": "28cda2a5bd01acc3ea2548cbd201825ceeb7a3f0",
+      "mode": 420,
+      "size": 4995
+    },
+    {
+      "path": "Feather/Resources/Launch Screen.storyboard",
+      "sha256": "c032a8c1f0ae4197dca11a687c76c1c8da57d59aa3e8f14d1cdc125d68399a52",
+      "git_blob": "81cb02cc5f8c7db304b06a7dd9fb2a850633c73e",
+      "mode": 420,
+      "size": 3725
+    },
+    {
+      "path": "Feather/Resources/Localizable.xcstrings",
+      "sha256": "de6978959b1bbf3c42e8d826b3b065c5eb1632858b5faaa5b44d954df4e536d9",
+      "git_blob": "9b0d228c6402003c755d6dd408d4f614d4de2bc0",
+      "mode": 420,
+      "size": 482960
+    },
+    {
+      "path": "Feather/Resources/XSignCatalogIPABlack.json",
+      "sha256": "1629749fd47c6292d9d2156785c6079488b2f407c76d6520280187bb234e3ec0",
+      "git_blob": "8f2db0e48480247789dc9dfe537ebc84c47263bc",
+      "mode": 420,
+      "size": 6880
+    },
+    {
+      "path": "Feather/Resources/XSignCatalogIPAOMTKLive.json",
+      "sha256": "433e449c13bf5ed685307efd7cca462fff8f35b3a932bcb6e85415e097328e55",
+      "git_blob": "b06e0bec39ce52db95a0d7cc32ea5cb8c7cd8025",
+      "mode": 420,
+      "size": 7589488
+    },
+    {
+      "path": "Feather/Resources/XSignCatalogReference.json",
+      "sha256": "6b7c3d74178349319cc24acb91013d49d0f16890a8f0c5407563c05ba2021a68",
+      "git_blob": "165fade5e3e4e93ee3c7d17f088446261e66a883",
+      "mode": 420,
+      "size": 1914468
+    },
+    {
+      "path": "Feather/Resources/XSignLaunchIPABlack.json",
+      "sha256": "5865e9e746650ccd1d3201b0d65d9d76b6e7aa48830ce7cf182c4f3db1869790",
+      "git_blob": "4f7100c8c52930d86db3e27dd69866be7856b4f0",
+      "mode": 420,
+      "size": 3145
+    },
+    {
+      "path": "Feather/Resources/XSignLaunchIPAOMTKLive.json",
+      "sha256": "16852305269e0888d3f1d7b5a04ac993ba0af5014da7da9179725e4560905abe",
+      "git_blob": "be52ae8fb3c23d5b6d2e2ee71ca2f0c8c1a91d66",
+      "mode": 420,
+      "size": 17678
+    },
+    {
+      "path": "Feather/Resources/XSignLaunchReference.json",
+      "sha256": "c2afbed4d935a827f436fc16ef92636460cb9602a8811300eb7e1a6bea63c755",
+      "git_blob": "9b665c86ea4977971c09a34b63f92032fc3d89f1",
+      "mode": 420,
+      "size": 18881
+    },
+    {
+      "path": "Feather/Resources/ellekit.deb",
+      "sha256": "588ad56c5de5585ca2d66e385cc8f25b4c1d77d5e8fc52baec6d69cb3fa3343d",
+      "git_blob": "6a5f52d1d1f9e1db80e94aa77f289ffe383cfcf6",
+      "mode": 420,
+      "size": 114288
+    },
+    {
+      "path": "Feather/Resources/feather_extension.png",
+      "sha256": "5717df253642c7fdbca1d9bfa092dde50ab7c1b94fe294e1207137a3466e876b",
+      "git_blob": "d9036e76a97a08d00b7ab57051ee4318c140d83a",
+      "mode": 420,
+      "size": 9467
+    },
+    {
+      "path": "Feather/Supporting Files/Feather-Bridging-Header.h",
+      "sha256": "4fc975d18244a31b8093ff23465f7a23a2a75dd1e4736559893f5a4d5229b959",
+      "git_blob": "e6ca9e3cf11d6be77f156ff246f84338782e4000",
+      "mode": 420,
+      "size": 149
+    },
+    {
+      "path": "Feather/Supporting Files/Feather.entitlements",
+      "sha256": "800c2b9d4ba82779a76ecc850fbef4213ac9c251857128b1ad4c3e507fbc1d01",
+      "git_blob": "42cfb9cdc0e71cc8139385d3b2caa7fbc35ad2ee",
+      "mode": 420,
+      "size": 224
+    },
+    {
+      "path": "Feather/Utilities/ARDecompression/AR.swift",
+      "sha256": "b34d221e339a5565757748e8d61a838815147395db6e3f7087673508e0285bba",
+      "git_blob": "e202b02e1ca4f14e95abbe73c6df52ed5d020a15",
+      "mode": 420,
+      "size": 2169
+    },
+    {
+      "path": "Feather/Utilities/ARDecompression/Decompression.swift",
+      "sha256": "b940a38e58610e78e30f1b7e16ec46c32786948e6d9b9aab7b8c252d052942c9",
+      "git_blob": "53369b8fb2c888d716672326c12ea0d30d980633",
+      "mode": 420,
+      "size": 1530
+    },
+    {
+      "path": "Feather/Utilities/ARDecompression/Models/ARFileModel.swift",
+      "sha256": "0732f731ed31ee325ce9abe23043f4d87d7b0e470b4a966f45b3ab9fe547cc41",
+      "git_blob": "afb1c6d8c3460af9bb4d539715ae89b68d50a9b1",
+      "mode": 420,
+      "size": 249
+    },
+    {
+      "path": "Feather/Utilities/AnyCodable.swift",
+      "sha256": "a3835a938e82aae06c13a1ebbe6b7d36e30ae8eff9c51a9958765812a5ceed72",
+      "git_blob": "3cede7c1adf52340d1b5dec9a107afadc409f655",
+      "mode": 420,
+      "size": 1922
+    },
+    {
+      "path": "Feather/Utilities/BackgroundAudioManager.swift",
+      "sha256": "bd1ff645b626c83a58bae49d431378b2ccc0da6dca3292fb403b7362cf238262",
+      "git_blob": "93732fee9ee997f12d3c155869eceafb87367000",
+      "mode": 420,
+      "size": 1028
+    },
+    {
+      "path": "Feather/Utilities/BackgroundTaskManager.swift",
+      "sha256": "9a6f83f2cd23c40dd8097460c957169ae0787568085f6c11e64a6d26a03071be",
+      "git_blob": "08c56e59b2ec5a4c65483a607f2e0e776a9f7c31",
+      "mode": 420,
+      "size": 2309
+    },
+    {
+      "path": "Feather/Utilities/CertificateReader/CertificateReader.swift",
+      "sha256": "343a436dcbba4ac98bb1fd97c85cd395b96badc652f42a37918c43bbd53d89f1",
+      "git_blob": "69b44475f1278c19eda5479a1e7044a6f14f0008",
+      "mode": 420,
+      "size": 908
+    },
+    {
+      "path": "Feather/Utilities/CertificateReader/Models/CertificateModel.swift",
+      "sha256": "a0a91465ea79d112c13557c6063e134717a63db5a813c6658c2dadce9638715e",
+      "git_blob": "d52894b658dc7560169b12d706126fc30a8b5695",
+      "mode": 420,
+      "size": 1098
+    },
+    {
+      "path": "Feather/Utilities/FR.swift",
+      "sha256": "86677bfd25b95143793fb9c2aaa78d2045298195beff87012fbac83c712730f2",
+      "git_blob": "62f4440fe504662eb58b4dc6b2fd08175a8db61a",
+      "mode": 420,
+      "size": 13291
+    },
+    {
+      "path": "Feather/Utilities/Handlers/AppFileHandler.swift",
+      "sha256": "7ed8e660c5f82b96ff695b1b87b7e39cec7b2df5ba8676290f7fc87bea86c79d",
+      "git_blob": "d6a05b11ef1ffd902eea104c3390a82c5a074193",
+      "mode": 420,
+      "size": 5003
+    },
+    {
+      "path": "Feather/Utilities/Handlers/ArchiveHandler.swift",
+      "sha256": "ee7cc71457c9c4fe7b9709f3677207baa353f229d317de0aa1a0d56fe690ef3b",
+      "git_blob": "5dbc62bbb69d77208835078361e1b6194d8c7a4d",
+      "mode": 420,
+      "size": 3054
+    },
+    {
+      "path": "Feather/Utilities/Handlers/CertificateFileHandler.swift",
+      "sha256": "1292b7f4e4d7ac10c3dccbcc53cd7847abf428db92406601459b3cd14a8344ff",
+      "git_blob": "536c6e73f9bf99b278bf6a8811cc42f44ae1b868",
+      "mode": 420,
+      "size": 2124
+    },
+    {
+      "path": "Feather/Utilities/Handlers/SigningHandler.swift",
+      "sha256": "e1b06d1baaeeb42d06f8b17db244f45227c09733fcddd5c92ec29d10ac1632a8",
+      "git_blob": "0a32b056010f63ec4569e12f0f0b5d7585103ab3",
+      "mode": 420,
+      "size": 18921
+    },
+    {
+      "path": "Feather/Utilities/Handlers/TweakHandler.swift",
+      "sha256": "708f640843c699797639946d2eb40437b8d23974fa1c1f43e1928f889eac574f",
+      "git_blob": "dcd1f3cc0d4763c14b6a5135d5aaddeeb686045e",
+      "mode": 420,
+      "size": 13579
+    },
+    {
+      "path": "Feather/Utilities/Handlers/ZsignHandler.swift",
+      "sha256": "91b6c3715c30d53a947295aeea6c721cf0e7ce828aaaafa040ea19acc991889d",
+      "git_blob": "aa87243f2f1fe185dac1c438ee4bf090672b9182",
+      "mode": 420,
+      "size": 2780
+    },
+    {
+      "path": "Feather/Utilities/MachO/MachOUtils.h",
+      "sha256": "9dfc653723e644879ff75840e25ec833c1a6626b4fd528456f1aa2aa8de62413",
+      "git_blob": "cca672e708c663f150437cd40449554954245841",
+      "mode": 420,
+      "size": 286
+    },
+    {
+      "path": "Feather/Utilities/MachO/MachOUtils.m",
+      "sha256": "936fc1a824c13e8750d60138a256293d2726fc85d9102be42ba706bc5419c725",
+      "git_blob": "522b182f6890f46107ee890628a1b247c95c3177",
+      "mode": 420,
+      "size": 8742
+    },
+    {
+      "path": "Feather/Utilities/XSignAppMetadata.swift",
+      "sha256": "86ae3fd7653d4e47a1f2dadaccc9259b585acfebe18e0ed26ef24a1b003fbf48",
+      "git_blob": "181f8a4c874fa0b9602dd29073fe811befa50fbd",
+      "mode": 420,
+      "size": 4478
+    },
+    {
+      "path": "Feather/Utilities/XSignBatchQueue.swift",
+      "sha256": "111a5ece3ecb4c2f841b28249caf2526d496a4e53c9ca12122467a9b5bf6a33e",
+      "git_blob": "aba2390eda43a6efb33fce604a86af47492218a7",
+      "mode": 420,
+      "size": 2101
+    },
+    {
+      "path": "Feather/Utilities/XSignIPAProvider.swift",
+      "sha256": "94c61a003379ecb4b019e03cc62c26217ef4898ea640ae5d0fb9a2db2f58341b",
+      "git_blob": "eec3bb20b05fb747bd2c6c0aa25a80cf7686e842",
+      "mode": 420,
+      "size": 4453
+    },
+    {
+      "path": "Feather/Utilities/XSignMachOEncryption.swift",
+      "sha256": "7e01f9afeb38617612f4c622613a186da0449db69cb8bdc8478ebc7d728f7064",
+      "git_blob": "434c04d02569f49a61fb4d38996c891c46cbf566",
+      "mode": 420,
+      "size": 7297
+    },
+    {
+      "path": "Feather/Utilities/XSignProvisioningProfile.swift",
+      "sha256": "c817dc58289b3d96a5eb0dbbfd8c04b702cf878e724f0cff057a49d1d6e91f13",
+      "git_blob": "d0e5510c8816cba91752d1673ff3f94421044602",
+      "mode": 420,
+      "size": 3639
+    },
+    {
+      "path": "Feather/Utilities/XSignSearch.swift",
+      "sha256": "983aaf1f70e0f2752452d9721d55852d0572df34a7331064591be0062e913fe1",
+      "git_blob": "1d04644bf6e00a584627e255f842a74796ce6b20",
+      "mode": 420,
+      "size": 5885
+    },
+    {
+      "path": "Feather/Utilities/iconPoc.h",
+      "sha256": "cbeb12a47d3ed69d62ffe4c299415e08bc30f03d5db8b2f1416e761671e52685",
+      "git_blob": "1192aa4a93b2db80030157a2a234a8f219939e2c",
+      "mode": 420,
+      "size": 252
+    },
+    {
+      "path": "Feather/Utilities/iconPoc.m",
+      "sha256": "e35561582ababcfbd75fefd7f21fd3d0fc076d86075d18cf6cec3b2800c684c3",
+      "git_blob": "faf5f9b7a1dafaac0b322f2bd686f6bd587b17d8",
+      "mode": 420,
+      "size": 9234
+    },
+    {
+      "path": "Feather/Views/Common/FRAppIconView.swift",
+      "sha256": "10af6ee0f0d9068c942401ce816a4cad1e198ce37b918381829b5f9910f0e7d0",
+      "git_blob": "e48f3d0310991a7096e78dbbc0af3d0730690e4a",
+      "mode": 420,
+      "size": 3290
+    },
+    {
+      "path": "Feather/Views/Common/FRExpirationPillView.swift",
+      "sha256": "1e36620b7ed466bb159882d8cd94bf94d38599bcaa22fe233627dad407db0c7c",
+      "git_blob": "fa8ba1eaf90e81a9b21479b31eff6a9016515724",
+      "mode": 420,
+      "size": 768
+    },
+    {
+      "path": "Feather/Views/Common/FRIconCellView.swift",
+      "sha256": "ebbdf3014e1bdcb519449bbcd65404176d37f2fd946fa790dbadd7c77e7303ba",
+      "git_blob": "3f96f930cfc9330f6f7ac22a32c4875e8dff2a11",
+      "mode": 420,
+      "size": 809
+    },
+    {
+      "path": "Feather/Views/Download/DownloadHeaderView.swift",
+      "sha256": "4b180ec409187c52e2ff6cb1785003a117d369028f06f2a289091195e60bb64f",
+      "git_blob": "f7b2897324517ad9fc9883f297be3eb71e42b7c5",
+      "mode": 420,
+      "size": 2199
+    },
+    {
+      "path": "Feather/Views/Library/Info/LibraryInfoView.swift",
+      "sha256": "6456eedeb28daa17ce3bf8791b1f194e458bcc881456484011a79e6b449fa039",
+      "git_blob": "002e9a12a9f76bd3c8069dd23edaa7b43d7ab945",
+      "mode": 420,
+      "size": 3268
+    },
+    {
+      "path": "Feather/Views/Library/Install/InstallPreviewView.swift",
+      "sha256": "eff777daca02fffafb769ddcd49cdfcc19fce6711109f56e44ca603053d85a8d",
+      "git_blob": "68024f1b90000877d94fd712b2033368f9db9cf6",
+      "mode": 420,
+      "size": 8660
+    },
+    {
+      "path": "Feather/Views/Library/Install/InstallProgressView.swift",
+      "sha256": "28348d7c041d139caad55eb1d95658c6cced3f326f07aee4cc3fe501c2b8644e",
+      "git_blob": "5bb35dc9fdbac267f8a9cc89b45a361cc0022538",
+      "mode": 420,
+      "size": 1695
+    },
+    {
+      "path": "Feather/Views/Library/LibraryCellView.swift",
+      "sha256": "a70a263726b65f185ab5ab17b6ebaf222b740b8e6c173c41860ccd22ae1fb148",
+      "git_blob": "93832610270603f37765061f8aae7be3e03ad57d",
+      "mode": 420,
+      "size": 6979
+    },
+    {
+      "path": "Feather/Views/Library/LibraryView.swift",
+      "sha256": "cdc0733f9c5d5bf94a6079570ea911f120572e3e644592e7a5045b70eb93e4c3",
+      "git_blob": "de36fe58fc65c72261df2ee62366801ee7c0a25e",
+      "mode": 420,
+      "size": 15865
+    },
+    {
+      "path": "Feather/Views/Library/XSignAppStoreLinkView.swift",
+      "sha256": "7882c7dd00c84432e66697f41454a587b7e51b3b0f47d5929657244aed443a58",
+      "git_blob": "8f39516350bd25c128a7c381fda20fd25a288f76",
+      "mode": 420,
+      "size": 8441
+    },
+    {
+      "path": "Feather/Views/Settings/About/AboutView.swift",
+      "sha256": "77fe4679569cd8dd2595179dfeaa3543a76f713b216b0fa1a873901f4c41588d",
+      "git_blob": "6196bddeba5c47925a414eabd455e2519084c578",
+      "mode": 420,
+      "size": 1657
+    },
+    {
+      "path": "Feather/Views/Settings/App Icon/AppIconView.swift",
+      "sha256": "106fb1b096bce4a297cfe38fb500a9101647e6a0a5fca100582eeceef049509f",
+      "git_blob": "32d70b6925689c44547210743c3a965f3785f3bf",
+      "mode": 420,
+      "size": 2337
+    },
+    {
+      "path": "Feather/Views/Settings/Appearance/AppearanceTintColorView.swift",
+      "sha256": "ec8e7fcc655e33e7054b7ba6fdf8567ccdcf010eeef1cc8677457e814dcff22e",
+      "git_blob": "a11938c85f4c6727e9e4a37985c3f9fab8828e36",
+      "mode": 420,
+      "size": 697
+    },
+    {
+      "path": "Feather/Views/Settings/Appearance/AppearanceView.swift",
+      "sha256": "c371313441802f1d00837eaa2afd82a795e44b449475d079fd02f4742c7dea91",
+      "git_blob": "6df4a6e8d4ca9eaf3b6afefa1e1c452e35ee942f",
+      "mode": 420,
+      "size": 820
+    },
+    {
+      "path": "Feather/Views/Settings/Archive & Compression/ArchiveView.swift",
+      "sha256": "46c51399eb94140c40be232ba816eb3af76e37b9b5d5309ea44c2838c7f99de4",
+      "git_blob": "6108d3c5a9e80fc7305f6afc3caed390183878d7",
+      "mode": 420,
+      "size": 963
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/CertificatesAddView.swift",
+      "sha256": "3d96e829c5d37a1e466da94256f629af2c60bce11ff77a4537d654d9380e8fd8",
+      "git_blob": "0e456b70ba2c8f36d425022b9625d106fa135ec7",
+      "mode": 420,
+      "size": 3273
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/CertificatesCellView.swift",
+      "sha256": "3b302d11cf7ca5e7507471893cd2172d30c820bb29887fdd7dbdbd8f9bb2462e",
+      "git_blob": "32f18cbd8e39b1c734e6d0823cece7801c77d8f3",
+      "mode": 420,
+      "size": 1933
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/CertificatesView.swift",
+      "sha256": "1f6ddba24627b5ab969ac54b68710377821d58a9669aea73cb11367118960596",
+      "git_blob": "4983923dcd30a979a6f8a59a7700653af26e291f",
+      "mode": 420,
+      "size": 4070
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/Info/CertificatesInfoEntitlementCellView.swift",
+      "sha256": "eaa13595b0cb071b2b32adb488bafdd97f9b3e64be97942213a3e420b4a0e910",
+      "git_blob": "c61b29ecc4e8c2982d71b65816f729499f2b42d7",
+      "mode": 420,
+      "size": 1248
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/Info/CertificatesInfoEntitlementView.swift",
+      "sha256": "15cfcfa4818611985c2eafd6b8f29d75f479e5cadf7c9ade34377b2a9a0f411b",
+      "git_blob": "5623529fdd4a6da28aa8b79aacb4128b0d986cdf",
+      "mode": 420,
+      "size": 532
+    },
+    {
+      "path": "Feather/Views/Settings/Certificates/Info/CertificatesInfoView.swift",
+      "sha256": "aefa6516acb030242e62c3841f8315609ac967dde5c65ba5f02430da6fd65019",
+      "git_blob": "192bd30580e0454faa547b27c1d2f2fb896776e1",
+      "mode": 420,
+      "size": 3092
+    },
+    {
+      "path": "Feather/Views/Settings/Installation/InstallationView.swift",
+      "sha256": "3aeec29df3aab955a4589fac8933685affa933dde947b6be8fd6f9e3358f25c2",
+      "git_blob": "259def75c9c3f52267feecd6848156488b6e3ea9",
+      "mode": 420,
+      "size": 1768
+    },
+    {
+      "path": "Feather/Views/Settings/Installation/Server & SSL/ServerView.swift",
+      "sha256": "f73acaf66536c460b554063b3a9bab3d3a690af83b84a8724de8626d594d7334",
+      "git_blob": "014fb2368fdedcbc372ed79611aa3df3b699fc8b",
+      "mode": 420,
+      "size": 2574
+    },
+    {
+      "path": "Feather/Views/Settings/Installation/Tunnel & Pairing/TunnelHeaderCellView.swift",
+      "sha256": "62cc85fab7d59f5f8b99d0daf0fec9dce59b23b8055c6e633540a5d2916113b0",
+      "git_blob": "4ed3f66f4c69625802b5ee0a4b582e5f549daaf2",
+      "mode": 420,
+      "size": 1375
+    },
+    {
+      "path": "Feather/Views/Settings/Installation/Tunnel & Pairing/TunnelView.swift",
+      "sha256": "67d2e918843fc3b568c3e9ec3c4df4b269e7ff20274ff1e5829b7f9d1dac9c40",
+      "git_blob": "a1078e5829f12c9e2fa0d0e17087217ef3b81775",
+      "mode": 420,
+      "size": 3220
+    },
+    {
+      "path": "Feather/Views/Settings/Reset/ResetView.swift",
+      "sha256": "181b018cfb3cd708e9f4116df21de7a8f5a7346ef4d725fabcbdb573327be14a",
+      "git_blob": "d84b04e062dcfc7a772048eaa2ab7a907f84c2a6",
+      "mode": 420,
+      "size": 5299
+    },
+    {
+      "path": "Feather/Views/Settings/SettingsDonationCellView.swift",
+      "sha256": "c1d4e272c62547e018e7334dc54a3c6528bf3af7df404edd5b241fdabbbd4f30",
+      "git_blob": "b5accf7e434a703a84d39d224005588f7f0969d8",
+      "mode": 420,
+      "size": 2212
+    },
+    {
+      "path": "Feather/Views/Settings/SettingsView.swift",
+      "sha256": "d3830a6d43104e2a233e9d8e3f698fffb997af61af3edff51be43d402b597ba7",
+      "git_blob": "e812ca9faa32086a95f01aa20d0fbbded08691be",
+      "mode": 420,
+      "size": 1678
+    },
+    {
+      "path": "Feather/Views/Settings/Signing Options/ConfigurationView.swift",
+      "sha256": "3510ef649972df2d7a1ac1fc7903c0e6d56c0bf5624f337a09e7c618ffd7d9c7",
+      "git_blob": "6dd70f891d97ee9e9e88990797bf6b602537238a",
+      "mode": 420,
+      "size": 2114
+    },
+    {
+      "path": "Feather/Views/Settings/Signing Options/Dictionaries/ConfigurationDictAddView.swift",
+      "sha256": "463bb892bdc073fea45142973c476c866c9a66307e41cad5ced3deba7a8e0ae7",
+      "git_blob": "a5776f30c5cdcd601bdb6754f2f09213a1a2813b",
+      "mode": 420,
+      "size": 945
+    },
+    {
+      "path": "Feather/Views/Settings/Signing Options/Dictionaries/ConfigurationDictView.swift",
+      "sha256": "fd57fa6107a20440960bd5107b35484d407f0854e7517267d2151a2f569ef0b5",
+      "git_blob": "b64ea66f2624ad95bcc8183031e4dd96d633fa22",
+      "mode": 420,
+      "size": 1100
+    },
+    {
+      "path": "Feather/Views/Signing/Shared/SigningAlternativeIconView.swift",
+      "sha256": "609a2eaaae448d0df599ba9374a0a9f233770024313862a8c317c3520f8022a9",
+      "git_blob": "152a483414fa5f0b6b0906c65292b45275ee7030",
+      "mode": 420,
+      "size": 2426
+    },
+    {
+      "path": "Feather/Views/Signing/Shared/SigningDylibView.swift",
+      "sha256": "0ee131aa4ec38be29f629b62cbcf03dca423fc0bf3190ae0d473e5e6d26db949",
+      "git_blob": "2e6444294c03c55168183afc3df68cdc77efd6e8",
+      "mode": 420,
+      "size": 1400
+    },
+    {
+      "path": "Feather/Views/Signing/Shared/SigningFrameworksView.swift",
+      "sha256": "c9f2cd88b07f91c02e358b3ec5cba5e14b2a55296191fbbaf13fb5387f3428b6",
+      "git_blob": "9e2ab6682109abd0808760d9a21cf81257e0c81a",
+      "mode": 420,
+      "size": 1883
+    },
+    {
+      "path": "Feather/Views/Signing/Shared/SigningOptionsView.swift",
+      "sha256": "14b43cffe82af240e156fae8f22b81691b7aa7b316f6f155dbafdd80c459455f",
+      "git_blob": "17f756f2a29d6757e123a394ca2715a5368926eb",
+      "mode": 420,
+      "size": 7651
+    },
+    {
+      "path": "Feather/Views/Signing/Shared/SigningToggleCellView.swift",
+      "sha256": "4805f2a8973b3a23db04e6e1888d36fd2107ad9b196d9cc1569e5a248f463305",
+      "git_blob": "070d4e6fc25180404954c388336be10ba3d32434",
+      "mode": 420,
+      "size": 865
+    },
+    {
+      "path": "Feather/Views/Signing/SigningEntitlementsView.swift",
+      "sha256": "6edc68c233285e3bb2eb6e05ed614649c8df71ef31714e707b24d82484d56c31",
+      "git_blob": "9fd41f20cc7e80ea532441f92e28951e6a1fc279",
+      "mode": 420,
+      "size": 1097
+    },
+    {
+      "path": "Feather/Views/Signing/SigningPropertiesView.swift",
+      "sha256": "3150e334548b43c8e6d6beee2fbf510604fd790bacb1b9f81449dd99bde872b1",
+      "git_blob": "3a1de23463a44db3cf1c6b8e57d0cc3eae667338",
+      "mode": 420,
+      "size": 1655
+    },
+    {
+      "path": "Feather/Views/Signing/SigningTweaksView.swift",
+      "sha256": "d75c74479ff80b3da7a91437cf252ba443afcb113c3ffcf83f2ce565f76004ef",
+      "git_blob": "38fb55c7d43ac82976b37b93dcb4dfcd78cf03a5",
+      "mode": 420,
+      "size": 2753
+    },
+    {
+      "path": "Feather/Views/Signing/SigningView.swift",
+      "sha256": "a76e29206d8491fb2a3249aa5b1069d71e0d8fbbe364ea5ca994fab49d20f89b",
+      "git_blob": "c4f5b728bc9cf21b60863f756c1bef2e603616bd",
+      "mode": 420,
+      "size": 13813
+    },
+    {
+      "path": "Feather/Views/Signing/XSignBulkSigningView.swift",
+      "sha256": "5e61a271de2149a838eea9430a35db1b11e3d23c09691f02d8a29f835d4da261",
+      "git_blob": "1544321b6e17ab0fd2056808ca7c0cdf6cbade67",
+      "mode": 420,
+      "size": 8113
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/AppVersionInfo.swift",
+      "sha256": "1a366a78dcd1bcf14cb4b63add9268504f2f3093cf9cc59de3a2d2fb0876df73",
+      "git_blob": "a95197fe4518a4680faa89c842e10a010682ea3a",
+      "mode": 420,
+      "size": 876
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/ExpandableText.swift",
+      "sha256": "2e4e35adbeb88c3170ac9025672371d1b9801e84116a0ebdfb5c11c232a49202",
+      "git_blob": "291cc659cb3a3fda770b489140934c33bc2fde7c",
+      "mode": 420,
+      "size": 1087
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/FlexibleHeader.swift",
+      "sha256": "6d5a36754319dc0d01e68342d0645f6ddf62b9c3fc43b3d62590e354b8ab3436",
+      "git_blob": "c43450f884bb10681e9c815927e27208a34dfbb2",
+      "mode": 420,
+      "size": 1880
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/ScreenshotPreviewView.swift",
+      "sha256": "7ecc16d8104c6ec8762aa1375b1874c00c703eb676b1a5bd32dd28bc496453d7",
+      "git_blob": "854196eec2589d464f404caf80e7ce456c51f185",
+      "mode": 420,
+      "size": 2028
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/SourceAppsDetailView.swift",
+      "sha256": "c220cd1e842fe4ded414d2c7cefd44953ff36f5d37744ae4466d990b60cb644b",
+      "git_blob": "3207a06f03a1cff7f1aa63d8342283668114608e",
+      "mode": 420,
+      "size": 8847
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/Detail/VersionHistoryView.swift",
+      "sha256": "9c2185f08d1222736f3991081d3fcd3434197432347b8e29732014f3458e1caf",
+      "git_blob": "48d0997763be862539a5bba46d72014a755d5308",
+      "mode": 420,
+      "size": 1515
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/DownloadButtonView.swift",
+      "sha256": "f53190b1830546d5040c6f18dc7f258aedf61794c260755051714030ef89be21",
+      "git_blob": "1296abff363e32c706204fac0062da53c7819b13",
+      "mode": 420,
+      "size": 2577
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/News/SourceNewsCardInfoView.swift",
+      "sha256": "4d4d5ca2ae00c710349471161e4f3f21dbb3c2fe3deb212360679c8ddd1232e4",
+      "git_blob": "b32d77bd8c03d05155ab1f3b6aeba894e9fd25cc",
+      "mode": 420,
+      "size": 2205
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/News/SourceNewsCardView.swift",
+      "sha256": "df111145cd200217151e411eb2ab4f795d18bc723e32c83d035508efbf417cbb",
+      "git_blob": "8b09e48ad3640511fff6fc360e70ab35c7086051",
+      "mode": 420,
+      "size": 1572
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/News/SourceNewsView.swift",
+      "sha256": "ed125b22500017d2e660e5230589f767617deca0ad960e96f9ad4ee341a3f4fe",
+      "git_blob": "2f1e8a53a9783b29ad5c832e0c64fbd528757a84",
+      "mode": 420,
+      "size": 1386
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/SourceAppsCellView.swift",
+      "sha256": "168369101447041505690d76e6fb5ea314cc533c3d3eb3f21a3e65e0bb04bc13",
+      "git_blob": "5ff8819a94305476c6d41cdd03c12c6ce474c08c",
+      "mode": 420,
+      "size": 1747
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/SourceAppsView.swift",
+      "sha256": "64f5524232048027065285c6dc8437d70f98dca425a3451cb0e16fe7fce4a7a8",
+      "git_blob": "6e0aec0aa13598196a06cd692eb364e9b89f65fb",
+      "mode": 420,
+      "size": 5474
+    },
+    {
+      "path": "Feather/Views/Sources/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+      "sha256": "b9e5ac2d25a2d6b3ab18145538b747527f22cb1afad4111d52a6d297519300af",
+      "git_blob": "45248eda6b5b91d9becbcdce79f472f3b450d6fc",
+      "mode": 420,
+      "size": 11764
+    },
+    {
+      "path": "Feather/Views/Sources/SourcesAddView.swift",
+      "sha256": "edb7cbaa3842d4d8167881d485611bccb7f6e8acd912746c391d545566715a4c",
+      "git_blob": "e26cb5ccc0e2f8a7ea9c98afd7b54e42fd93b78f",
+      "mode": 420,
+      "size": 6385
+    },
+    {
+      "path": "Feather/Views/Sources/SourcesCellView.swift",
+      "sha256": "d91d3db9911809f00d0d831025f1a5c9bc78b3ce1e79c62f50a118573ebc50aa",
+      "git_blob": "504ac12f310f121519a217918329edb28cf50c80",
+      "mode": 420,
+      "size": 1346
+    },
+    {
+      "path": "Feather/Views/Sources/SourcesView.swift",
+      "sha256": "f6e3e937fa53eec80cfe703e99cfd8de8af706059e9e796339d7f480eb4ac48f",
+      "git_blob": "2366b161ce5a32da2b1ec99f72f940b307a8d457",
+      "mode": 420,
+      "size": 153335
+    },
+    {
+      "path": "Feather/Views/Sources/SourcesViewModel.swift",
+      "sha256": "f8ab1e3a67793ead11edd023b0932327189057971603a6e9ce64f0dbf13d558b",
+      "git_blob": "c3eb16ffd95fa92f113d2214df8a4f8b1619b1e8",
+      "mode": 420,
+      "size": 14474
+    },
+    {
+      "path": "Feather/Views/TabView/Bars/ExtendedTabbarView.swift",
+      "sha256": "9c3ba19982d4d68d8e8c9b2bbd41b09e6efe0298b59747b2814b495490ce32e7",
+      "git_blob": "f762a5357a7d8736cbb78cac1242b452143ce280",
+      "mode": 420,
+      "size": 921
+    },
+    {
+      "path": "Feather/Views/TabView/Bars/TabbarView.swift",
+      "sha256": "261075edf5330ceabe7a6d0136aa267ac6448d56f7ee9bab6415c50c2fd8bbc0",
+      "git_blob": "7a5fdbc2e876ecd5854dd7f91bb1f6b7ceba773a",
+      "mode": 420,
+      "size": 435
+    },
+    {
+      "path": "Feather/Views/TabView/TabEnum.swift",
+      "sha256": "aa2c3e12289aa1389d3e498ab48bead591147a3b19cd4ed4587cbf8c5eff25ed",
+      "git_blob": "85998357f35f5e558c28fc48de01ec96e327894a",
+      "mode": 420,
+      "size": 6401
+    },
+    {
+      "path": "Feather/Views/TabView/VariedTabbarView.swift",
+      "sha256": "200ec556aca6b69339e175a8004173a880b228df36fa88572e072365eca64f2c",
+      "git_blob": "a857f77dd669cabf345252368ee64d838599e4a1",
+      "mode": 420,
+      "size": 259
+    },
+    {
+      "path": "IDeviceKitten/.gitattributes",
+      "sha256": "75667f5c23347a5a3c65ebc250c54d67ed6d1fe8ba4ed116a21c33ce9b774f1c",
+      "git_blob": "9a8d3e922d5bd79d022addce479070d17016f816",
+      "mode": 420,
+      "size": 156
+    },
+    {
+      "path": "IDeviceKitten/.gitignore",
+      "sha256": "c7cef3fe8eb66f9a0eea892770384aa2e785cfc2dd1a252fb1edf717775b9f23",
+      "git_blob": "b9c919d234ae5dd6b30621ad92fa9d256123d8d0",
+      "mode": 420,
+      "size": 2182
+    },
+    {
+      "path": "IDeviceKitten/.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata",
+      "sha256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+      "git_blob": "919434a6254f0e9651f402737811be6634a03e9c",
+      "mode": 420,
+      "size": 135
+    },
+    {
+      "path": "IDeviceKitten/.vscode/settings.json",
+      "sha256": "543a97a994986aadf40ba8dbe4010cdb85358ef6b6152b567650fcb9f01b6f3b",
+      "git_blob": "3ffde7804cd9375aa8bff87512b510cb505f2644",
+      "mode": 420,
+      "size": 37
+    },
+    {
+      "path": "IDeviceKitten/LICENSE",
+      "sha256": "d629cb986812f6ae413ac4fa2a7841a7174b61d58feff97da5deb6b7cbcc92d5",
+      "git_blob": "ddb319f632cd4f0b261741f2cd7cf1b1b970b6d1",
+      "mode": 420,
+      "size": 1067
+    },
+    {
+      "path": "IDeviceKitten/Package.swift",
+      "sha256": "7213f941601c9e4057eff12bc61e35e64bb2da0ffa9da452e587be80adc5c8b2",
+      "git_blob": "4ee5e47bdb4b436e4952eb4e8bd8bcd116cb5bf1",
+      "mode": 420,
+      "size": 602
+    },
+    {
+      "path": "IDeviceKitten/README.md",
+      "sha256": "1b2227ac7023583a2b11fdc80d5bc2ca8a25db3973d39660d6267b088eadaa9b",
+      "git_blob": "2b8284c1fcc0d30969166c096e02be3a8698ad93",
+      "mode": 420,
+      "size": 13
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Extensions/Logger++.swift",
+      "sha256": "e78625f56817e752e83a7c65382a199cda68b1c3434f53d5913f9b865746a77c",
+      "git_blob": "229d54d3bbb218b5b1def8c68fbe54539abe0658",
+      "mode": 420,
+      "size": 250
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Extensions/Notification++.swift",
+      "sha256": "94d2108dadc352e5be4ba2c7101b27fb8a4ffff3a357e662849109b34809c154",
+      "git_blob": "e61d30e18bcca64ea3133fb4ffb040408615475b",
+      "mode": 420,
+      "size": 394
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Extensions/UTType++.swift",
+      "sha256": "cc53300499c5ade97b678eae0705193e2f27c71dc25670af5448da3b22884dfa",
+      "git_blob": "978105ce6e3694b216a78bf34cd421927d45a12a",
+      "mode": 420,
+      "size": 331
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Heartbeat/Heartbeat+checks.swift",
+      "sha256": "43330b6c13656dbae380ae88873eab408493d6b25cdae297b2852f895f2e834a",
+      "git_blob": "985d817e730c488f689bc0bfd1cf34fa7f4b723d",
+      "mode": 420,
+      "size": 2986
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Heartbeat/Heartbeat+start.swift",
+      "sha256": "4d11ef63974e18a08a29ce840c10bce8becb7f993819671ad5d262719ee5b1ed",
+      "git_blob": "b5c21f4a2fa52012b454aebdb668c59d9ccb2c65",
+      "mode": 420,
+      "size": 6768
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Heartbeat/Heartbeat.swift",
+      "sha256": "cfbb7681e245ea8114e02c0d276e47a39b7fe7d2829562275d6858a6212bd310",
+      "git_blob": "5b034856b66488f9d2858a58605676772e20da68",
+      "mode": 420,
+      "size": 2226
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/IDeviceSwiftError.swift",
+      "sha256": "511b194a6df0efb38acfb684a82499659ab377d688fc24d508e90457e71bd505",
+      "git_blob": "6a8daadb410adaffc2e0bea763a3cb4eeb397d5b",
+      "mode": 420,
+      "size": 723
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
+      "sha256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
+      "git_blob": "1a84683edb2b7df276e8ec3866f2af3b09c0b90c",
+      "mode": 420,
+      "size": 5559
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift",
+      "sha256": "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
+      "git_blob": "62ad145346b95171e9255a6925a6b3e653a62fab",
+      "mode": 420,
+      "size": 6419
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxyAppsDelegate.swift",
+      "sha256": "40693b2c5467b2583f982de134f0dcb0b4249525b39e428f6e6a93943f71b000",
+      "git_blob": "501064598c3fd2077c078192c80f212b8b68fc17",
+      "mode": 420,
+      "size": 194
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallerStatusViewModel.swift",
+      "sha256": "46d82fb079ccb402c05353dc5e1d02a356704ebba58418e9562da0ff397bf543",
+      "git_blob": "30c7286b09d7812041cfe21f86ca1522528d4997",
+      "mode": 420,
+      "size": 1047
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/Models/AppInfo.swift",
+      "sha256": "48b67a0478ca0603cf54ca9441e061e7abda46f14b685a981d8c62d517825dd2",
+      "git_blob": "e9bef662a371ffe4d38eafb77c731b345565d2e3",
+      "mode": 420,
+      "size": 2380
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Trace/Models/LogEntryModel.swift",
+      "sha256": "7d62441e5f786a67b6dd70934e6854d4d1cfeda63cab7f2fdb4c9645de73c0bd",
+      "git_blob": "bb8138b03834a79c7fc7827074212372c37f7f57",
+      "mode": 420,
+      "size": 2217
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Trace/Models/LogMessageEventModel.swift",
+      "sha256": "fb049d2c71eabaa88cf86e56cbb68d52995a6dcc45b06ffbcbf49f9c8c762a02",
+      "git_blob": "610b9c1cc7602195890a635bf0791cd29d06d687",
+      "mode": 420,
+      "size": 2620
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Trace/SystemLogManager.swift",
+      "sha256": "9a88d6750fde0fc596deae9515690c1038d397d1e1779e5327903c74eb132152",
+      "git_blob": "aaf58b3c4607a65c42d2e60c7fe3bb5f92e25b2b",
+      "mode": 420,
+      "size": 5353
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Trace/SystemLogManagerDelegate.swift",
+      "sha256": "019b1745925498eda6ee86ed7f708db001f419ed9dcb18d9a5e2dd36c75446cc",
+      "git_blob": "664225cc31cd71ae78b12982c2b07647c9de48cb",
+      "mode": 420,
+      "size": 296
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Utilties/AnyCodable.swift",
+      "sha256": "09d22143caecee565390897bc1d01abf59fe39af2550e8cf288117f661b51f12",
+      "git_blob": "ef6d42c121f4cef915f29af3b5d39ffa2d45ab68",
+      "mode": 420,
+      "size": 1957
+    },
+    {
+      "path": "IDeviceKitten/Sources/IDeviceSwift/Utilties/CodableEntry.swift",
+      "sha256": "7fc851461087285a2c4f5f2fc43105a102dd9de87c524c1e6588f456b884f075",
+      "git_blob": "5d092763722d40451159396111f00c4b752643a3",
+      "mode": 420,
+      "size": 781
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "mode": 420,
+      "size": 35149
+    },
+    {
+      "path": "Makefile",
+      "sha256": "739bac6a97dfa30f6115d0ff2fe4cf66a19e409bf78bf2ff464b3a6409e6c46a",
+      "git_blob": "67cc04bbf7f71e9c0c3c5dbcdbcd97cb61224e2b",
+      "mode": 493,
+      "size": 1713
+    },
+    {
+      "path": "NimbleKit/.gitignore",
+      "sha256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "git_blob": "0023a5340637983755c8c19c18cc2c2bb1dbda1c",
+      "mode": 420,
+      "size": 159
+    },
+    {
+      "path": "NimbleKit/LICENSE",
+      "sha256": "607ac70e79e5ee7350a86acb570128f65cdb1ca729a42fe9dac4e6c4e6de3ced",
+      "git_blob": "f969429275b567d0ca4e8beddd40adeb2f70a86f",
+      "mode": 420,
+      "size": 1049
+    },
+    {
+      "path": "NimbleKit/Package.swift",
+      "sha256": "881cc7a36be5abb519f9cb062be80ce005a0f4780239d6fb7b61006f14901fbd",
+      "git_blob": "962ee57db343f7fcb564cb52be027f9cbc484695",
+      "mode": 420,
+      "size": 665
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Binding/Binding+optional.swift",
+      "sha256": "290c92f901be04405f7b6877174ec97a70896a663651b450a56bad54b994cf27",
+      "git_blob": "6df8bf3a34f0ad38b060951b0ac974b997fef4f3",
+      "mode": 420,
+      "size": 286
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Bundle/Bundle+keys.swift",
+      "sha256": "082121cfb6c6fe08a85b31df48999967b833e2c9394a373028d41529385558ba",
+      "git_blob": "c9982bfc76bbdb631b1bf8bd25b57ea5575d788f",
+      "mode": 420,
+      "size": 2346
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Color/Color+disabled.swift",
+      "sha256": "292996df2a006739e52678306927d00da97b2aa5fbb768beaa214e6a7801f5db",
+      "git_blob": "0be470ae403eeb538bc5bfcaf3c6d8f18782fc0f",
+      "mode": 420,
+      "size": 297
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Color/Color+expiration.swift",
+      "sha256": "f2de4f10a509a131fdef75004e467a7e2c3cbefbc43d31ebb06a5c3c190070b4",
+      "git_blob": "7b142c0702334668bbb1f03de51bb5e06a919427",
+      "mode": 420,
+      "size": 325
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Date/Date+stripTime.swift",
+      "sha256": "a9b583339f18496bb7062bd7dd0e18cbe1f44897522e8fb665f6e58d0754a016",
+      "git_blob": "b03cb819e1304c42ec3bf07f390965ab1fb88905",
+      "mode": 420,
+      "size": 208
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Date/Date+timeLeft.swift",
+      "sha256": "30ec887a7ce886eb3146bfae7727676302108a1ec10126642443457b37d94bb1",
+      "git_blob": "0396072065c0f7b1913b5d191838a60f86fc177f",
+      "mode": 420,
+      "size": 1268
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift",
+      "sha256": "4a02eee86392d691696d82da4f03d83b1c87c8d0a3a7bd6512ae486944363f7b",
+      "git_blob": "063f3e81d54c5dd9735b80c1a8e1ca3f20f2ce1e",
+      "mode": 420,
+      "size": 2749
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/Int/Int+Formatted.swift",
+      "sha256": "c0509f444acba4de26db1ae38c6d11a1c334ec5141c7cf60abcc6bbdd24c8d38",
+      "git_blob": "77257a1e44ccee81638a7d561bb88f96437be788",
+      "mode": 420,
+      "size": 319
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/String/String+localized.swift",
+      "sha256": "9ee8718d166aa5e2e4c04cf3dd959545f4949fbc9feb62f700b7d62e94f491db",
+      "git_blob": "d0be3b712cbe3ae3103862ff6bfa3039c8a98cb4",
+      "mode": 420,
+      "size": 908
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIActivityViewController/UlActivityViewController+Present.swift",
+      "sha256": "f0c9b0b88aca929d8cacd0d743914d02c517ec69ff743f8d1d9bf3da3429e681",
+      "git_blob": "a3397742628f9bbe35f0eb16e03807f7aef8c946",
+      "mode": 420,
+      "size": 800
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIAlertController/UIAlertController+Alerts.swift",
+      "sha256": "debb485f343a9c36b90b82795d89e8897aa03663ad47a68cf13f7b9d201a8d7e",
+      "git_blob": "924f1e5ca7980f69ae64d3751a4e7d0a94ad199e",
+      "mode": 420,
+      "size": 3445
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIAlertController/UIApplication+topController.swift",
+      "sha256": "a9d9ddff6cbea157087ad348e96934b996903c85d20c0ab42ff53aab1a177cd2",
+      "git_blob": "cd4b3ed048d9adcafed48ecfc6e9133b5bdf0cb1",
+      "mode": 420,
+      "size": 832
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIApplication/UIApplication+open.swift",
+      "sha256": "7cf289de3e7b2a4bc9957d2d3a4aa299decf5427915ffa4b0838072c59010d00",
+      "git_blob": "5073e39c206a3523c1a31b8320ea6ac737e04e10",
+      "mode": 420,
+      "size": 337
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIApplication/UIApplication+open_private.swift",
+      "sha256": "881da9529c34758926e982c0e26cfc93ab3cd7d6851e13a8929358dc676aa5f5",
+      "git_blob": "6d7c036c9c6334c6d48808d1013194eb319af857",
+      "mode": 420,
+      "size": 2699
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIApplication/UIApplication+suspend.swift",
+      "sha256": "3673ac11d388d68305ea29b3f27fa42302b53a359c17ce94adedad6c11a5f2c6",
+      "git_blob": "bd6db5adbeb9df2cc0f70be41cbf0a0a38346c67",
+      "mode": 420,
+      "size": 575
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIImage/UIImage+fromFile.swift",
+      "sha256": "8f5a9e7a69b5e961697806d5ab05b7dbd3eddb6bd50c3d7aac3a1824e9142c8b",
+      "git_blob": "eda6f0b79811c429c26fefca5b803bcfd36b5b4a",
+      "mode": 420,
+      "size": 278
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/UIImage/UIImage+resize.swift",
+      "sha256": "8e83e11ce951993a134827d46fc7cf77fc1b5b577313af0fae317174a7d0d7c7",
+      "git_blob": "2905e03c25572a0c8e09cee94af1d29c3ad5ac41",
+      "mode": 420,
+      "size": 1210
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/URL/URL+toSharedDocuments.swift",
+      "sha256": "25007966ebf99ff7f5b426510014e2ab512df2544a9d5c9ecf3e0c12ecdf58e8",
+      "git_blob": "00529dc6da7440d8dd04e1aacd7513c1754a1766",
+      "mode": 420,
+      "size": 472
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/URL/URL+validateScheme.swift",
+      "sha256": "438926f781f7c0e273f588ce39498d394214dc0e9cf0ca4cd2f3a2a41d46aef5",
+      "git_blob": "6bc1b847873ef5fc2e61a8170dc3dc0ab3fc9fc9",
+      "mode": 420,
+      "size": 388
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+compatNavTransition.swift",
+      "sha256": "646d386eec969f58b5400690d39b3527b451cd8104a69bfed9ed704c353f47da",
+      "git_blob": "96bb2abd91d42ba6123b6033016fef13315ed5c9",
+      "mode": 420,
+      "size": 543
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+compatScrollTargets.swift",
+      "sha256": "8584f8055d961b11e299f3e110c45601b01e7506c50c0d91593f560030c4c4f6",
+      "git_blob": "069133fddc371f279db60d5653da124b9143abca",
+      "mode": 420,
+      "size": 456
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+compatSearchScopes.swift",
+      "sha256": "006f11443cab1205e078470ad0bbafa368f3593efc70d9c5b40648ec6c21df7d",
+      "git_blob": "574acdf1c219ac1b5f743017462b6c8f41aa199a",
+      "mode": 420,
+      "size": 471
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+compatTransition.swift",
+      "sha256": "295555109c8e095f4b0dab7d8b8ace80cb6ded04acefdd00e790209ed051d21d",
+      "git_blob": "76b16d5710ee1ac1a2c3b9de4deafaa4bb19a9af",
+      "mode": 420,
+      "size": 360
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+copyableText.swift",
+      "sha256": "430cdc5169fec20e90274be35d3044b8a457113d3d300a080efbca4235f88ad4",
+      "git_blob": "caf6fabfcd61000af3bd5550df936afa1ea2d641",
+      "mode": 420,
+      "size": 343
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleExtensions/View/View+platformDrawerPlacement.swift",
+      "sha256": "035663b91ed70ee737ebacc31639654554dc19b7a4771fccb390cb6f11fa3503",
+      "git_blob": "b3dd77f38e31c061b3a824df4a1c0659c6895105",
+      "mode": 420,
+      "size": 325
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
+      "sha256": "9b76a8d1278eace5d4cc8d64a0b392c774fdcf1764a68fb4b409acb3ae640ccf",
+      "git_blob": "9bfc6cb8776b34c9cdc92904d9c4013110066bf6",
+      "mode": 420,
+      "size": 1714
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Enums/NBToolbarButtonRole.swift",
+      "sha256": "8f39accee8ba4a770d7c5ee47143887b03829d880492ea95ca7e59022c99bc67",
+      "git_blob": "d8f2248f34703a0092ae57e20d9f4dfd625e4fd0",
+      "mode": 420,
+      "size": 166
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Enums/NBToolbarMenuStyle.swift",
+      "sha256": "4c61b75db1dd5f3a5408ef8d7e5c5533a8ef178e495c0dbeade10d3f1f2db78a",
+      "git_blob": "dad7c99570f2f4b683e52145fa2b759dc4fe5325",
+      "mode": 420,
+      "size": 145
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Models/NBPillItem.swift",
+      "sha256": "20da2079329d480085845197cbbddf2697013899f8b65b7d173b5ded9ef6c192",
+      "git_blob": "de7b8febca137955099b932fb0ee06c4d571cd26",
+      "mode": 420,
+      "size": 361
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/UIKit/FileImporterRepresentableView.swift",
+      "sha256": "476e81512a5860d977ce565eb524bb3668ca0e108eb3f5d518a1c538cab06a64",
+      "git_blob": "52166dccbe801695e60a53af381bffacbcd55a97",
+      "mode": 420,
+      "size": 1658
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/UIKit/SafariRepresentableView.swift",
+      "sha256": "66a2159bc21b6c4422989e4f21bb7dd2d9e1bc6b2fd5e632919e7e344f8502b8",
+      "git_blob": "90909ea4454941147be82e9b805b8f3b4c7ce00b",
+      "mode": 420,
+      "size": 489
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBButton.swift",
+      "sha256": "2ee5403f5fea22b1ef60c46c9c9061392a23ed6fc9a9d039f6202806858f44fe",
+      "git_blob": "156024828335d3dc6a617b9bee9d21a1460c8047",
+      "mode": 420,
+      "size": 979
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBGrid.swift",
+      "sha256": "4e1fd4107bb43fa5576fd31a49a7811e5d43be316530588c42708bd10576a5c3",
+      "git_blob": "9f9a1b1dba1c2d11f8a8b34d8f4103941440800f",
+      "mode": 420,
+      "size": 518
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBList.swift",
+      "sha256": "14bddde89f2d1e8922b40058c70e635ce507238d8262dd6fff8e1f0e110d7483",
+      "git_blob": "7c4254132ba4cbd30094223589c3d622a86e0756",
+      "mode": 420,
+      "size": 854
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBListAdaptable.swift",
+      "sha256": "9803ec432f5a071cbc0d60127f21cb32320d1f541755ea7b1a736dc7bbb9a301",
+      "git_blob": "2d9ca98603b4441398916f52b9fa6d30888f69a8",
+      "mode": 420,
+      "size": 527
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBNavigationView.swift",
+      "sha256": "e592874eb855148798b8492e04e4db085915894b05e8eb5a528a39d735416ff8",
+      "git_blob": "fdbf8fb17f98436482a6a121643f8aee6de12a19",
+      "mode": 420,
+      "size": 652
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBPillView.swift",
+      "sha256": "3881ce494ebadedadfd75f590072da8fa4001947359a7d505e1cceaeb453a250",
+      "git_blob": "3e435d4623acf69189bd42d2d0d5beb2e345fdde",
+      "mode": 420,
+      "size": 1834
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBSection.swift",
+      "sha256": "8167f32cedd61904748b2d896ada7ca70782ea856f737178abb147c768806c2e",
+      "git_blob": "ede0d45097f8acde6ebfddac888dd2f5dfdc39cd",
+      "mode": 420,
+      "size": 2383
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBSheetButton.swift",
+      "sha256": "1767861d1c178aafa5bc16b337d22a18eb0ae57f7cb73c8a7ed087e78b41f4e9",
+      "git_blob": "fe8a87b421ec071122f312aa88df5b32b6ece770",
+      "mode": 420,
+      "size": 2266
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBTitleWithSubtitleView.swift",
+      "sha256": "21a0dcb3d8d1503d4518372037346d067ebb88600d88c803c053e0be4d76a723",
+      "git_blob": "ac525dd81a28e30ce64ccdf6794def5f4633259c",
+      "mode": 420,
+      "size": 735
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBToolbarButton.swift",
+      "sha256": "accd13f8bba2c69ef22dc6e4358b295d0be0a56e95d00672ddcebdd989fb17b3",
+      "git_blob": "096d153c9170eb1d88ea2d8c38af2205fba41aee",
+      "mode": 420,
+      "size": 1808
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBToolbarMenu.swift",
+      "sha256": "6ef9c6ed98529b5f3fd2371936a7e6227aaacb87da5afa92b2a98c9492bf75f5",
+      "git_blob": "bde2159795681eec2efb87aa3461d762a673c4ed",
+      "mode": 420,
+      "size": 944
+    },
+    {
+      "path": "NimbleKit/Sources/NimbleViews/Views/NBVariableBlurView.swift",
+      "sha256": "7b3f6be7e4c6f063b96b93978b77df252a9bc65d3941e66c2f36b18ff0a709f7",
+      "git_blob": "b2ded5fa653358e0465498147b6bea35ab2ba474",
+      "mode": 420,
+      "size": 17718
+    },
+    {
+      "path": "Tools/Extract_IPASoon_Sources.py",
+      "sha256": "082a602d28da71e60df8a05a85b896ebab75a527fb8f4b9c6d1e579a53db7918",
+      "git_blob": "e34944a957f9f188748b89b695311da056fabac1",
+      "mode": 420,
+      "size": 6582
+    },
+    {
+      "path": "Tools/Normalize_Reference_Catalog.py",
+      "sha256": "46b0f638ea58a649bb62de37bd5c056ae55b8c78e71d1b63571d1d4575d4b331",
+      "git_blob": "81dc795affaa6e95a688078a061f8df89a72dc24",
+      "mode": 420,
+      "size": 4370
+    },
+    {
+      "path": "Tools/Prepare_Zsign.py",
+      "sha256": "c8849426a519e11bdd459a7095785400aa889b7a7f2b230c86dd8f022663b5fc",
+      "git_blob": "1b26d68c9dcd165d73c5c092fe87a1d8a58b46b0",
+      "mode": 420,
+      "size": 1524
+    },
+    {
+      "path": "Tools/Sync_Live_Sources.py",
+      "sha256": "f3e199a59e6e0704e961fb0ec9d34c619e7e48353e170c45b678886cf155bcff",
+      "git_blob": "b543fd4fcb4687f2fcdee32d62f3f699aed07a3b",
+      "mode": 420,
+      "size": 11857
+    },
+    {
+      "path": "Tools/Tests/check_live_sources.py",
+      "sha256": "24d92e15343734a2791c71f3527749dd4b905ef7669289ff0a79d39d87242b61",
+      "git_blob": "55eefb2449cae7a527a8efafffc6014adf1656cb",
+      "mode": 420,
+      "size": 4763
+    },
+    {
+      "path": "Tools/Tests/check_options_compat.py",
+      "sha256": "1125e8c0bc07a6238cef0f21aff51f40609578c491745b1d6ee82272edafe6f4",
+      "git_blob": "38d4f8d78a337a7b54144932a95cbd6544d457a6",
+      "mode": 420,
+      "size": 2587
+    },
+    {
+      "path": "Tools/Tests/check_source_extraction.py",
+      "sha256": "f7ac913d40e9b3c9c67856b229949ba318321c9aa6fdf9ca22f5da62134d61ef",
+      "git_blob": "167427ca8932dbaa6cc90fa2357f280294953b07",
+      "mode": 420,
+      "size": 2588
+    },
+    {
+      "path": "Tools/Tests/check_zsign_provisioning.py",
+      "sha256": "62193aff2a4fbf8fd8584a9dd5db2e8f21480e4df22c67cb2145fe0cd549f92a",
+      "git_blob": "3024b0114631d92882029027b464a466289bb863",
+      "mode": 420,
+      "size": 3192
+    },
+    {
+      "path": "Tools/Tests/xsign_batch_profile_checks.swift",
+      "sha256": "f5b5e828038395b27c2c2596f1149e7618beed63925ceec1e87e1c64fcd73733",
+      "git_blob": "338824e06322445f47ccb8df59267d6d4933c2b6",
+      "mode": 420,
+      "size": 7089
+    },
+    {
+      "path": "Tools/Tests/xsign_catalog_checks.swift",
+      "sha256": "c0fd05aad6909b1afff27a075b43fce94746efd06e23f0b00fee689064b6e51f",
+      "git_blob": "a8027743235f237bb285596b8729c264dacb28d0",
+      "mode": 420,
+      "size": 23161
+    },
+    {
+      "path": "Tools/Tests/xsign_fixture_server.py",
+      "sha256": "dc976905b385e8a737e3bc70e0a65c3d256d92624c7489ef048d417bae78786f",
+      "git_blob": "c698c0782171b003f047ece5b06622d1c9c8156a",
+      "mode": 420,
+      "size": 2475
+    },
+    {
+      "path": "Tools/Tests/xsign_ipa_checks.swift",
+      "sha256": "59877fffec77efd0d348b46a84202a7f029166c420a5a2cfde7ebae24a1b56b3",
+      "git_blob": "f7896eb2be5f8528c6ae6a75a7ff522f71e745ee",
+      "mode": 420,
+      "size": 5540
+    },
+    {
+      "path": "Tools/Tests/xsign_make_tests.py",
+      "sha256": "b065187691432d22c06083f88bb22da3925a958ee45ac03caf08e92d4c3c9268",
+      "git_blob": "225d404c09c81981f85da1fa354a924a00b8b338",
+      "mode": 420,
+      "size": 3105
+    },
+    {
+      "path": "Tools/Tests/xsign_panel_metadata_checks.cjs",
+      "sha256": "2c9bd5b75e9cbf5ca316728f98dc326577953aabbdf05464d15ce86ffba3a64e",
+      "git_blob": "6a9cbfdf99191e7af6562ab50125b4a72d485297",
+      "mode": 420,
+      "size": 1712
+    },
+    {
+      "path": "Tools/Tests/xsign_storage_checks.swift",
+      "sha256": "7a67767fb369338d626cbe1b9b562e2c00714f5faa05057ed92bf7dab36e673f",
+      "git_blob": "f9f8777ab963513f81efff9b2be525ae58e3a5be",
+      "mode": 420,
+      "size": 3172
+    },
+    {
+      "path": "Tools/XSign_Repository_Review_AR.md",
+      "sha256": "2ce0eb939b35ebb3899faf772a2c023858c43f4e6f00a3e751d6676105a44bfb",
+      "git_blob": "04ae9210a7f584e88861cef6926607a319f797ee",
+      "mode": 420,
+      "size": 2055
+    },
+    {
+      "path": "Tools/XSign_Review_AR.md",
+      "sha256": "1e35970a1461b47b584149d0395941f701c2b4c97cf12a4aa6a0b7298da70a80",
+      "git_blob": "55f43cde69362471f155cf5cdf02603a74816ef3",
+      "mode": 420,
+      "size": 16931
+    },
+    {
+      "path": "Tools/XSign_Store_Fixes_AR.md",
+      "sha256": "aff792c27da82ff2acbaee40912e56f95678de6a1f295b24d7dbc7b7a73e26da",
+      "git_blob": "f76bcb5e620e345c5ee22ca32183cef8f776f98a",
+      "mode": 420,
+      "size": 20243
+    },
+    {
+      "path": "Tools/XSign_Studio.html",
+      "sha256": "4ebec13be77e7773bf4a311be8c933b3226fb8422b73526abfe057b0a66eb6d5",
+      "git_blob": "fd182065bdd35f57f9864d195b922b025aa55c16",
+      "mode": 420,
+      "size": 53122
+    },
+    {
+      "path": "Tools/Zsign_Reference_Review_AR.md",
+      "sha256": "8fb50830c377c25b79bbf6d0c932646b40e6e414b8529914f66ea7992ce31c8c",
+      "git_blob": "8ab1db986484d4285acf7762ed3bb8ac0d7df48f",
+      "mode": 420,
+      "size": 9722
+    },
+    {
+      "path": "Zsign/.gitattributes",
+      "sha256": "1ca0afa2d9a76b7fbbc2e0131add8000e9fca6f0c4548e90aef996d7f898f17a",
+      "git_blob": "779d01017a74087f50d7aca3087327e99bbbbd06",
+      "mode": 420,
+      "size": 195
+    },
+    {
+      "path": "Zsign/.github/workflows/build.yml",
+      "sha256": "5919d1302920a879c627a1cf7b285ac9676c87ddf2e38f817ae6ea82a44b15f4",
+      "git_blob": "2c3fd126038d6d2dd6af03ba1372bc965e541f1e",
+      "mode": 420,
+      "size": 15199
+    },
+    {
+      "path": "Zsign/.gitignore",
+      "sha256": "2c0045d68b4cf381c0f57ca5e84bb0612c2bcd82117675395f0259883d489092",
+      "git_blob": "8590abdcb600331477dadebf90b4716045c0e10c",
+      "mode": 420,
+      "size": 361
+    },
+    {
+      "path": "Zsign/LICENSE",
+      "sha256": "57a50ade7eafe84091e7f97169e2c555980513e5d425ba8b21c76ce7458f602c",
+      "git_blob": "e36bb6e598fc0bc087eef9c04cf622a99d888f0b",
+      "mode": 420,
+      "size": 1062
+    },
+    {
+      "path": "Zsign/Package.swift",
+      "sha256": "5e43d92cab7d0a0ff1fe9bd76e619e495866b6d3340aaae79b1a0146e8d53ce5",
+      "git_blob": "05e1bfd41caa695c17cae08189486d704ba7d3ba",
+      "mode": 420,
+      "size": 1468
+    },
+    {
+      "path": "Zsign/README.md",
+      "sha256": "b4ccf2f43ad574b8c20953caf5b573820b8b4d595b7d7db7e40be083733a1efb",
+      "git_blob": "24d92013d1492a1f1b6dcf2fc8cf1fb52ce84760",
+      "mode": 420,
+      "size": 9139
+    },
+    {
+      "path": "Zsign/README.zh-CN.md",
+      "sha256": "c7c08ffa2e1406438f44b2f5d60ff185435974925ba4967ce0ca1620333a20f2",
+      "git_blob": "bdd872b8a946a712120992d4752c0f8c56aa4300",
+      "mode": 420,
+      "size": 9226
+    },
+    {
+      "path": "Zsign/build/linux/Makefile",
+      "sha256": "59701e7bd0137c7e2c3d9e6984a7191c6be56a795846ce7c94f38079f44886aa",
+      "git_blob": "9db0b14ed36c62d244a0a3455668a7547279f9c5",
+      "mode": 420,
+      "size": 1883
+    },
+    {
+      "path": "Zsign/build/macos/Makefile",
+      "sha256": "73686c51260765a85a913ad876939895fa3d7ed58f9cdc6862b3a973d2523728",
+      "git_blob": "9b490c8e85faad93d4d2320c0b4355f34e8ec7f4",
+      "mode": 420,
+      "size": 1826
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/__DECC_INCLUDE_EPILOGUE.H",
+      "sha256": "3d837d015f23ad248d7e0c74b5b8ca102d81525f166a0a4b7c19900eea982644",
+      "git_blob": "d251d0a03cfdb5023bde332ca00ac1b5076db230",
+      "mode": 420,
+      "size": 729
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/__DECC_INCLUDE_PROLOGUE.H",
+      "sha256": "e66be3418a7b707f09fa011c85b0b3fdfcfa1740c46da11385abf23fe9983529",
+      "git_blob": "91ac6b33caf402410e41b96a31da9ecb98a5b4c6",
+      "mode": 420,
+      "size": 801
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/aes.h",
+      "sha256": "27aaa89367b022b12b66cf52c3c2d68f6761965ac36f3f1153202fa44692ad0e",
+      "git_blob": "d0f9dfc6f1cdb14684db934bf16d828bc4acee46",
+      "mode": 420,
+      "size": 3752
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/applink.c",
+      "sha256": "6862805c3d7fed06df62c5309f5c24798725b58bba144a4f02db985ff9965347",
+      "git_blob": "601d016633a119dd27a2fb01bde9a118923398d4",
+      "mode": 420,
+      "size": 3988
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/asn1.h",
+      "sha256": "14ed6e1e9b40b3b3c1c8d0284d41e56f23e33dcd9f234440a33d7a75d45c0c66",
+      "git_blob": "e5576d66f318919d39748a2d1f13c05b7f87e0bf",
+      "mode": 420,
+      "size": 62242
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/asn1_mac.h",
+      "sha256": "5a0d1d59316bc398bc63af0f1dcf377fb66c3e3132d4c45400c9dbc2003e24b5",
+      "git_blob": "fdcb983656ac5161298cf2b13be5422276bc50ea",
+      "mode": 420,
+      "size": 398
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/asn1err.h",
+      "sha256": "50703d11cce3d6defab8d664d3d917c6aaaa9ee677538757b811bbb288d60407",
+      "git_blob": "8fd85ed881124d5560a1a0239c20eec746636217",
+      "mode": 420,
+      "size": 7855
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/asn1t.h",
+      "sha256": "03fcf37af6248fad3421306aa87d1bb2365a4b29f4f7be035d87651e42ed012c",
+      "git_blob": "9852afd793ff966f9987c3df04fdabe4dded94f8",
+      "mode": 420,
+      "size": 36883
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/async.h",
+      "sha256": "f0112bd2d6f7ef9d2192f614c7d43bf6a0b3cc8be8f3116ba539b7a6579698a7",
+      "git_blob": "826ffb993497a88b70524710250c54405e8fb8b1",
+      "mode": 420,
+      "size": 3504
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/asyncerr.h",
+      "sha256": "154f003cfbf49040a04d9aac459cf5009a5a1d76298b222d66ba5b5a4e3721af",
+      "git_blob": "c093f7be4547abb65de90ed21f9ccf6087799721",
+      "mode": 420,
+      "size": 842
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/bio.h",
+      "sha256": "eed0c6db915f886085c6441365c9b7675036b3a92cbc4845961cb20aced9e8a1",
+      "git_blob": "040debac6ba60d9f4deb522d565caafd3237e3eb",
+      "mode": 420,
+      "size": 46620
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/bioerr.h",
+      "sha256": "fab33e1a3a6d998634e31e86556c7badfae58876c753d10c841e3506edb9bb3e",
+      "git_blob": "e4fdb64974fc064e7486d67c61212f364b3c507b",
+      "mode": 420,
+      "size": 3515
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/blowfish.h",
+      "sha256": "fb4b19b7730d1cc7ff2b9da1435a506ad0ef50263bd168c5ff24214a06580282",
+      "git_blob": "667d6423912bd8e8d90c6670b18c0e5b84ee9562",
+      "mode": 420,
+      "size": 2693
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/bn.h",
+      "sha256": "ee24f408eb0e8cdf72e94d6d7fd4a411d3e12824592e493b72764957cf75a58b",
+      "git_blob": "ea706dca7f2f091fc92f5f7f6c3ee40082e0eee5",
+      "mode": 420,
+      "size": 24183
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/bnerr.h",
+      "sha256": "f0dfac26985a7ae40174e90173df9f95b15bba4d3768290746d7258ff1b0ae64",
+      "git_blob": "7c3f6ef3d4ba50ba60a18028cf929e3409bc5369",
+      "mode": 420,
+      "size": 1949
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/buffer.h",
+      "sha256": "c87b52702746e224e6242f4a2a2070b007502ea92063b41df2c4f6bec11c37ca",
+      "git_blob": "5773b986bd217fe49106140d14e98163bb68cea9",
+      "mode": 420,
+      "size": 1658
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/buffererr.h",
+      "sha256": "73f33a7b4406477a0eaf9d0ec42f43b2594167b1d6b84175f378cf5b0de07c12",
+      "git_blob": "d18b1f8f0735160cea55ad4cb091c43ed8b7f10d",
+      "mode": 420,
+      "size": 594
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/camellia.h",
+      "sha256": "d1cee6e44668fba0e46c38db7394aa094c6cd2a25b97dbcfcc6f0ff4414f8ebf",
+      "git_blob": "88c2279e90f11cd60b3b9c67895736501f466b41",
+      "mode": 420,
+      "size": 5069
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cast.h",
+      "sha256": "654ac650ae74ca5e9a87ab46c1205157a7489097d005fdccc4c52912cfcefa55",
+      "git_blob": "0bf217beab23ec07880455f8131a15182a14e543",
+      "mode": 420,
+      "size": 2066
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cmac.h",
+      "sha256": "b26f8ddb9f60eef2601a84a5455c11060e028d8ce700cae682c4a02ffe2f2ca2",
+      "git_blob": "f50861836f48f54dfe9abc849ed7ff05b65af60c",
+      "mode": 420,
+      "size": 1608
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cmp.h",
+      "sha256": "00f90c0b9ae41c5a033cdfc471349b0d5944c808389c2c8a591dbe2eaa83da9b",
+      "git_blob": "8a3385e4eb336b9018e1655fcbd05f0aef35720d",
+      "mode": 420,
+      "size": 51336
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cmp_util.h",
+      "sha256": "7a982bac5840812b486176102b1fe8b48dda8cce0fe94f2d35aff5057a99004e",
+      "git_blob": "9a168922bfcecf22a4aa6c825e0d69b4136ae98b",
+      "mode": 420,
+      "size": 1742
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cmperr.h",
+      "sha256": "bda76e86c6c154638d7753a8580ecedfe1c5dc11a17d56194466cdeeb42605b9",
+      "git_blob": "d196924f74767121ec6c98744f2ed65d8c6a50cc",
+      "mode": 420,
+      "size": 7110
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cms.h",
+      "sha256": "3c7260d462b33ddd824612937e71102fc7afc31d920c3b8764a11294499799d8",
+      "git_blob": "d8db95bac28a5992609d737d66772abf24aae172",
+      "mode": 420,
+      "size": 35575
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cmserr.h",
+      "sha256": "248ec0b45cd8488035dfa40f3696966a3fea3b8e38ffee55b94b8a1e4d58053d",
+      "git_blob": "887035b1bf7d55ffe0b38935b849a83c6443c8e1",
+      "mode": 420,
+      "size": 6731
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/comp.h",
+      "sha256": "4388d300c658b9523ce561d3c289646596aca4f65d4465d4a45f13894da69653",
+      "git_blob": "1aa062f19250fcf24055fb56b3e455e426a917d8",
+      "mode": 420,
+      "size": 4747
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/comperr.h",
+      "sha256": "851f81212d489813f368757bc9511ccfa76b9cb66024607f3f0d4846a42eb085",
+      "git_blob": "1948d37f1a0096ab96292417db45951eca40d307",
+      "mode": 420,
+      "size": 1254
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/conf.h",
+      "sha256": "7624a2978f9a051aa7a769937c95bb2fd9e3a7bb0117d2499fb6cc5e1ac914df",
+      "git_blob": "367a16eaafe63458402b375c1048b6cd99289401",
+      "mode": 420,
+      "size": 10887
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/conf_api.h",
+      "sha256": "a66bcc69464235679980efc4a687a4fe036388da91173809ca45c0a3cfe47a5b",
+      "git_blob": "ed67d5778f1d3e5d7be3fae3537586d0394c9d54",
+      "mode": 420,
+      "size": 1420
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/conferr.h",
+      "sha256": "ee8aaa36553894d836b728ce9a52234d22b5d812bbbb75fa09645e7b1011346a",
+      "git_blob": "a8798e792412bac701497177d0e5457f0c96339b",
+      "mode": 420,
+      "size": 2265
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/configuration.h",
+      "sha256": "5fe4f9401b28056f4170ab88435f4c3032d54d0dd47375dd0d39090b040ae389",
+      "git_blob": "fb35fff02170b93b91381b9c6765541dd6dd90ea",
+      "mode": 420,
+      "size": 4531
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/conftypes.h",
+      "sha256": "e8f6697076d2464eaecfe2cdae8d2045388c53da2372fd52df5f6cfdc4d63375",
+      "git_blob": "17cefaa443352fc56031c494d8e5c51563893f3d",
+      "mode": 420,
+      "size": 1190
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/core.h",
+      "sha256": "a4a8e73bd642913e2ec268d13460f7bb97aceea59152430483e013775328eb3d",
+      "git_blob": "18c199182e34ada576358d4b49eeffc90a12c3c8",
+      "mode": 420,
+      "size": 8177
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/core_dispatch.h",
+      "sha256": "f7babd33f7a00b8addc1e4e7f1159366ba38eba57051d957b89ec20ca2b66bc3",
+      "git_blob": "03838ddd0e9750738aa59b6f833a51ff70151c90",
+      "mode": 420,
+      "size": 52199
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/core_names.h",
+      "sha256": "6dd2b521b66b2b24291ae482d9ea11c5e32d461adbf2b7080063e893618237e4",
+      "git_blob": "136f5d0da82fd7509e3fcb54d488644334eb8195",
+      "mode": 420,
+      "size": 28709
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/core_object.h",
+      "sha256": "7a7172d30597e3a3e06c4e67a049d1335aa6f7d5b49641abba8fd4d5a1c07563",
+      "git_blob": "62ccf39d3259c57559d46a66ff5bd824009e7753",
+      "mode": 420,
+      "size": 1126
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/crmf.h",
+      "sha256": "1fff102ff7da56eb3ce91a4d8145d8788598821e0f8cfc7c0abf150606e220f8",
+      "git_blob": "ea56040543b47d7133d5cc8f6b9c9e6f32b7837e",
+      "mode": 420,
+      "size": 19855
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/crmferr.h",
+      "sha256": "c08a40103c0c6d0d7d9ad0e2781db1f19829d29193d115d38b4d0271d13fecf9",
+      "git_blob": "b242b922ef1a72aff3382af3d2670b04c95966f8",
+      "mode": 420,
+      "size": 2011
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/crypto.h",
+      "sha256": "7188cc15d76384b1d15cefbe3b94ffd936b5eff6531c78f76258e4e89ef00552",
+      "git_blob": "e75669436a8de0b5a5cdd7ec82f32ad55ec709de",
+      "mode": 420,
+      "size": 25794
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cryptoerr.h",
+      "sha256": "b4a370d355fbfaad54f3241044f755c93b2265490f188e877150ec7550fe59ff",
+      "git_blob": "7fa79cf3854126aac647260ddd02124c17a855d9",
+      "mode": 420,
+      "size": 2529
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cryptoerr_legacy.h",
+      "sha256": "870042252331e89723d31079469104cafd676f0fedcbe0d99f56f3e8862fff8d",
+      "git_blob": "ccab33a5d4f0710edb670a6e2242511bc017f52d",
+      "mode": 420,
+      "size": 80396
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ct.h",
+      "sha256": "6ccbacdb973371c4a93638e14b0096494d8a22df7c84e60a5433aac8a2f00bb5",
+      "git_blob": "e88fc8c728df4925082358978ef99143f1b2d8d7",
+      "mode": 420,
+      "size": 23283
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/cterr.h",
+      "sha256": "562bfe4ac984ebfef4fb91bdbe0a649d157f5057ab61ffee3a844d23f7c72c0a",
+      "git_blob": "935d32d8b144b061e9aced6627510b55b493b448",
+      "mode": 420,
+      "size": 1688
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/decoder.h",
+      "sha256": "8419fd9e4e333fd477238bbad4ff875d5657b02cc39635c3a5c15f3a5bc7f0f2",
+      "git_blob": "d4ee2cf41340c92c381e58cd997eb3076e19ec73",
+      "mode": 420,
+      "size": 5760
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/decodererr.h",
+      "sha256": "a785fb95930e8b4a18054f77b7d5143d44673f4ca57682899bc2bf3464cafccf",
+      "git_blob": "4212a38bca2adcfa030f51148aa401e2198f7d43",
+      "mode": 420,
+      "size": 791
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/des.h",
+      "sha256": "bb13c7c5e13f3402d674fa88994b92ed72d6cdc1116707765d28bd7e0de31285",
+      "git_blob": "09798a616ffbd58c245a932b5af28c7bcca61333",
+      "mode": 420,
+      "size": 8525
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/dh.h",
+      "sha256": "d834937ef536956fffe4f567745a1736714ffec4c4cf248d94c910b1748b14cf",
+      "git_blob": "97024929a40ded921070d821421e5b99ede7f1ad",
+      "mode": 420,
+      "size": 15475
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/dherr.h",
+      "sha256": "9a9878ebd561a4fb1d38c8157d511f5de0893ac7b928f33b5cc52450bcc41a9d",
+      "git_blob": "2997d7d4c2c8d4e8cf80c8ee23df4fd72da61905",
+      "mode": 420,
+      "size": 2570
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/dsa.h",
+      "sha256": "3e9b65a16899dd737b4c8fa99bd94f0cf94dcfb6ebea4a24e7b21fc92e409e46",
+      "git_blob": "109878e68863e9cd580386ddf19354c46288d699",
+      "mode": 420,
+      "size": 12532
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/dsaerr.h",
+      "sha256": "69c2ecff5f62898461bc521ea918abd2a673206dd5e8d43288ad25d2c012f163",
+      "git_blob": "26ada57d80abc64c7b82b28f8366ffe20a64f6ff",
+      "mode": 420,
+      "size": 1629
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/dtls1.h",
+      "sha256": "1d1f404032a9eb31408c1f10bdff554d5740fb345b64b86fb74da8df95fbd901",
+      "git_blob": "5dc6b5419c27521a460a417ddbde8700e3c22b1c",
+      "mode": 420,
+      "size": 1465
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/e_os2.h",
+      "sha256": "3eb5b2ed396dfb68e10acb59f714732be4941d17a97ebb659768c570da6fad0a",
+      "git_blob": "b8c61079159fa3f7d4cca198d832fc5443e3bd8c",
+      "mode": 420,
+      "size": 8849
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/e_ostime.h",
+      "sha256": "587a7593925c8d5b2f0dc3060904e3a4a7472be0ebc7dbfe2f6af6e40eb8bcc7",
+      "git_blob": "0e17487504992ac9e01fa8f28b14d9a68ddc80ff",
+      "mode": 420,
+      "size": 1188
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ebcdic.h",
+      "sha256": "75a668c25c97853d5ba37ebce060a15152573242e3729d42830eba1daa642404",
+      "git_blob": "e0ae1aa84e4a21ca73fd22ed069d93c70bccdc98",
+      "mode": 420,
+      "size": 1042
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ec.h",
+      "sha256": "0b028cf04ba8769a693f022725c91ef902a9e31f12a950180d1b4e8fa6952ff2",
+      "git_blob": "e1cbe982287b6de3a5d520248eb2eef3e5fdd7a1",
+      "mode": 420,
+      "size": 68440
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ecdh.h",
+      "sha256": "5b99fdd1dfea38640ed8a506fb9b66db381cc26a1254448a81cc6b161e41850f",
+      "git_blob": "56bd4cc2ce0de4c0f34180c7ef51201f061f0172",
+      "mode": 420,
+      "size": 361
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ecdsa.h",
+      "sha256": "5b99fdd1dfea38640ed8a506fb9b66db381cc26a1254448a81cc6b161e41850f",
+      "git_blob": "56bd4cc2ce0de4c0f34180c7ef51201f061f0172",
+      "mode": 420,
+      "size": 361
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ecerr.h",
+      "sha256": "ce4fec7ee41de25a20abb7a9f00fe93305793a7bd2023d434b9aa6f64f91058a",
+      "git_blob": "f15f91f6bf05fb08ff82066f32a3bf76ba748b9c",
+      "mode": 420,
+      "size": 5405
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/encoder.h",
+      "sha256": "907d2f061c2972447d3f0c1cfc149c78791b1e4bdc131ad5a3eed1d084c76b41",
+      "git_blob": "c37a6f16f23cc47f92a176b54ed7382780a41f9e",
+      "mode": 420,
+      "size": 5450
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/encodererr.h",
+      "sha256": "63504766e9fcf36fe1527d95fe21460574896da187c60707bfa68254a35693b7",
+      "git_blob": "5e318b145370a410eb4a3e55ddc97c3e06cce7e5",
+      "mode": 420,
+      "size": 791
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/engine.h",
+      "sha256": "b48e5406717b26f41085dad8cc553e78c6cc54ea936df8ff1aa1312f32a6c053",
+      "git_blob": "2fbc82c3f9404550d5f0f91003ce7e4a98595067",
+      "mode": 420,
+      "size": 38823
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/engineerr.h",
+      "sha256": "8616a93b1b1bd8d1221844834817c28b7da78be1649a5b1780d9ea65fba8807c",
+      "git_blob": "d439b6827e60d9b1ec3b39647096cf17c2f577af",
+      "mode": 420,
+      "size": 2838
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/err.h",
+      "sha256": "ed10bc0f932f8e3509da3bbfe3f077e448476eb92f988f0da0afcb378e4b2f78",
+      "git_blob": "8f74f4805b628cd23197618f6f3fd7a53644248c",
+      "mode": 420,
+      "size": 22910
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ess.h",
+      "sha256": "494f87fe22195a9756db7e603b7e53f2c26145da37ab6e274400929e7bf3cc50",
+      "git_blob": "f23b53f2d7abd84a7fef2bb756f2fe658b285d18",
+      "mode": 420,
+      "size": 9096
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/esserr.h",
+      "sha256": "e791193e891b0784670d5410539aeea9d2a8591de71495b4add6e7dbf9dc22cd",
+      "git_blob": "165ce7c437517080c10f9058b6ab6be947b2eaee",
+      "mode": 420,
+      "size": 1144
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/evp.h",
+      "sha256": "98a276b8a6031904b9b42d871360d8b1bb78a70a9d1c54b46bab62f9fa5fcffb",
+      "git_blob": "5466327087210565c85c56439e860a7e03a9f1e9",
+      "mode": 420,
+      "size": 107058
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/evperr.h",
+      "sha256": "3f7190ff45e64cc29b55d73d62350f8344c085c18891a8a6f9752e807e9b242c",
+      "git_blob": "0a991f735a0cb74bc4c3e5e74290ce79cb4bc816",
+      "mode": 420,
+      "size": 7728
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/fips_names.h",
+      "sha256": "dbf5cbac0cae8cc273cc3fd0d9a855194bcd8d1110c3f5a9456d3f2edfe2770b",
+      "git_blob": "fa481fc6113132e97fc53dbb3374d9eed0f848d1",
+      "mode": 420,
+      "size": 1662
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/fipskey.h",
+      "sha256": "fa2962d72f558a6e419e25082ded303ed675015d30d4fb0cdd0b10d95c712ea6",
+      "git_blob": "0dadb3d2785244ca3161a8dc927b67a9fb239b36",
+      "mode": 420,
+      "size": 1164
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/hmac.h",
+      "sha256": "e49fbe0086f8fbefa5648eef70bc84e8090a9226a1e3c6e856499373004aed0a",
+      "git_blob": "f9e1bff3f7478fbea673068836bc5877a1f01f17",
+      "mode": 420,
+      "size": 2141
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/hpke.h",
+      "sha256": "99947ae58970eacf9b8453d7ef6c2c908cf1a61a28eaf5c3456eb95bd0aefd93",
+      "git_blob": "482acd22c38b2c130c85d1ce1e0864580a0a5dcc",
+      "mode": 420,
+      "size": 6983
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/http.h",
+      "sha256": "6fc1fa843e64e476ec255979fecaf3402b3c5d9b6a775e53b06ba210736c1e1b",
+      "git_blob": "339b567dcd33a3de7e77c5509e53923c2d73d794",
+      "mode": 420,
+      "size": 5608
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/httperr.h",
+      "sha256": "7b8903c4048411d4541a64f47e9479eeb4715d03b835f2244206648a48422c97",
+      "git_blob": "ae7f00cac0a12af9fee297d9dafde811fcf17a04",
+      "mode": 420,
+      "size": 2513
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/idea.h",
+      "sha256": "239122df15e738d7552dd76850c55a9ffe0136f33506c23d9058215a1255af66",
+      "git_blob": "1f9bb3b3c71fc6108e6b88cf6a8a8d49cebaea49",
+      "mode": 420,
+      "size": 3010
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/indicator.h",
+      "sha256": "a978c859885ddbb45a2da177bf13e47c91b49930e6c03464f8a8104aa6b12dff",
+      "git_blob": "3ea0122188642e0dc86ef6781f454145ae08d601",
+      "mode": 420,
+      "size": 917
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/kdf.h",
+      "sha256": "41756fe038443d1d270458d53d6e42ea78d12d980728b6a9284fa259958ea00a",
+      "git_blob": "0983230a488afe30d65e317374b9520ec8cfb9ca",
+      "mode": 420,
+      "size": 5619
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/kdferr.h",
+      "sha256": "3d9f27fffdb49e0ece9d5a62adbb9cc42c56262b00cc8ce7f956b2cb05a2a22d",
+      "git_blob": "963d766dfc85087da798879a611d2119664089a6",
+      "mode": 420,
+      "size": 482
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/lhash.h",
+      "sha256": "d38353268d77a96cdadb629b6d7e36a2e002b88d5de5e411e240a7c156afcd97",
+      "git_blob": "93044eec7091cd87a510df65f58ddcfa7cd0f1a0",
+      "mode": 420,
+      "size": 18839
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/macros.h",
+      "sha256": "b7a29071e54e710e9c3a8c2df91810923f2b7be3896dd8e2754069a891fea2f9",
+      "git_blob": "8330c758da253b37ecd3420229ee26db13d53298",
+      "mode": 420,
+      "size": 11125
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/md2.h",
+      "sha256": "4add77ed047736979dc442a49d42921cce21e654a2dceef058d0191aa2d3c941",
+      "git_blob": "5d4cb77e71cb14a44ee9c470ffc3d919d38c5fa8",
+      "mode": 420,
+      "size": 1461
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/md4.h",
+      "sha256": "0472e597d139b44dd7d78d9093a5d8109417d18e9955fc940f1ea3e2e892ab44",
+      "git_blob": "6c150a6cb24ce4846e2441466921e159d7c4a4ed",
+      "mode": 420,
+      "size": 1699
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/md5.h",
+      "sha256": "308c901ec1a28f9b0098717f689ca63e104ce805050802d38b8f122d85ab2c78",
+      "git_blob": "77a577340f7149475cbb1685f314bd8256abdc89",
+      "mode": 420,
+      "size": 1696
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/mdc2.h",
+      "sha256": "42b844c9ae9e00e7c0b0e28858b8b3db7b8abf7e514e5e63f43456371ed3384b",
+      "git_blob": "5a7ee289d1d074ed3cb62860e126142a6fd9ce23",
+      "mode": 420,
+      "size": 1441
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/modes.h",
+      "sha256": "4a8b3b1dafc15798a3b2bef0e3885275746e7fae73a0d96e55da55261554ba52",
+      "git_blob": "e19079912ba24f1876016db92efd475cbeb375b8",
+      "mode": 420,
+      "size": 10786
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/obj_mac.h",
+      "sha256": "abb32104ed1ce52545239e3014a1f3df0b3cd7913c366bfbee0a298a4b65d2b5",
+      "git_blob": "ea603c241613818a1f138743f5e2fe05789e5cc7",
+      "mode": 420,
+      "size": 244421
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/objects.h",
+      "sha256": "9f04a6f480aa7af7a6cd6563c712818799cbb12e99061f57b46a72060909ef90",
+      "git_blob": "cc9f3c51b059c770215350212f407c952f6999ee",
+      "mode": 420,
+      "size": 6894
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/objectserr.h",
+      "sha256": "e17a8d7f62a1ef257fd90e604d4293bf02d5f81ae8198efe1e197c5b27baeb8c",
+      "git_blob": "585217f6f7d1327592b5bd9d44c99ff549151acf",
+      "mode": 420,
+      "size": 782
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ocsp.h",
+      "sha256": "01aa2aa17ccad22ebc1a1701ad27b67a165a0c23f9e50fe5ad86b4e90ef190b9",
+      "git_blob": "f952215734fc833cd28f2960e1309ace11a461ef",
+      "mode": 420,
+      "size": 29835
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ocsperr.h",
+      "sha256": "178329cfc042d3f1eb6e179206d844de41ba05ee4ac0ed9e3e6c861fb49d68ea",
+      "git_blob": "46a0523c2de4d261d1a6d3f0c1cac160948d004a",
+      "mode": 420,
+      "size": 2200
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/opensslconf.h",
+      "sha256": "890184233890bacd52fd420fef07befad411b9a318b97efbf36f46673d3e7841",
+      "git_blob": "1e83371f1a432b97ea255f2745d5cf44fced53f9",
+      "mode": 420,
+      "size": 515
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/opensslv.h",
+      "sha256": "e57aeaa9cfb602ab0b0d774208cc674999c0dc37ff924e6945db6a8b4b742c6d",
+      "git_blob": "126aa847764625f0bf760216ce6ae04d43630841",
+      "mode": 420,
+      "size": 3300
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ossl_typ.h",
+      "sha256": "76cb203ef3bcd305f4171e1d33f3f3319dee6354c2433493e5e9068aa79672fd",
+      "git_blob": "82a58988ff2d74667117b706eccb86b7c462c26d",
+      "mode": 420,
+      "size": 562
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/param_build.h",
+      "sha256": "3bf39b1037256466f1a89868621b2b62f1d05e63064159e60727041b170d55e3",
+      "git_blob": "f29fdb2963d35a3df1c6adda8f5b6f37fed7c6a7",
+      "mode": 420,
+      "size": 2809
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/params.h",
+      "sha256": "10d8e0157e339ee01f3b9c60c4b5bc60e6d4edce1084f0c9589ff75bf3a9f693",
+      "git_blob": "d75eab07649060caa1cc0a0caef4de879fcdb904",
+      "mode": 420,
+      "size": 7328
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pem.h",
+      "sha256": "be8d9226118a01137e96e99f0f4f5e6e309b466c15085d41b5717b06fbf28557",
+      "git_blob": "6b7b66a2be4b23164b3b8007b834bb4c23e49e62",
+      "mode": 420,
+      "size": 25927
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pem2.h",
+      "sha256": "a34a1607983b5f32be8ca49e75c3b41f1c9413b4eb777af144958283ecbd3922",
+      "git_blob": "a8a5325bd4bae87c6556b63cf55479f6a8ded5d5",
+      "mode": 420,
+      "size": 531
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pemerr.h",
+      "sha256": "843df90b1b434eed626bb6b8bccd5f6ed530e592d706584f56a725d254d8a5d2",
+      "git_blob": "18f6d9ef4cfda759524fbd8d6b68fd998e6174f0",
+      "mode": 420,
+      "size": 2634
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pkcs12.h",
+      "sha256": "aea29238ee34ec1aad28bf2da5bbb51758958c6c1ac0ac779aae0fa62bdf4a98",
+      "git_blob": "34c45f43e7605527cd636d9870080e332cb358dc",
+      "mode": 420,
+      "size": 20762
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pkcs12err.h",
+      "sha256": "fa281e5b93652e6c2c31393f62539d5252c125a4b1c4214f21fa321bd033da10",
+      "git_blob": "abce3736289b63e7c0c677da223e6cc3b9d590ce",
+      "mode": 420,
+      "size": 1899
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pkcs7.h",
+      "sha256": "7e7b9a8af81c2db5c1340c47381a44115d8ab374be13ad8eac9b2d586fb01ad4",
+      "git_blob": "d73b2610b1a1712f07d57e88eb01621603359a0a",
+      "mode": 420,
+      "size": 23089
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/pkcs7err.h",
+      "sha256": "9fe7a51f3de13b1fd03b319c64b8bd287164eb6ce7d3481994141c0be51396d5",
+      "git_blob": "ceb1a50198671643017f0075078e170d4a2ae39f",
+      "mode": 420,
+      "size": 2952
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/prov_ssl.h",
+      "sha256": "31ded7f804f341c01c2f305187d1cf76daebe4426a1c6b4d2abc2b12d6e2d090",
+      "git_blob": "76d01e1eb89c4970eea2362fbc83f4f30b3bc40c",
+      "mode": 420,
+      "size": 1139
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/proverr.h",
+      "sha256": "bade856040b76e8e26ba9627085c77dee3e7807f85913da122b571545899a78b",
+      "git_blob": "d10b653152ec70adecb495f5c1f5eb539783e4b6",
+      "mode": 420,
+      "size": 9090
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/provider.h",
+      "sha256": "1447ea059af6d57fe7101909f551667ffef85d43ebac74b668ff39ce7de7a13c",
+      "git_blob": "24ec0827bd6bbf65afb8f682ab9f5943ee042563",
+      "mode": 420,
+      "size": 2733
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/quic.h",
+      "sha256": "e12a9265850bdc44f959cb7b33e641c888de22bdfbd31a1258679b1af15e2ced",
+      "git_blob": "3dc2f5e747b42bcddb3da10e63ef241e6e0a42c3",
+      "mode": 420,
+      "size": 2205
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rand.h",
+      "sha256": "3ac0539d994400546be2710e3be80b4b8ea28772c06d549d514fc305e0aa077b",
+      "git_blob": "1fa1129e3cf7dbfc2ff5437838f86d9044fadbf6",
+      "mode": 420,
+      "size": 3983
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/randerr.h",
+      "sha256": "455f8ca7562cbb97dc3d7f8ce2ce27a404ac2ae3a6d7219d45c48c54bc80f910",
+      "git_blob": "04880374a3b745a0a3dd8358d96f8b682479969d",
+      "mode": 420,
+      "size": 3319
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rc2.h",
+      "sha256": "08c6865d169a300e8bc818bd810f80ffb8a21d69e97dad88e400b586d0f3e965",
+      "git_blob": "ff633fd80f1683155db91846059a24d50548275d",
+      "mode": 420,
+      "size": 2382
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rc4.h",
+      "sha256": "ea45836c253246c1d6f1b16b360dbb59322e26e28bfc54881d698e7cd5057666",
+      "git_blob": "600b2885df1bf13ac4bdeda35904a9c3a487e62d",
+      "mode": 420,
+      "size": 1194
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rc5.h",
+      "sha256": "968c96ead08204edb8148981094700cbc3338ed0613c4469da5ab4675fa1ce29",
+      "git_blob": "de833523102ae47a710730b228ee15dd334c66d7",
+      "mode": 420,
+      "size": 2861
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ripemd.h",
+      "sha256": "2e28edeb6613516db89e28c9d962301f4fe7b38366ebdd1d35933f3491d57b9d",
+      "git_blob": "900ee317b9287b41a09cb1cfca4008b123378be0",
+      "mode": 420,
+      "size": 1717
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rsa.h",
+      "sha256": "c30eeea9aef005afac36c1ec5565d4069194c088cb7a22930d7ba0ed814d7402",
+      "git_blob": "167427d3c486634f89e0611d601471ec522013c6",
+      "mode": 420,
+      "size": 28478
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/rsaerr.h",
+      "sha256": "a745e6b2835af7bb933e78870a270d51ab33778fe10a5cd377422d4b9587dcf0",
+      "git_blob": "c58463c7c19f27ba471aecb2ab5317eef3867221",
+      "mode": 420,
+      "size": 5681
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/safestack.h",
+      "sha256": "1089ec732df2ababf7185ecf93660a5a8e2cf6d84eee3097afa514086cde7cb5",
+      "git_blob": "39832c41bbc0f0e24c9aae0f9afe85eb74dcf940",
+      "mode": 420,
+      "size": 18736
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/seed.h",
+      "sha256": "0d6d206f240f7bd6fa28cd4ec66b2b878f199af3ce6eda172af9fe31ebb71586",
+      "git_blob": "edb218ae6e2dde78ae1d96211b6ecbeadadcfa32",
+      "mode": 420,
+      "size": 3964
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/self_test.h",
+      "sha256": "6885b0c4f12442eb22f6cad3394d417f1b3e35075f927437d16e11943c8c6af5",
+      "git_blob": "98652f9abdd73e4e8db3b284c16acd56f087609e",
+      "mode": 420,
+      "size": 4356
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/sha.h",
+      "sha256": "553407b2787ef08f69396973063de06340097cb7e4c1569265a533b3567e1856",
+      "git_blob": "163a7d588af931f6a513fbd0458779bb0158a00d",
+      "mode": 420,
+      "size": 4695
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/srp.h",
+      "sha256": "8b4982b2f881ef4234279e1fe31634848a64db40d66762c2e396a4f8beafb296",
+      "git_blob": "a4d26408f88dfc90a9c1364bccded33c878642b9",
+      "mode": 420,
+      "size": 15772
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/srtp.h",
+      "sha256": "20ddd75f9579087b24339e12c14b11939bca462e3cbc2e4b1867773407d6162a",
+      "git_blob": "2c2c334443c42958d517eb5547de360b77f9848b",
+      "mode": 420,
+      "size": 2180
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ssl.h",
+      "sha256": "b8273bae9fa8045c2861b6bfdfedb624a67e1042496994deed98409aba792091",
+      "git_blob": "3c6ed8624ebf113a8d2c522cee3a60b970b88537",
+      "mode": 420,
+      "size": 138987
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ssl2.h",
+      "sha256": "92e3330e2867bf17d3b305ba0f6fe6b073ad4bdb9db519e4224bbd993f1e9cb7",
+      "git_blob": "428ead0540e9137825401fa34bc43e34fb87ad9a",
+      "mode": 420,
+      "size": 658
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ssl3.h",
+      "sha256": "f901dfcb95371c404b9e8b67d36ef2413a915447bd306e0f96237c97867a6146",
+      "git_blob": "4f076c6c9dfb9745f8e588f1578915faf9bd54fb",
+      "mode": 420,
+      "size": 15159
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/sslerr.h",
+      "sha256": "1f46eba8debbc53efb2ec5fc2b7a7d63e8909a522a1a3d8ab310956c411c0eed",
+      "git_blob": "d6ae547876b45dc264698e1897eab86b63fffc03",
+      "mode": 420,
+      "size": 22573
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/sslerr_legacy.h",
+      "sha256": "4323bb82ce04ab284a35826707dcd4b838109344a1bc12d09e29ba1ed8bfd197",
+      "git_blob": "4c353671c7e88469b23a178fa86b44824a654105",
+      "mode": 420,
+      "size": 26944
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/stack.h",
+      "sha256": "69f94382a15a3c4cfd1dda32108db5234727b36ed0e25f1fb12e0993c7b5ac95",
+      "git_blob": "f0c5c54765af5b6a5197d24ef02b0cdf9d24b3de",
+      "mode": 420,
+      "size": 3284
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/store.h",
+      "sha256": "233e1f210c4757fc5e221a0727c938429078bc04e22376528b0fcf3f7307ac9b",
+      "git_blob": "e6ea3cf87886af2f3aff9341edb54dd2e8100042",
+      "mode": 420,
+      "size": 15461
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/storeerr.h",
+      "sha256": "370277e107a1b979ff5e0bd28f5adb92e066d41831ac37ce7108d2a1b84376f6",
+      "git_blob": "00529c88b59a60b43d01db543b1131937f18ffb9",
+      "mode": 420,
+      "size": 2092
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/symhacks.h",
+      "sha256": "68b54776fa15943f3f018be6c7dc7a8847c9f512fb5eeec4f093804197dc2dfa",
+      "git_blob": "816f8f9989104a1093f0e8975c7542919e53c063",
+      "mode": 420,
+      "size": 1290
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/thread.h",
+      "sha256": "9390db912ff47887ff9cfba47b982379dc4a965fb2d085a2f34dc27141c07406",
+      "git_blob": "3926ce54d78b53ed5c31c4469a542185ca1a857b",
+      "mode": 420,
+      "size": 871
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/tls1.h",
+      "sha256": "6ac9841cbc4ee173345e2654a61d1007b9b1d296eb431bc3e9f376bf079d2712",
+      "git_blob": "8e9b110bb303bad4242eac2c6cf61fc9141c3d95",
+      "mode": 420,
+      "size": 73090
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/trace.h",
+      "sha256": "f49ed49126448972dc92b38aa6a224d9bd8a738ef6b037116f5e0a7f8065a9db",
+      "git_blob": "9a5b56ea5fc4b52e9305cd303181586165c2f24c",
+      "mode": 420,
+      "size": 10737
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ts.h",
+      "sha256": "939496fec1e3d8c592f11ec49bd6d0dd13b0ba190b79b6c566a487196102585c",
+      "git_blob": "31c78b55a4024f8131e132cbffde9db32f654005",
+      "mode": 420,
+      "size": 20600
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/tserr.h",
+      "sha256": "0d851cb9db84c48bb8a9871a988950fd0b62ecc854b11641e3e9a07fa191a6f6",
+      "git_blob": "e1b943e42dbd37313782879ed4e4642a3b689c3b",
+      "mode": 420,
+      "size": 3074
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/txt_db.h",
+      "sha256": "1a6a6b331ef3cc6c632f782e8da2fa81aaeeac56e4d0b2fb3016f936805be257",
+      "git_blob": "af169a309ebccd342ecf980f647069556409a55f",
+      "mode": 420,
+      "size": 1784
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/types.h",
+      "sha256": "a31a95347d84dc6821c2fef7d76dcaae385814ec04458b0c6891e8c0220d8ba4",
+      "git_blob": "e05a350f1dfc8c5e755109965b5a4d60abf0c780",
+      "mode": 420,
+      "size": 7426
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/ui.h",
+      "sha256": "1ec7da15b464387449827771eb3884b3a0f2a66001703809ba4d519e0ba4636a",
+      "git_blob": "b1cddc41aa9d156b4c1ec887f034070f94e918a7",
+      "mode": 420,
+      "size": 19658
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/uierr.h",
+      "sha256": "6f46dc9509b4d10802aaa1ad3c84763a2843312fdc8dd8add5c7b24e7f0c877f",
+      "git_blob": "473b04ed1138ef06335f636bc01723238722e266",
+      "mode": 420,
+      "size": 1391
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/whrlpool.h",
+      "sha256": "bb8f9f6ad1960e87f78363793130a0c1bee89b64a12eb32e939791fb0ca61016",
+      "git_blob": "05ba463246265bed4db165806e28d45655e478a3",
+      "mode": 420,
+      "size": 1853
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509.h",
+      "sha256": "a45b17632a11597fba3878748d43afbab54a377b8c37af196b321544cceba0ff",
+      "git_blob": "d1b2b475c126f88055431327155779455947d3bc",
+      "mode": 420,
+      "size": 74189
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509_acert.h",
+      "sha256": "f45864e1a0e5d50bdb4d60ef613430579a6dad942724376ca86e3d8781f951fa",
+      "git_blob": "5143cafc87935ce776a13e4f9c92377565d2ecab",
+      "mode": 420,
+      "size": 18866
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509_vfy.h",
+      "sha256": "6a7718b81a21024a364fb83f4bf817475e04f416b0ee3ea3247971035b06f5bf",
+      "git_blob": "7af2f387dd1f4eecae919611ded714ab6a92e09e",
+      "mode": 420,
+      "size": 53417
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509err.h",
+      "sha256": "4e9a934927f37a70ee71b8ad7dcb6da3de409b0acc9eafb861a3183ba73578eb",
+      "git_blob": "77b91c8b2cff34c1217de078398fbfea00616a1b",
+      "mode": 420,
+      "size": 3381
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509v3.h",
+      "sha256": "d7b1a016a0a9ec0cb9e5ea82724e153fee0425c29b5b455252daf4994f434d7b",
+      "git_blob": "11c653c9159f3e77722e0d58d9c8059211795ae5",
+      "mode": 420,
+      "size": 99453
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/include/openssl/x509v3err.h",
+      "sha256": "294e1a37440b7d5fa1b780c385353f3e9aeb5eddcb6cca73d44bf4186698ee57",
+      "git_blob": "deede279528520e184b2bffed8d2a82650ac7c81",
+      "mode": 420,
+      "size": 5005
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/lib/openssl/x64/mt/libcrypto.lib",
+      "sha256": "23f183a563cbcadc49bb8081929f20a8650e203bcafedb24a30782495a083646",
+      "git_blob": "2f6c5c8c2049cd47f1bf1a7616713196d4a5d426",
+      "mode": 420,
+      "size": 57184898
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/lib/openssl/x64/mt/libssl.lib",
+      "sha256": "390e854454f97e818cdb3f175cbb4f4b685e375280a33ae031153254d30ce755",
+      "git_blob": "33a98bf5a575e5e930f8fe92fde96cb37e9ed798",
+      "mode": 420,
+      "size": 12535234
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign.sln",
+      "sha256": "99e6ae13c48662268865f145dd378a008776d69767c399d6cce1b4d9ea463bc9",
+      "git_blob": "ebf62db4abbb364cf97f114e98b8e757af366c5f",
+      "mode": 420,
+      "size": 1315
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/src/common_win32.h",
+      "sha256": "1753a165cb0bc0f369706d7cd8851da0f90a1e0c794cf73a1fe8096e88aa9b31",
+      "git_blob": "ea9a15b35c5a5fc5de463422c2ad0bc5f428da1c",
+      "mode": 420,
+      "size": 1018
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/src/getopt.cpp",
+      "sha256": "84698ec4eb34fee5a0af6e12a7e40264872becd77a4576dedfb912e076ef2679",
+      "git_blob": "7c3df183adba14ec241bf1ce9ae762c7713f3690",
+      "mode": 420,
+      "size": 1367
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/src/getopt.h",
+      "sha256": "ee5a3eab29bdc2a9cb1c0dc0829e2df618b44225798e83d58688804cf6e81001",
+      "git_blob": "4c84b495477cd4091e1882801296981130c33f67",
+      "mode": 420,
+      "size": 394
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/src/iconv.cpp",
+      "sha256": "0e1719ef3f72c4620ba3235e385254d5a3edbf8e9068c1fc024a9beb908fdebb",
+      "git_blob": "1dbeaefca18b15768e877f73debe089f80716efc",
+      "mode": 420,
+      "size": 2545
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/src/iconv.h",
+      "sha256": "d4c13deab10b297915ccaf6532ac26c182374115cc661063f8ef7e2353a5f739",
+      "git_blob": "4495733e1c3cff2a3234e5b8de34488040383ff0",
+      "mode": 420,
+      "size": 1046
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/zsign.vcxproj",
+      "sha256": "6f40d4bde733403a6d31a773621568781b63b87b36e18f7e9242792ba9ab96e0",
+      "git_blob": "abd4d6acd2354126a858cf329619185be0d39584",
+      "mode": 420,
+      "size": 14173
+    },
+    {
+      "path": "Zsign/build/windows/vs2022/zsign/zsign.vcxproj.filters",
+      "sha256": "693fed1aa6580da6cfc25698efbf36cf88462a64688f537cef3364c8fa0a85be",
+      "git_blob": "fc4f4522b97b7ba0ca78d904d99ae257c52f56b8",
+      "mode": 420,
+      "size": 4514
+    },
+    {
+      "path": "Zsign/src/archo.cpp",
+      "sha256": "3178e11b3cbff62dc00e5825cf7c4a94705dee97a29ce685dbdf2034df81a211",
+      "git_blob": "0d2b736f50270b602c4bb74acdcf339dbeb2c07b",
+      "mode": 420,
+      "size": 26714
+    },
+    {
+      "path": "Zsign/src/archo.h",
+      "sha256": "cf0e2f7ab5ca036173e6d975ce46d98c88e3b040bf915b18eb052e6e209e0781",
+      "git_blob": "9b29a41b1c6ced556cf1b2b9239da0a0ad118760",
+      "mode": 420,
+      "size": 1589
+    },
+    {
+      "path": "Zsign/src/bundle.cpp",
+      "sha256": "3a2c3c807951394a9ce0ee8d7f4aec0164d3c0b09ec78474b929833b5cce25ab",
+      "git_blob": "e41613ba5992f7d58af12b53d6de269e1632ae76",
+      "mode": 420,
+      "size": 24493
+    },
+    {
+      "path": "Zsign/src/bundle.h",
+      "sha256": "a043438fe48093c9756d287ee9cead92bd4390016146df02defc6c2545bf562b",
+      "git_blob": "0aea72b1c13949cb0e6354a318c8fd840cb77dfc",
+      "mode": 420,
+      "size": 2052
+    },
+    {
+      "path": "Zsign/src/certcheck.cpp",
+      "sha256": "ba51615a9d00299f1c050e161771bbdef099d1be5c13389246449e17c7a12f31",
+      "git_blob": "7b9ae05a5381722964d26e0d329d6c0a92155c0a",
+      "mode": 420,
+      "size": 25811
+    },
+    {
+      "path": "Zsign/src/certcheck.h",
+      "sha256": "f5f3f1a347528c3a31becac2c9c270d4e5556344d4cb3a06526cf23e6748935d",
+      "git_blob": "e9d5636d264a5eebfae9abfcb0e1c116f9698fc6",
+      "mode": 420,
+      "size": 524
+    },
+    {
+      "path": "Zsign/src/common/archive.cpp",
+      "sha256": "57464c296ee685d06e54abb121d295a81faae4cb08cc45b5030ca4decef1988a",
+      "git_blob": "68ae05a93728a859a6a2df2e445490319c896669",
+      "mode": 420,
+      "size": 6688
+    },
+    {
+      "path": "Zsign/src/common/archive.h",
+      "sha256": "1b32378b5db588ca684c0efb89e0687499434da64e7d62534ce792cc2b08ac7a",
+      "git_blob": "4d7495d603e4ebeca6bb4cecfdd137286559baeb",
+      "mode": 420,
+      "size": 874
+    },
+    {
+      "path": "Zsign/src/common/base64.cpp",
+      "sha256": "6e17e4b3c3bd5c30208e849e636ac2d2ea3b6f652cbfe9f43242fc3cadc28a31",
+      "git_blob": "8ccb6bbc1a72e3f3618af6e6767b00e2284ac6ee",
+      "mode": 420,
+      "size": 3766
+    },
+    {
+      "path": "Zsign/src/common/base64.h",
+      "sha256": "d869557450d29f07e386e7f5047d3c73d70d22422b94c74e2e6fc4346f43a00a",
+      "git_blob": "ed4e0de422318530639f5cce7f938d800b881ffe",
+      "mode": 420,
+      "size": 613
+    },
+    {
+      "path": "Zsign/src/common/common.h",
+      "sha256": "2a4bf09de8603638fdb74beb9abb32cf233e89cfb043de27d5d02bd34204a266",
+      "git_blob": "1d5ef349aeac754374d015b63428301417b1d775",
+      "mode": 420,
+      "size": 1022
+    },
+    {
+      "path": "Zsign/src/common/fs.cpp",
+      "sha256": "69ab879d7edb69d2509e2e939dec37960918793a07e25cb2e30c08cf72eb33bd",
+      "git_blob": "68f5e44f192472cd1fcfb3fb8c8639b20a154bb6",
+      "mode": 420,
+      "size": 12122
+    },
+    {
+      "path": "Zsign/src/common/fs.h",
+      "sha256": "b5fea7e789b87fe91b4cffec54ac5ad2c0edd685d364856a2ee0bf00373671dc",
+      "git_blob": "27c900ba578f8641323d14bf5496485d97df49eb",
+      "mode": 420,
+      "size": 2355
+    },
+    {
+      "path": "Zsign/src/common/json.cpp",
+      "sha256": "1b28851ec43609592d0b22888cb4b91ebf428b6592518f236b9903c510fdd450",
+      "git_blob": "4b6fffc31b57b64f4b1875f2d2d66a617e2f9216",
+      "mode": 420,
+      "size": 83451
+    },
+    {
+      "path": "Zsign/src/common/json.h",
+      "sha256": "9b3527d2a373003c8c818b9e0123fde6da2894db9352dcfbb967a45044f5092a",
+      "git_blob": "877bf0d813bfbc0f22d1a1697c9d566212095bf1",
+      "mode": 420,
+      "size": 19050
+    },
+    {
+      "path": "Zsign/src/common/log.cpp",
+      "sha256": "964f01093ae5e3e0fae7bf7a78efb14410d597e35e816032611e75fa77586a34",
+      "git_blob": "0c591ef43a4f5f1763a5c05398b41873dba3f83c",
+      "mode": 420,
+      "size": 2381
+    },
+    {
+      "path": "Zsign/src/common/log.h",
+      "sha256": "56b574cd225f011e56f7ad8ba8c25bd51886d9458232cfef39c143cab92216c3",
+      "git_blob": "7df31d2354d48e2914cabd5994ccaaaa55d96b5d",
+      "mode": 420,
+      "size": 1057
+    },
+    {
+      "path": "Zsign/src/common/mach-o.h",
+      "sha256": "3ce145df15e3fc2b1267916b23b7e4eb3455950492ed1ef26d10910d1abdb305",
+      "git_blob": "914d1ed3d3e5f451cb18bea08176f4e0eff763de",
+      "mode": 420,
+      "size": 23439
+    },
+    {
+      "path": "Zsign/src/common/sha.cpp",
+      "sha256": "5aba5a59d5b6cc0a3e2815adaf7653d7ff7451cd4da5097fce5a581da5970adf",
+      "git_blob": "37e9feda331903691a3f29de82d04cbaf76c2c04",
+      "mode": 420,
+      "size": 3602
+    },
+    {
+      "path": "Zsign/src/common/sha.h",
+      "sha256": "f01bcabfe7bd210abfe7f5cda609a6bc4aadfd46445f8ba3629a72921b062b42",
+      "git_blob": "b23e4983146b95689df4b43b660269362606a06f",
+      "mode": 420,
+      "size": 1318
+    },
+    {
+      "path": "Zsign/src/common/timer.cpp",
+      "sha256": "c41d4cb63a8320567c9e9acb9e243c0efad42941d6719ec7b9701e4df23b2d94",
+      "git_blob": "c7bf44c47d55076042ef250ffefbdd24422aa3ac",
+      "mode": 420,
+      "size": 683
+    },
+    {
+      "path": "Zsign/src/common/timer.h",
+      "sha256": "5c52ec079a2f6d76faef346583cd3efac9515efd30a74c40d2c42f2130aefb7d",
+      "git_blob": "a39da603064ba1aabb53026aa90a5354cfbe127f",
+      "mode": 420,
+      "size": 251
+    },
+    {
+      "path": "Zsign/src/common/util.cpp",
+      "sha256": "c09451ea4ce6341010033a04364c2fb715d185255e5c73dab4cf35dc545ead8a",
+      "git_blob": "04ff0dc65c0af24dc874cb478e6f3d3bc7166878",
+      "mode": 420,
+      "size": 4297
+    },
+    {
+      "path": "Zsign/src/common/util.h",
+      "sha256": "d6db04871cf590fb4022092836fede20c39ba25054ffed6e4698870c805c3b5c",
+      "git_blob": "33e31eedfd10b3b453b69181d92cf83ee75f6d67",
+      "mode": 420,
+      "size": 973
+    },
+    {
+      "path": "Zsign/src/include/ZSign.h",
+      "sha256": "2a679ae2c55cfe694f8f7d2f42d94b030acccd69d800f7c8582ef3619cc3c98f",
+      "git_blob": "73f13b103fb1a5138e31aaf3c50c758cf5cb5bd0",
+      "mode": 420,
+      "size": 183
+    },
+    {
+      "path": "Zsign/src/macho.cpp",
+      "sha256": "67ce63e7c24f28e568d5d38cca7453e5bebf0da6882f44808ae377ff3d27bf3a",
+      "git_blob": "c7fa328f60e16d57f28eaa7f67775851ec5f0c08",
+      "mode": 420,
+      "size": 8472
+    },
+    {
+      "path": "Zsign/src/macho.h",
+      "sha256": "5f4e875ed3bc4f7fc3a851db5a63a704202800178063afdfdc850c60154d1ba3",
+      "git_blob": "f27183a363a57b1496d1a68787b9cdf47f8bcce5",
+      "mode": 420,
+      "size": 904
+    },
+    {
+      "path": "Zsign/src/metadata.cpp",
+      "sha256": "5c6c0cebfcb97434c6e69269874baa4a9a870651cfc6d66075869e5cf8a0ce75",
+      "git_blob": "a5e67797bcdd57bbe47e7d503360520e29a0be58",
+      "mode": 420,
+      "size": 3709
+    },
+    {
+      "path": "Zsign/src/metadata.h",
+      "sha256": "26e9e8592fef51e4dc445e39ab7139780cc523d97a675ff9a7238c617d263c64",
+      "git_blob": "6af2058f3fa26a26403fb81e9836523c65b6c7af",
+      "mode": 420,
+      "size": 134
+    },
+    {
+      "path": "Zsign/src/openssl.cpp",
+      "sha256": "bfa17a0c5e3f7397b3e3d9d0b4603065729bd7e4a68db52872d21b4895d2a9ef",
+      "git_blob": "8325149bc5eecc985a24ba3998c2791348912593",
+      "mode": 420,
+      "size": 22268
+    },
+    {
+      "path": "Zsign/src/openssl.h",
+      "sha256": "a67aaf561ab79b26cac5f5362cb581f536e6ed547ae532d1678ea0d10e26ed08",
+      "git_blob": "b78366827c1d8103a9f4491d95cd9d330333c495",
+      "mode": 420,
+      "size": 1845
+    },
+    {
+      "path": "Zsign/src/signing.cpp",
+      "sha256": "4376c4913d63630e6f3bcae8db57ff2e60a07c8b8a0b4c1b2153b8c10a87b190",
+      "git_blob": "3cf24b076a48c20bc421aa52c9c0eef4dcfef1c8",
+      "mode": 420,
+      "size": 27031
+    },
+    {
+      "path": "Zsign/src/signing.h",
+      "sha256": "bb0844ab81ded10519afa2f6899503f06d0964fdc3134f2aec0311e35ccdc707",
+      "git_blob": "b339e0ff3952eedd1ac7d65edb1a48b149b1ed69",
+      "mode": 420,
+      "size": 2531
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/crypt.h",
+      "sha256": "5c978923cff1e80f76baf437eed699d5b4ad1bf515008d669475d3dd0d89ef70",
+      "git_blob": "f4b93b78dc31cc28b6bd1ee3cc90f9af4b6ef2a2",
+      "mode": 420,
+      "size": 4801
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/ioapi.c",
+      "sha256": "6dff11ded396f5e3147c632a639423e80ced6705bf7bf75d21cda0c571fdf86b",
+      "git_blob": "782d32469ae5d5dc3515b9e589737c3b0c661dda",
+      "mode": 420,
+      "size": 7740
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/ioapi.h",
+      "sha256": "a9dfbfcf03d0c4ad685181b3c91dc642d79887118755457c6f265b79108cdae1",
+      "git_blob": "f3c26e64f214ed98a2750d5822e739050c196844",
+      "mode": 420,
+      "size": 7335
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/iowin32.c",
+      "sha256": "882383d1ee9df8c5f236411734b51e96f5e29c38496d4e531f2beb3d07f682ef",
+      "git_blob": "08536e94b8a28f3ceb52ef61cc2277313cb124e5",
+      "mode": 420,
+      "size": 13749
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/iowin32.h",
+      "sha256": "4feed64c3c5f5cff2d8a0431233766b61d4e06a9f232482cb41272ed1ca487df",
+      "git_blob": "a23a65d4331d93c37096f8c85e8a3a9643b81042",
+      "mode": 420,
+      "size": 831
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/mztools.c",
+      "sha256": "3d6027270a2b6ed5ca19a339d7488f682c69798e3977d2278d379b7f14f17b63",
+      "git_blob": "c8d23756155731a9005f7a16fd6dab6c1afbf9da",
+      "mode": 420,
+      "size": 8091
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/mztools.h",
+      "sha256": "6f82c52279e8f79165f4446be652e5741a49992ac58632470335aa34c564072a",
+      "git_blob": "a49a426ec2fcb279995806adbfd2ed48e781f616",
+      "mode": 420,
+      "size": 708
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/unzip.c",
+      "sha256": "10881ab576f49fe0825a21f77e322ece6ee88d34ed66fb3a3ce7a22f4b6cd2d9",
+      "git_blob": "ea05b7d62a07f6ada2cb5a7723f398d9f44a8822",
+      "mode": 420,
+      "size": 67640
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/unzip.h",
+      "sha256": "2ff9df0b1da7499adc806bc0ec098ef1c7b9d361a8fd5b08a98299a1a4e88399",
+      "git_blob": "5cfc9c6274e75e32ae79f5d51a18fbd874f62711",
+      "mode": 420,
+      "size": 16448
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/zip.c",
+      "sha256": "213f853d71266ebe8d8335740cfe94b0731009d8fb3f7e6ae01a627398732ec8",
+      "git_blob": "60bdffac34855a6b3a55f760f9769fb7e07f2993",
+      "mode": 420,
+      "size": 65418
+    },
+    {
+      "path": "Zsign/src/third-party/minizip/zip.h",
+      "sha256": "99ad45c0b546b5fd0ee3d0819ff057840a892a3d6dbacc85b757a35a43047398",
+      "git_blob": "3e230d3405f603fba197929a9bf0c6c6291d8a7a",
+      "mode": 420,
+      "size": 15517
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/adler32.c",
+      "sha256": "9cd1443a24ff2a3053961695bd432035c58347386a420d3388232376ebabe211",
+      "git_blob": "04b81d29bad1691878648d7ae1680726abd905e4",
+      "mode": 420,
+      "size": 4964
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/compress.c",
+      "sha256": "86f802c16a965e7a28737e3730b4e576c5ba40981753967e3e30916f4dc1b4b1",
+      "git_blob": "f43bacf7ab97073455a08bfed03408851682bf22",
+      "mode": 420,
+      "size": 2613
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/crc32.c",
+      "sha256": "8fd16f0a7714d51c89c2eb37eb98ec15e8a4dc57ba343e7b7398b19144039fda",
+      "git_blob": "6c38f5c04c6a87e711ecb50b668e17131fa8fae2",
+      "mode": 420,
+      "size": 31605
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/crc32.h",
+      "sha256": "9a2223575183ac2ee8a247f20bf3ac066e8bd0140369556bdbdffc777435749e",
+      "git_blob": "137df68d616c5ed38913579ba37b4e4c533fa903",
+      "mode": 420,
+      "size": 591749
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/deflate.c",
+      "sha256": "3b956337350f94c34987750f785587ef33d9c89ceaebb7c2afb189c956360cbe",
+      "git_blob": "012ea8148e8d21cf515a9ff47d4af719d049b276",
+      "mode": 420,
+      "size": 81731
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/deflate.h",
+      "sha256": "48baf016326d8d5e3e32ac8153cc7e22f854b8e6834830b167b998a7fb1e7989",
+      "git_blob": "300c6ada62b82e4984dd59a931c694db8636bd8f",
+      "mode": 420,
+      "size": 14041
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/gzclose.c",
+      "sha256": "35ea6e991a63095f797d8c4cc25817fac7a7155c2ba7dcdbbf648f7871c7ea40",
+      "git_blob": "48d6a86f04b6ea57f7158c19694023a9948438da",
+      "mode": 420,
+      "size": 668
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/gzguts.h",
+      "sha256": "012c4ff2c400d3d2ea5a3d3948ef35b5ea3fe56fc1ca27953dccc61da6e58adb",
+      "git_blob": "22bb1ce2ecab3097f6ad973d3e12a08263777aaa",
+      "mode": 420,
+      "size": 6704
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/gzlib.c",
+      "sha256": "042c2be8ec67ad525a2812e508de7381c6766dde903acf5ae6ac4fa6b541946d",
+      "git_blob": "983153cc8e4965072ec32bbfbc5512fce1d31f9d",
+      "mode": 420,
+      "size": 16270
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/gzread.c",
+      "sha256": "72e481aca07b0b85a9783237b85dc67ff3a4c1d19878d0cec69f58d38634867b",
+      "git_blob": "4168cbc88752e139155e4b039511a2fb643c61fd",
+      "mode": 420,
+      "size": 19918
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/gzwrite.c",
+      "sha256": "469b1e58932ea11bdda2a153f6655f7b3c13254240fae157181b49ed1bc93b47",
+      "git_blob": "435b4621b5349f2a98b92cff5fe7d9f6cd7ced59",
+      "mode": 420,
+      "size": 19237
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/infback.c",
+      "sha256": "62df9a6dd3eef126f1d81d0ad7a534504610dec44482b0a472b61c93cbab6554",
+      "git_blob": "e7b25b307a3072e0259b02de2dc5e8ac94a68fac",
+      "mode": 420,
+      "size": 22669
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inffast.c",
+      "sha256": "e6ef64ce5dc0a4cd5c7ad08ceeb2b2a698b8447f6bd156057caeb2edab68c0cb",
+      "git_blob": "9354676e786ee7a6a31668adf9d25c712d57e657",
+      "mode": 420,
+      "size": 12924
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inffast.h",
+      "sha256": "05cc5dc9ff1da7b8b52a4bd8bda0d8a5c236a2f39efe84b941516ea13857e6c5",
+      "git_blob": "49c6d156c5c652dbd9e2e6aff90e20eb279a2b37",
+      "mode": 420,
+      "size": 422
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inffixed.h",
+      "sha256": "237ba710f090e432b62ebf963bee8b302867e9691406b2d3f8ee89ee7bfef9b0",
+      "git_blob": "d6283277694802ce7938f537f12990d6eead4924",
+      "mode": 420,
+      "size": 6332
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inflate.c",
+      "sha256": "34c998ce0037c0537c04b03b276f680b945f9b2c9d1e01b287605bd6879f7fd2",
+      "git_blob": "94ecff015a9be7d28d19ba7b2547e2563a1680c5",
+      "mode": 420,
+      "size": 55519
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inflate.h",
+      "sha256": "e8d4a51b07694bf48cb91979c19974cf6a5ab0b8a09d26ec0d14df349230673e",
+      "git_blob": "f127b6b1fa5f7d0266e3b502701948dfd3c6abc8",
+      "mode": 420,
+      "size": 6683
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inftrees.c",
+      "sha256": "5d4f335221d2dc76f17abd2577d92c2d7baf68fa6d7f23373b360830493d1563",
+      "git_blob": "98cfe164458c40c1d6dd3867039fda7105edafed",
+      "mode": 420,
+      "size": 13024
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/inftrees.h",
+      "sha256": "0a0fcaf2ae2fae57426bdc06637270e9bba974f35202cadbdba479d946e6409d",
+      "git_blob": "396f74b5da798ab1daf8039d748c5334735fed58",
+      "mode": 420,
+      "size": 2920
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/trees.c",
+      "sha256": "f63c68c16c05fcd196050529d1a0e7657960e4136b9987d90a6ac3e58a964b0f",
+      "git_blob": "6a523ef34e3cf29f5dd01b787660ab48bd6f697d",
+      "mode": 420,
+      "size": 40937
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/trees.h",
+      "sha256": "bb0a9d3ca88ee00c81adb7c636e73b97085f6ef1b52d6d58edbe2b6dc3adeb4d",
+      "git_blob": "d35639d82a27807e49ea35c334f8bbcf64720f82",
+      "mode": 420,
+      "size": 8472
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/uncompr.c",
+      "sha256": "04dca5e31b3b8a17d1806426f66f0c539f4184d657e149d40be07070c6227b52",
+      "git_blob": "5e256663b4511cdbfa52487f8f54e3c8de013119",
+      "mode": 420,
+      "size": 2911
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/zconf.h",
+      "sha256": "f5134250a67d57459234b63858f0d9d3ef8dcc48e9e1028d3f4fdcf6eae677ae",
+      "git_blob": "62adc8d8431f2f9149ae0b1583915e21a28dd8b5",
+      "mode": 420,
+      "size": 16500
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/zlib.h",
+      "sha256": "8a5579af72ea4f427ff00a4150f0ccb3fc5c1e4379f726e101133b1ab9fc600c",
+      "git_blob": "8d4b932eaf6a0fbb8133b3ab49ba5ef587059fa0",
+      "mode": 420,
+      "size": 96829
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/zutil.c",
+      "sha256": "8ced40d8c88588811edd2bdb35b7439983d5e1f8e9e32b8a3b244731f3c317b7",
+      "git_blob": "b1c5d2d3c6daf5a4b7a337dafe3e862ca177b41c",
+      "mode": 420,
+      "size": 7179
+    },
+    {
+      "path": "Zsign/src/third-party/zlib/zutil.h",
+      "sha256": "dddb2dc7a1dc339ecf2c8e089b366f08bb731c0839c7110240d17ce731bb4fea",
+      "git_blob": "48dd7febae65eeeaad7794f0a9317bcd054c107f",
+      "mode": 420,
+      "size": 6677
+    },
+    {
+      "path": "Zsign/src/zsign.cpp",
+      "sha256": "c7e6f8921a4f744e77436e9e449d7de6067f5381fb7e3498579d6b4f1bd85f30",
+      "git_blob": "a752f44df41805c56596f0b59158ad841e69bcae",
+      "mode": 420,
+      "size": 13394
+    },
+    {
+      "path": "Zsign/swift/utils.hpp",
+      "sha256": "4cb9fa095b50f28d18e55dbc7ad342d52ed82626eab357cda296b013f72e3b72",
+      "git_blob": "0e77cc7755504d20a7bf527d03501e748c6e0232",
+      "mode": 420,
+      "size": 331
+    },
+    {
+      "path": "Zsign/swift/utils.mm",
+      "sha256": "50b1ff03a9af3bf9c59ace58a233755539cce042a0bec2f8153fb41d195b1fdd",
+      "git_blob": "b9da95af3ffd8a186bb1b1505b7fe237e761f92e",
+      "mode": 420,
+      "size": 2212
+    },
+    {
+      "path": "Zsign/swift/zsign.hpp",
+      "sha256": "b0a9614ae73f423402177895be274d70b9d9f89c99dc1ec942302632b1a35dcf",
+      "git_blob": "3b617ea0d38882fa2908c571ee6da33156c5fda5",
+      "mode": 420,
+      "size": 1006
+    },
+    {
+      "path": "Zsign/swift/zsign.mm",
+      "sha256": "941034c1a3f61ce2fc7e9c08a43c40a9f1e1234c357fc50a14031adc71b9610d",
+      "git_blob": "513ef2ad9f990a63b2e9a51e6a78b3c207c3dcef",
+      "mode": 420,
+      "size": 12138
+    },
+    {
+      "path": "Zsign/swift/zsign.swift",
+      "sha256": "5a9ec6e1bb217e471a997b5c128081863c1b8fddb7e621e25c93257e1f21fc74",
+      "git_blob": "32cd981a179489cc5c9ac5b8b51b07afe11846df",
+      "mode": 420,
+      "size": 3869
+    },
+    {
+      "path": "Zsign/test/dylib/bin/demo1.dylib",
+      "sha256": "ae2230689de484aaffe32bf5662ffbf9e522aa7508648d10e26ec3e768a30035",
+      "git_blob": "7df89cd222b94db04a0910b9eca3f1246022d10c",
+      "mode": 420,
+      "size": 51296
+    },
+    {
+      "path": "Zsign/test/dylib/bin/demo2.dylib",
+      "sha256": "eff7502a9bdf0c9e9f6ea23d5676b9b70a1281e6f34eda50a58711b34491f087",
+      "git_blob": "7f5c25ac3babea2b8944373c8227e3d60a4dfe2b",
+      "mode": 420,
+      "size": 51296
+    },
+    {
+      "path": "Zsign/test/dylib/demo/Makefile",
+      "sha256": "3e42d7b7b481b9a79bcee4697b4eb0b4f2f1ea35acd8c137ffd1e151a6e9ef58",
+      "git_blob": "3b6967f2855f745d7036f2db4741013fd294e4d7",
+      "mode": 420,
+      "size": 227
+    },
+    {
+      "path": "Zsign/test/dylib/demo/control",
+      "sha256": "28929597e7a6b9a300438b7bdc60359067f371214b912d4140facde2acc65db9",
+      "git_blob": "98e29217ba273a09c4db245504452bc6941e7bb1",
+      "mode": 420,
+      "size": 199
+    },
+    {
+      "path": "Zsign/test/dylib/demo/demo.m",
+      "sha256": "b6c8fb2205632d0dcadee70e5fd9137b1eec27d05f1dbefe5ad25b49c35536d3",
+      "git_blob": "459d1edbae0d99c9fdf2bc340d9db6621a40174a",
+      "mode": 420,
+      "size": 1103
+    },
+    {
+      "path": "Zsign/test/linux/test.sh",
+      "sha256": "e1dcf8de587e95ef6a4cc72f06500ba5d5c42389e9510c16a6471e35aa3a555f",
+      "git_blob": "d7f4d61d324f98ef7c23d9ace020141c7671d642",
+      "mode": 493,
+      "size": 434
+    },
+    {
+      "path": "Zsign/test/macos/test.sh",
+      "sha256": "e1dcf8de587e95ef6a4cc72f06500ba5d5c42389e9510c16a6471e35aa3a555f",
+      "git_blob": "d7f4d61d324f98ef7c23d9ace020141c7671d642",
+      "mode": 493,
+      "size": 434
+    },
+    {
+      "path": "Zsign/test/windows/test.ps1",
+      "sha256": "ad95373c36d12702b82e9ebc703796e53d7e49d52a16bb16b34dca7d9ccfa2db",
+      "git_blob": "acb544e2486146f42c848c3bf4fd4a2235e97a35",
+      "mode": 420,
+      "size": 543
+    },
+    {
+      "path": "app-repo.json",
+      "sha256": "b240bbc68670489f8270e8f2e4f56092c63c51ad5f9d4dfd4ef10f89a8a27a7a",
+      "git_blob": "646518b326df9ce59bdfaa3d3d88efcbec72c591",
+      "mode": 420,
+      "size": 2844
+    },
+    {
+      "path": "public/sources/ipaomtk.json",
+      "sha256": "b89550f382cfab1e1d6ed15276aaf05bb4385110afa4e9c96f076626a028b83d",
+      "git_blob": "6c73e52c69e1999dc8e0f2a7af5c02541fa7816c",
+      "mode": 420,
+      "size": 7589495
+    },
+    {
+      "path": "public/sources/ipasoon.json",
+      "sha256": "111f7e42db9e0ac8466e64bdb9859c7669ac051ddde0f66e86880b0a66bc0f6b",
+      "git_blob": "49a06ccf05bb74e37eb0309a53058cdc29fa365a",
+      "mode": 420,
+      "size": 38463
+    },
+    {
+      "path": "public/sources/status.json",
+      "sha256": "138fefa1a2faad068d0bfc16bd583998269fc7b46ea931c50534bf6ae483caa4",
+      "git_blob": "278913b2004f61e324319ffd2b6c8397a3ff7ba0",
+      "mode": 420,
+      "size": 325
+    }
+  ]
+}

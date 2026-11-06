@@ -29,24 +29,30 @@ public class InstallationProxy: Identifiable, ObservableObject {
 		var afcClient: AfcClientHandle?
 		var fileHandle: AfcFileHandle?
 		var installproxy: InstallationProxyClientHandle?
+        var remotePackage: String?
+
 		
 		let worker = Task.detached(priority: .utility) {
 			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
 				throw IDeviceSwiftError(message: "Missing Pairing")
 			}
 			
-			if await self._heartbeat.isRsd {
-				guard await self._heartbeat.ensureRSDTunnel() else {
+			let isRsd = await self._heartbeat.isRsd
+			if isRsd {
+				let tunnelReady = await self._heartbeat.ensureRSDTunnel()
+				guard tunnelReady else {
 					throw IDeviceSwiftError(message: "Missing Pairing")
 				}
 			} else {
-				guard await self._heartbeat.checkSocketConnection().isConnected else {
+				let connection = await self._heartbeat.checkSocketConnection()
+				guard connection.isConnected else {
 					throw IDeviceSwiftError(message: "Missing Pairing")
 				}
 			}
 			
 			defer {
                 if let openFile = fileHandle { _ = afc_file_close(openFile) }
+                if let remotePackage, let client = afcClient { try? self._removeOwnedPackage(remotePackage, client: client) }
 				afc_client_free(afcClient)
 				installation_proxy_client_free(installproxy)
 			}
@@ -75,15 +81,23 @@ public class InstallationProxy: Identifiable, ObservableObject {
 				}
 			}
 			
+            // Recover only our own crash/self-update leftovers; never enumerate or expose other apps' files.
+            for path in IDeviceOwnedStaging.paths {
+                if let client = afcClient { try? self._removeOwnedPackage(path, client: client) }
+            }
 			let stagingDir = "PublicStaging"
 			
 			let afc_make_directory_result =  afc_make_directory(afcClient, stagingDir)
-			guard afc_make_directory_result == nil else {
-				throw IDeviceSwiftError(afc_make_directory_result)
-			}
+            if let error = afc_make_directory_result {
+                defer { idevice_error_free(error) }
+                // Pinned idevice 0.1.57: AFC ObjectExists = code 106, sub-code 16.
+                guard error.pointee.code == 106 && error.pointee.sub_code == 16 else { throw IDeviceSwiftError(error) }
+            }
 
 			
 			let remoteDir = "/\(stagingDir)/\(self._uuid).ipa"
+            remotePackage = remoteDir
+            IDeviceOwnedStaging.add(remoteDir)
 			
 			let afc_file_open_result = afc_file_open(afcClient, remoteDir, AfcWrOnly, &fileHandle)
 			guard afc_file_open_result == nil else {
@@ -171,8 +185,11 @@ public class InstallationProxy: Identifiable, ObservableObject {
 				throw IDeviceSwiftError(installError)
 			}
 			
+            // Do not report completion while a retrievable IPA remains in AFC staging.
+            if let client = afcClient { try self._removeOwnedPackage(remoteDir, client: client) }
+            remotePackage = nil
 			try await Task.sleep(nanoseconds: 350_000_000)
-			try await self._updateStatus(with: .completed(.success(())))
+			try await self._updateStatus(with: .completed(.success(Void())))
         }
         try await withTaskCancellationHandler(operation: {
             try await worker.value
@@ -181,6 +198,15 @@ public class InstallationProxy: Identifiable, ObservableObject {
         })
 	}
 	
+    private func _removeOwnedPackage(_ path: String, client: AfcClientHandle) throws {
+        if let error = afc_remove_path(client, path) {
+            defer { idevice_error_free(error) }
+            // The device may already remove the package after successful installation.
+            guard error.pointee.code == 106 && error.pointee.sub_code == 8 else { throw IDeviceSwiftError(error) }
+        }
+        IDeviceOwnedStaging.remove(path)
+    }
+
 	private func _updateStatus(with status: InstallerStatusViewModel.InstallerStatus) async throws {
 		await MainActor.run {
 			self.viewModel.status = status

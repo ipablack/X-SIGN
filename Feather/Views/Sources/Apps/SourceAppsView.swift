@@ -16,7 +16,7 @@ extension SourceAppsView {
 		case `default` = "default"
 		case name
 		case date
-		
+
 		var displayName: String {
 			switch self {
 			case .default:  .localized("Default")
@@ -31,10 +31,10 @@ extension SourceAppsView {
 struct SourceAppsView: View {
 	@AppStorage("Feather.sortOptionRawValue") private var _sortOptionRawValue: String = SortOption.default.rawValue
 	@AppStorage("Feather.sortAscending") private var _sortAscending: Bool = true
-	
+
 	@State private var _sortOption: SortOption = .default
 	@State private var _selectedRoute: SourceAppRoute?
-	
+
 	@State var isLoading = true
 	@State var hasLoadedOnce = false
 	@State private var _searchText = ""
@@ -46,11 +46,11 @@ struct SourceAppsView: View {
 			.localized("%lld Sources", arguments: object.count)
 		}
 	}
-	
+
 	var object: [AltSource]
 	@ObservedObject var viewModel: SourcesViewModel
 	@State private var _sourceContexts: [SourceRepositoryContext]?
-	
+
 	// MARK: Body
 	var body: some View {
 		ZStack {
@@ -72,48 +72,34 @@ struct SourceAppsView: View {
 		}
 		.navigationTitle(_navigationTitle)
 		.searchable(text: $_searchText, placement: .platform())
-		.toolbarTitleMenu {
+		.xsignToolbarTitleMenu {
 			if
 				let _sourceContexts,
 				_sourceContexts.count == 1
 			{
 				if let url = _sourceContexts[0].repository.website {
-					Button(.localized("Visit Website"), systemImage: "globe") {
+					Button {
 						UIApplication.open(url)
+					} label: {
+						Label(.localized("Visit Website"), systemImage: "globe")
 					}
 				}
-				
+
 				if let url = _sourceContexts[0].repository.patreonURL {
-					Button(.localized("Visit Patreon"), systemImage: "dollarsign.circle") {
+					Button {
 						UIApplication.open(url)
+					} label: {
+						Label(.localized("Visit Patreon"), systemImage: "dollarsign.circle")
 					}
 				}
 			}
-			
-			Divider()
-			
-			Button(.localized("Copy"), systemImage: "doc.on.doc") {
-				guard !object.isEmpty else {
-					UIAlertController.showAlertWithOk(
-						title: .localized("Error"),
-						message: .localized("No sources to copy")
-					)
-					return
-				}
-				UIPasteboard.general.string = object.map {
-					$0.sourceURL!.absoluteString
-				}.joined(separator: "\n")
-				UIAlertController.showAlertWithOk(
-					title: .localized("Success"),
-					message: .localized("Sources copied to clipboard")
-				)
-			}
+
 		}
 		.toolbar {
 			NBToolbarMenu(
 				systemImage: "line.3.horizontal.decrease",
 				style: .icon,
-				placement: .topBarTrailing
+				placement: .navigationBarTrailing
 			) {
 				_sortActions()
 			}
@@ -139,10 +125,10 @@ struct SourceAppsView: View {
 			)
 		}
 	}
-	
+
 	private func _load() {
 		isLoading = true
-		
+
 		Task {
 			let loadedSources = object.compactMap { source -> SourceRepositoryContext? in
 				guard let repository = viewModel.sources[source] else { return nil }
@@ -154,11 +140,11 @@ struct SourceAppsView: View {
 			}
 		}
 	}
-	
+
 	struct SourceRepositoryContext: Equatable {
 		let sourceURL: URL?
 		let repository: ASRepository
-		
+
 		static func == (lhs: SourceRepositoryContext, rhs: SourceRepositoryContext) -> Bool {
 			lhs.sourceURL == rhs.sourceURL &&
 			lhs.repository.id == rhs.repository.id &&
@@ -167,7 +153,7 @@ struct SourceAppsView: View {
 			rhs.repository.apps.map { "\($0.currentUniqueId)|\($0.currentVersion ?? "")" }
 		}
 	}
-	
+
 	struct SourceAppRoute: Identifiable, Hashable {
 		let sourceURL: URL?
 		let source: ASRepository
@@ -186,7 +172,7 @@ extension SourceAppsView {
 			}
 		}
 	}
-	
+
 	private func _sortButton(for option: SortOption) -> some View {
 		Button {
 			if _sortOption == option {
@@ -217,8 +203,13 @@ extension View {
 	) -> some View {
 		if #available(iOS 17, *) {
 			self.navigationDestination(item: item, destination: destination)
-		} else {
-			self
-		}
-	}
+        } else {
+            self.background(
+                NavigationLink(isActive: Binding(get: { item.wrappedValue != nil },
+                    set: { if !$0 { item.wrappedValue=nil } })) {
+                    if let value=item.wrappedValue { destination(value) }
+                } label: { EmptyView() }.hidden()
+            )
+        }
+    }
 }

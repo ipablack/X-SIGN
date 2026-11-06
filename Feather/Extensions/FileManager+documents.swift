@@ -10,12 +10,12 @@ import Foundation.NSFileManager
 extension FileManager {
 	/// Gives apps Signed directory
 	var archives: URL {
-		URL.documentsDirectory.appendingPathComponent("Archives")
+		XSignPrivateFiles.directory("Archives")
 	}
 	
 	/// Gives apps Signed directory
 	var signed: URL {
-		URL.documentsDirectory.appendingPathComponent("Signed")
+		XSignPrivateFiles.directory("Signed")
 	}
 	
 	/// Gives apps Signed directory with a UUID appending path
@@ -25,7 +25,7 @@ extension FileManager {
 	
 	/// Gives apps Unsigned directory
 	var unsigned: URL {
-		URL.documentsDirectory.appendingPathComponent("Unsigned")
+		XSignPrivateFiles.directory("Unsigned")
 	}
 	
 	/// Gives apps Unsigned directory with a UUID appending path
@@ -35,7 +35,7 @@ extension FileManager {
 	
 	/// Gives apps Certificates directory
 	var certificates: URL {
-		URL.documentsDirectory.appendingPathComponent("Certificates")
+		XSignPrivateFiles.directory("Certificates")
 	}
 	/// Gives apps Certificates directory with a UUID appending path
 	func certificates(_ uuid: String) -> URL {

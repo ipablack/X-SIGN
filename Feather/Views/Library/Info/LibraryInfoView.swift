@@ -12,7 +12,7 @@ import Zsign
 // MARK: - View
 struct LibraryInfoView: View {
 	var app: AppInfoPresentable
-	
+
 	// MARK: Body
 	var body: some View {
 		NBNavigationView(app.name ?? "", displayMode: .inline) {
@@ -21,17 +21,12 @@ struct LibraryInfoView: View {
 					FRAppIconView(app: app)
 						.frame(maxWidth: .infinity, alignment: .center)
 				}
-				
+
 				_infoSection(for: app)
 				_certSection(for: app)
 				_bundleSection(for: app)
 				_executableSection(for: app)
-				
-				Section {
-					Button(.localized("Open in Files"), systemImage: "folder") {
-						UIApplication.open(Storage.shared.getUuidDirectory(for: app)!.toSharedDocumentsURL()!)
-					}
-				}
+
 			}
 			.toolbar {
 				NBToolbarButton(role: .close)
@@ -48,20 +43,20 @@ extension LibraryInfoView {
 			if let name = app.name {
 				_infoCell(.localized("Name"), desc: name)
 			}
-			
+
 			if let ver = app.version {
 				_infoCell(.localized("Version"), desc: ver)
 			}
-			
+
 			if let id = app.identifier {
 				_infoCell(.localized("Identifier"), desc: id)
 			}
-			
+
 			if let date = app.date {
 				_infoCell(.localized("Date Added"), desc: date.formatted())
 			}
-			
-			if 
+
+			if
 				app.name != nil,
 				let appDirectory = Storage.shared.getAppDirectory(for: app),
 				let appMinimumOS = Bundle(url: appDirectory)?.minimumOSVersion
@@ -70,7 +65,7 @@ extension LibraryInfoView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _certSection(for app: AppInfoPresentable) -> some View {
 		if let cert = Storage.shared.getCertificate(from: app) {
@@ -81,7 +76,7 @@ extension LibraryInfoView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _bundleSection(for app: AppInfoPresentable) -> some View {
 		NBSection(.localized("Bundle")) {
@@ -93,7 +88,7 @@ extension LibraryInfoView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _executableSection(for app: AppInfoPresentable) -> some View {
 		NBSection(.localized("Executable")) {
@@ -101,14 +96,14 @@ extension LibraryInfoView {
 				SigningDylibView(app: app, options: .constant(nil))
 			}
 			NavigationLink(.localized("Entitlements")) {
-				if 
+				if
 					let path = Bundle(url: Storage.shared.getAppDirectory(for: app)!)?.executableURL?.path,
 					let data = LCGetMachOEntitlements(path),
 					let rawDict = (try? PropertyListSerialization.propertyList(
 						from: data,
 						options: [],
 						format: nil
-					)) as? [String: Any] 
+					)) as? [String: Any]
 				{
 					let binaryEntitlementsDict = rawDict.mapValues { AnyCodable($0) }
 					CertificatesInfoEntitlementView(entitlements: binaryEntitlementsDict)
@@ -120,10 +115,10 @@ extension LibraryInfoView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _infoCell(_ title: String, desc: String) -> some View {
-		LabeledContent(title) {
+		XSignLabeledContent(title) {
 			Text(desc)
 		}
 		.copyableText(desc)

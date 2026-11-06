@@ -11,7 +11,7 @@ import NimbleViews
 // MARK: - View
 struct CertificatesView: View {
 	@AppStorage("feather.selectedCert") private var _storedSelectedCert: Int = 0
-	
+
 	@State private var _isAddingPresenting = false
 	@State private var _isRenamingPresenting = false
 	@State private var _isSelectedInfoPresenting: CertificatePair?
@@ -22,19 +22,19 @@ struct CertificatesView: View {
 	@FetchRequest(
 		entity: CertificatePair.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)],
-		animation: .snappy
+		animation: .easeInOut(duration: 0.2)
 	) private var _certificates: FetchedResults<CertificatePair>
-	
+
 	//
 	private var _bindingSelectedCert: Binding<Int>?
 	private var _selectedCertBinding: Binding<Int> {
 		_bindingSelectedCert ?? $_storedSelectedCert
 	}
-	
+
 	init(selectedCert: Binding<Int>? = nil) {
 		self._bindingSelectedCert = selectedCert
 	}
-	
+
 	// MARK: Body
 	var body: some View {
 		NBGrid {
@@ -57,17 +57,24 @@ struct CertificatesView: View {
 							NBButton(.localized("Import"), style: .text)
 						}
 					}
+				} else {
+					VStack(spacing: 12) {
+						Label(.localized("No Certificates"), systemImage: "questionmark.folder.fill")
+						Text(.localized("Get started signing by importing your first certificate."))
+							.font(.footnote)
+						Button(.localized("Import")) { _isAddingPresenting = true }
+					}
+					.padding()
 				}
 			}
 		}
 		.toolbar {
-			if _bindingSelectedCert == nil {
-				NBToolbarButton(
-					systemImage: "plus",
-					style: .icon,
-					placement: .topBarTrailing
-				) {
-					_isAddingPresenting = true
+			ToolbarItem(placement: .navigationBarTrailing) {
+				if _bindingSelectedCert == nil {
+					Button { _isAddingPresenting = true } label: {
+						Label(.localized("Import"), systemImage: "plus")
+							.labelStyle(.iconOnly)
+					}
 				}
 			}
 		}
@@ -76,7 +83,7 @@ struct CertificatesView: View {
 		}
 		.sheet(isPresented: $_isAddingPresenting) {
 			CertificatesAddView()
-				.presentationDetents([.medium])
+				.xsignCompactSheet(height: 400)
 		}
 		.alert(.localized("Change Nickname"), isPresented: $_isRenamingPresenting, presenting: _certToRename) { cert in
 			TextField(.localized("Nickname"), text: $_newNickname)
@@ -100,7 +107,7 @@ extension CertificatesView {
 				10.5
 			}
 		}()
-		
+
 		Button {
 			_selectedCertBinding.wrappedValue = index
 		} label: {
@@ -132,27 +139,35 @@ extension CertificatesView {
 		}
 		.buttonStyle(.plain)
 	}
-	
+
 	@ViewBuilder
 	private func _actions(for cert: CertificatePair) -> some View {
-		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
+		Button(role: .destructive) {
 			Storage.shared.deleteCertificate(for: cert)
+		} label: {
+			Label(.localized("Delete"), systemImage: "trash")
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _contextActions(for cert: CertificatePair) -> some View {
-		Button(.localized("Get Info"), systemImage: "info.circle") {
+		Button {
 			_isSelectedInfoPresenting = cert
+		} label: {
+			Label(.localized("Get Info"), systemImage: "info.circle")
 		}
-		Button(.localized("Change Nickname"), systemImage: "pencil") {
+		Button {
 			_newNickname = cert.nickname ?? ""
 			_certToRename = cert
 			_isRenamingPresenting = true
+		} label: {
+			Label(.localized("Change Nickname"), systemImage: "pencil")
 		}
 		Divider()
-		Button(.localized("Check Revokage"), systemImage: "person.text.rectangle") {
+		Button {
 			Storage.shared.revokagedCertificate(for: cert)
+		} label: {
+			Label(.localized("Check Revokage"), systemImage: "person.text.rectangle")
 		}
 	}
 }

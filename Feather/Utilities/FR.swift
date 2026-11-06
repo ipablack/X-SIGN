@@ -100,11 +100,28 @@ enum FR {
         icon: UIImage?,
         certificate: CertificatePair?,
         preserveBundleForBatch: Bool = false,
+        selfUpdatePermit: XSignVerifiedSelfUpdate? = nil,
+        completion: @escaping @MainActor (Result<String, Error>) -> Void
+    ) {
+        // Same signing engine path as Feather: native Zsign handler under the
+        // existing serial package gate. Installation is a separate server step.
+        signPackageFileLocally(app,using:options,icon:icon,certificate:certificate,
+            preserveBundleForBatch:preserveBundleForBatch,selfUpdatePermit:selfUpdatePermit,completion:completion)
+    }
+
+    private static func signPackageFileLocally(
+        _ app: AppInfoPresentable,
+        using options: Options,
+        icon: UIImage?,
+        certificate: CertificatePair?,
+        preserveBundleForBatch: Bool = false,
+        selfUpdatePermit: XSignVerifiedSelfUpdate? = nil,
         completion: @escaping @MainActor (Result<String, Error>) -> Void
     ) {
         Task.detached {
             await FRPackageWorkGate.shared.acquire()
-            if let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
+            let permittedSelfUpdate = await MainActor.run { selfUpdatePermit?.permits(app) ?? false }
+            if !permittedSelfUpdate, let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
                 await FRPackageWorkGate.shared.release()
                 await MainActor.run { completion(.failure(NSError(domain: "XSign.Policy", code: 403,
                     userInfo: [NSLocalizedDescriptionKey: reason]))) }
@@ -186,7 +203,7 @@ enum FR {
 				nickname: certificateName.isEmpty ? nil : certificateName,
 				isDefault: isDefault
 			)
-			
+
 			do {
 				try await handler.copy()
 				try await handler.addToDatabase()
@@ -201,7 +218,7 @@ enum FR {
 			}
 		}
 	}
-	
+
 	static func checkPasswordForCertificate(
 		for key: URL,
 		with password: String,
@@ -210,35 +227,29 @@ enum FR {
 		defer {
 			password_check_fix_free(provision.path)
 		}
-		
+
 		password_check_fix(provision.path)
-		
+
 		if (!p12_password_check(key.path, password)) {
 			return false
 		}
-		
+
 		return true
 	}
-	
-	static func movePairing(_ url: URL) {
-		let fileManager = FileManager.default
-		let dest = URL.documentsDirectory.appendingPathComponent("pairingFile.plist")
-		
-		try? fileManager.removeFileIfNeeded(at: dest)
-		
-		try? fileManager.copyItem(at: url, to: dest)
-		
-		HeartbeatManager.shared.start(true)
-	}
-	
+
     static func handleSource(_ urlString: String, onFailure: ((Error) -> Void)? = nil, competion: @escaping () -> Void) {
-        guard let input = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)),
-              ["https", "http"].contains(input.scheme?.lowercased() ?? ""), input.host != nil else {
+        guard let input = XSignManagedSource.httpsURL(urlString) else {
             onFailure?(XSignCatalogError.invalidURL)
             return
         }
         let url = XSignCatalogIO.canonicalURL(input)
         Task { @MainActor in
+            guard XSignRemoteManager.shared.config?.dashboard?.allow_user_sources != false else {
+                let error=NSError(domain:"XSign.Sources",code:403,userInfo:[NSLocalizedDescriptionKey:"إضافة مصادر شخصية متوقفة من إدارة المتجر."])
+                onFailure?(error)
+                UIAlertController.showAlertWithOk(title:"المصادر",message:error.localizedDescription)
+                return
+            }
             do {
                 let record = try await XSignCatalogIO.shared.fetch(url)
                 let identifier = record.repository.id ?? url.absoluteString
@@ -248,6 +259,7 @@ enum FR {
                         UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription)
                         return
                     }
+                    XSignDashboardSources.registerUser(url)
                     let sources = Storage.shared.getSources()
                     if let source = sources.first(where: { source in
                         source.sourceURL.map { XSignCatalogIO.canonicalURL($0) == url } == true || source.identifier == identifier
@@ -270,64 +282,4 @@ enum FR {
         }
     }
 
-	static func exportCertificateAndOpenUrl(using template: String) {
-		// Helper that performs the export for a given certificate
-		func performExport(for certificate: CertificatePair) {
-			guard
-				let certificateKeyFile = Storage.shared.getFile(.certificate, from: certificate),
-				let certificateKeyFileData = try? Data(contentsOf: certificateKeyFile)
-			else {
-				return
-			}
-			
-			let base64encodedCert = certificateKeyFileData.base64EncodedString()
-			
-			var allowedQueryParamAndKey = NSCharacterSet.urlQueryAllowed
-			allowedQueryParamAndKey.remove(charactersIn: ";/?:@&=+$, ")
-			
-			guard let encodedCert = base64encodedCert.addingPercentEncoding(withAllowedCharacters: allowedQueryParamAndKey) else {
-				return
-			}
-			
-			let urlStr = template
-				.replacingOccurrences(of: "$(BASE64_CERT)", with: encodedCert)
-				.replacingOccurrences(of: "$(PASSWORD)", with: certificate.password ?? "")
-			
-			guard let callbackUrl = URL(string: urlStr) else {
-				return
-			}
-			
-			UIApplication.shared.open(callbackUrl)
-		}
-		
-		let certificates = Storage.shared.getAllCertificates()
-		guard !certificates.isEmpty else { return }
-		
-		DispatchQueue.main.async {
-			var selectionActions: [UIAlertAction] = []
-			
-			for cert in certificates {
-				var title: String
-				let decoded = Storage.shared.getProvisionFileDecoded(for: cert)
-				
-				title = cert.nickname ?? decoded?.Name ?? .localized("Unknown")
-				
-				if let getTaskAllow = decoded?.Entitlements?["get-task-allow"]?.value as? Bool, getTaskAllow == true {
-					title = "🐞 \(title)"
-				}
-				
-				let selectAction = UIAlertAction(title: title, style: .default) { _ in
-					performExport(for: cert)
-				}
-				selectionActions.append(selectAction)
-			}
-			
-			UIAlertController.showAlertWithCancel(
-				title: .localized("Export Certificate"),
-				message: .localized("Do you want to export your certificate to an external app? That app will be able to sign apps using your certificate."),
-				style: .alert,
-				actions: selectionActions
-			)
-		}
-	}
 }

@@ -107,12 +107,16 @@ struct LibraryCellView: View {
 			isPresented: $_isSignedUpdateConfirmationPresented,
 			titleVisibility: .visible
 		) {
-			Button(.localized("Install Current Version"), systemImage: "square.and.arrow.down") {
+			Button {
 				selectedInstallAppPresenting = AnyApp(base: app)
+			} label: {
+				Label(.localized("Install Current Version"), systemImage: "square.and.arrow.down")
 			}
 			if let update = _signedUpdateConfirmation {
-				Button(.localized("Download Update"), systemImage: "arrow.down.circle") {
+				Button {
 					_startUpdateDownload(update)
+				} label: {
+					Label(.localized("Download Update"), systemImage: "arrow.down.circle")
 				}
 			}
 			Button(.localized("Cancel"), role: .cancel) {}
@@ -156,52 +160,65 @@ extension LibraryCellView {
 	
 	@ViewBuilder
 	private func _actions(for app: AppInfoPresentable) -> some View {
-		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
+		Button(role: .destructive) {
 			Storage.shared.deleteApp(for: app)
+		} label: {
+			Label(.localized("Delete"), systemImage: "trash")
 		}
 	}
 	
 	@ViewBuilder
 	private func _contextActions(for app: AppInfoPresentable) -> some View {
-		Button(.localized("Get Info"), systemImage: "info.circle") {
+		Button {
 			selectedInfoAppPresenting = AnyApp(base: app)
+		} label: {
+			Label(.localized("Get Info"), systemImage: "info.circle")
 		}
 	}
 	
 	@ViewBuilder
 	private func _contextActionsExtra(for app: AppInfoPresentable) -> some View {
 		if let update = updateManager.update(for: app) {
-			Button(.localized("Update"), systemImage: "arrow.down.circle") {
+			Button {
 				if app.isSigned {
 					_signedUpdateConfirmation = update
 					_isSignedUpdateConfirmationPresented = true
 				} else {
 					_startUpdateDownload(update)
 				}
+			} label: {
+				Label(.localized("Update"), systemImage: "arrow.down.circle")
 			}
 		}
 		
 		if app.isSigned {
 			if let id = app.identifier {
-				Button(.localized("Open"), systemImage: "app.badge.checkmark") {
+				Button {
 					UIApplication.openApp(with: id)
+				} label: {
+					Label(.localized("Open"), systemImage: "app.badge.checkmark")
 				}
 			}
-			Button(.localized("Install"), systemImage: "square.and.arrow.down") {
+			Button {
 				selectedInstallAppPresenting = AnyApp(base: app)
+			} label: {
+				Label(.localized("Install"), systemImage: "square.and.arrow.down")
 			}
-			Button(.localized("Re-sign"), systemImage: "signature") {
+			Button {
 				selectedSigningAppPresenting = AnyApp(base: app)
-			}
-			Button(.localized("Export"), systemImage: "square.and.arrow.up") {
-				selectedInstallAppPresenting = AnyApp(base: app, archive: true)
+			} label: {
+				Label(.localized("Re-sign"), systemImage: "signature")
 			}
 		} else {
-			Button(.localized("Install"), systemImage: "square.and.arrow.down") {
+			Button {
 				selectedInstallAppPresenting = AnyApp(base: app)
+			} label: {
+				Label(.localized("Install"), systemImage: "square.and.arrow.down")
 			}
-			Button(.localized("Sign"), systemImage: "signature") {
+			Button {
 				selectedSigningAppPresenting = AnyApp(base: app)
+			} label: {
+				Label(.localized("Sign"), systemImage: "signature")
 			}
 		}
 	}

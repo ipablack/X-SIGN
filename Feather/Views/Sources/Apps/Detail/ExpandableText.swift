@@ -32,7 +32,7 @@ struct ExpandableText: View {
 						})
 						.hidden()
 				)
-				.onTapGesture {pGesture in
+				.onTapGesture {
 					withAnimation {
 						expanded.toggle()
 					}

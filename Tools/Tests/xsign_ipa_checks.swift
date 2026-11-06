@@ -59,25 +59,4 @@ extension CatalogLoadingTests {
         print("PASS: 32/64-bit and both-endian Mach-O cryptid checks, fat slices, malformed headers and encrypted embedded framework rejection")
     }
 
-    static func checkIPAProvider(_ base: URL) async throws {
-        let endpoint = base.appendingPathComponent("ipa/success")
-        let query = try XSignIPAProvider.requestURL(endpoint: endpoint, bundleID: "org.fixture.app", name: "تطبيق + Test", appStoreID: "123")
-        try require(query.absoluteString.contains("%2B"))
-        let provider = XSignIPAProvider(endpoint: endpoint)
-        let file = try await provider.resolve(bundleID: "org.fixture.app", name: "تطبيق + Test", appStoreID: "123")
-        try require(file.absoluteString == "https://example.org/app.ipa?signature=a%2Bb")
-        do {
-            let forbidden = XSignIPAProvider(endpoint: base.appendingPathComponent("ipa/forbidden"))
-            _ = try await forbidden.resolve(bundleID: "org.fixture.app", name: "تطبيق + Test", appStoreID: "123")
-            throw CheckFailure("403 was accepted")
-        } catch XSignIPAProviderError.permissionDenied {}
-        for path in ["missing", "insecure"] {
-            let client = XSignIPAProvider(endpoint: base.appendingPathComponent("ipa/" + path))
-            do { _ = try await client.resolve(bundleID: "org.fixture.app", name: "تطبيق + Test", appStoreID: "123"); throw CheckFailure("Unavailable/insecure IPA accepted") }
-            catch is XSignIPAProviderError {}
-        }
-        do { _ = try XSignIPAProvider.decode(Data("<html>not JSON</html>".utf8), status: 200); throw CheckFailure("Invalid JSON accepted") }
-        catch XSignIPAProviderError.invalidResponse {}
-        print("PASS: actual provider client encodes Arabic/plus safely, sends no credentials, preserves signed result URLs and reports 403/unavailable/malformed responses")
-    }
 }

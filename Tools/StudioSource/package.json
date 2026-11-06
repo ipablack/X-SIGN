@@ -1,0 +1,12 @@
+{
+  "name": "xsign-studio",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "build": "python3 scripts/build.py",
+    "test": "npm run build && node --test tests/*.test.cjs"
+  },
+  "dependencies": {
+    "js-yaml": "4.1.1"
+  }
+}

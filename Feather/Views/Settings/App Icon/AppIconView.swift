@@ -37,19 +37,9 @@ struct AppIconView: View {
 	
 	// dont translate
 	var sections: [String: [AltIcon]] = [
-		"Main": [
-			AltIcon(displayName: "Feather", author: "Samara", key: nil),
-			AltIcon(displayName: "Feather (macOS)", author: "Samara", key: "V2Mac"),
-			AltIcon(displayName: "Feather v1", author: "Samara", key: "V1"),
-			AltIcon(displayName: "Feather v1 (macOS)", author: "Samara", key: "V1Mac"),
-			AltIcon(displayName: "Feather v0", author: "Samara", key: "V0"),
-			AltIcon(displayName: "Feather Donor", author: "Samara", key: "Donor")
-		],
-		"Wingio": [
-			AltIcon(displayName: "Feather", author: "Wingio", key: "Wing"),
-		]
+		"XSign": [AltIcon(displayName: "XSign", author: "IPA BLACK", key: nil)]
 	]
-	
+
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("App Icon")) {
@@ -91,7 +81,7 @@ extension AppIconView {
 				)
 				
 				if currentIcon == icon.key {
-					Image(systemName: "checkmark").bold()
+					Image(systemName: "checkmark").font(.body.weight(.bold))
 				}
 			}
 		}

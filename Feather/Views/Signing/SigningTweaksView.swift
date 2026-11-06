@@ -12,9 +12,9 @@ import NimbleViews
 struct SigningTweaksView: View {
     @ObservedObject private var policy = XSignSecurityEnforcer.shared
 	@State private var _isAddingPresenting = false
-	
+
 	@Binding var options: Options
-	
+
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("Tweaks")) {
@@ -31,12 +31,12 @@ struct SigningTweaksView: View {
 					selection: $options.injectFolder,
 					values: Options.InjectFolder.allCases
 				)
-				
+
 				Toggle(isOn: $options.injectIntoExtensions) {
 					Label(.localized("Inject into Extensions"), systemImage: "syringe")
 				}
 			}
-			
+
 			NBSection(.localized("Tweaks")) {
 				if !options.injectionFiles.isEmpty {
 					ForEach(options.injectionFiles, id: \.absoluteString) { tweak in
@@ -53,7 +53,7 @@ struct SigningTweaksView: View {
 			NBToolbarButton(
 				systemImage: "plus",
 				style: .icon,
-				placement: .topBarTrailing
+				placement: .navigationBarTrailing
 			) {
 				_isAddingPresenting = true
 			}
@@ -64,7 +64,7 @@ struct SigningTweaksView: View {
 				allowsMultipleSelection: true,
 				onDocumentsPicked: { urls in
 					guard !urls.isEmpty else { return }
-					
+
 					for url in urls {
 						FileManager.default.moveAndStore(url, with: "FeatherTweak") { url in
 							options.injectionFiles.append(url)
@@ -74,7 +74,7 @@ struct SigningTweaksView: View {
 			)
 			.ignoresSafeArea()
 		}
-		.animation(.smooth, value: options.injectionFiles)
+		.animation(.easeInOut(duration: 0.25), value: options.injectionFiles)
         .disabled(policy.locks.lock_dylib_injection ?? true)
 	}
 }
@@ -93,7 +93,7 @@ extension SigningTweaksView {
 				_fileActions(tweak: tweak)
 			}
 	}
-	
+
 	@ViewBuilder
 	private func _fileActions(tweak: URL) -> some View {
 		Button(role: .destructive) {

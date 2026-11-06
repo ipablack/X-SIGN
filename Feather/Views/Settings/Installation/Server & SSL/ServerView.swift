@@ -4,7 +4,7 @@ import SwiftUI
 struct ServerView: View {
     var body: some View {
         Section {
-            Text("XSign يستخدم التثبيت المحلي عبر الجهاز. افتح إعداد التثبيت المحلي لاستيراد Pairing؛ لا تحتاج شهادة SSL لخادم تثبيت.")
+            Text("التوقيع محلي داخل XSign، وملف التثبيت عبر HTTPS من خدمة Feather، مع نقل IPA داخل الهاتف نفسه. لا يحتاج Pairing أو VPN أو إعداد Firebase.")
         }
     }
 }

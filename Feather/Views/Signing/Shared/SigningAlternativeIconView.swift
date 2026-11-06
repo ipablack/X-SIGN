@@ -41,8 +41,13 @@ struct SigningAlternativeIconView: View {
 			}
 			.onAppear(perform: _loadAlternateIcons)
 			.toolbar {
-				if isModifing {
-					NBToolbarButton(role: .close)
+				ToolbarItem(placement: .navigationBarTrailing) {
+					if isModifing {
+						Button { dismiss() } label: {
+							Label(.localized("Close"), systemImage: "xmark")
+								.labelStyle(.iconOnly)
+						}
+					}
 				}
 			}
 		}

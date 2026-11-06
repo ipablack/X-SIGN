@@ -16,8 +16,16 @@ extension View {
 	) -> some View {
 		if #available(iOS 16.4, *) {
 			self.searchScopes(selection, activation: .onSearchPresentation, content)
-		} else {
+		} else if #available(iOS 16.0, *) {
 			self.searchScopes(selection, scopes: content)
+		} else {
+			self.safeAreaInset(edge: .top) {
+				Picker("", selection: selection, content: content)
+					.pickerStyle(.segmented)
+					.labelsHidden()
+					.padding(.horizontal)
+					.padding(.vertical, 6)
+			}
 		}
 	}
 }

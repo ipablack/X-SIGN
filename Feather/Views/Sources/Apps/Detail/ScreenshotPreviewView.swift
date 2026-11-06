@@ -11,9 +11,9 @@ import NukeUI
 struct ScreenshotPreviewView: View {
 	@Environment(\.dismiss) var dismiss
 	@State private var currentIndex: Int
-    
+
 	let screenshotURLs: [URL]
-    
+
 	init(
 		screenshotURLs: [URL],
 		initialIndex: Int = 0
@@ -21,19 +21,19 @@ struct ScreenshotPreviewView: View {
 		self.screenshotURLs = screenshotURLs
 		self._currentIndex = State(initialValue: initialIndex)
 	}
-    
+
 	var body: some View {
-		NavigationStack {
+		XSignNavigationView {
 			_imageScrollView()
 				.toolbar {
-					ToolbarItem(placement: .topBarLeading) {
+					ToolbarItem(placement: .navigationBarLeading) {
 						if #available(iOS 26.0, *) {
 							Button(role: .close) { dismiss() }
 						} else {
 							Button(.localized("Close"), role: .cancel) { dismiss() }
 						}
 					}
-					ToolbarItem(placement: .topBarTrailing) {
+					ToolbarItem(placement: .navigationBarTrailing) {
 						if #available(iOS 26.0, *) {
 							Text(verbatim: "\(currentIndex + 1) / \(screenshotURLs.count)")
 								.font(.subheadline)

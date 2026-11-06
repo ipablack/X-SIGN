@@ -90,7 +90,7 @@ actor XSignCatalogIO {
     init(directory: URL? = nil, session: URLSession? = nil, bundledResources: URL? = nil) {
         self.bundledResources = bundledResources
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("XSignCatalogs_v3", isDirectory: true)
+            .appendingPathComponent("XSignApprovedCatalogs_v1", isDirectory: true)
         if let session {
             self.session = session
         } else {
@@ -113,7 +113,8 @@ actor XSignCatalogIO {
             if segments.count >= 5, segments[2] == "blob" || segments[2] == "raw" {
                 parts.host = "raw.githubusercontent.com"
                 path = "/" + ([String(segments[0]), String(segments[1])] + segments.dropFirst(3).map(String.init)).joined(separator: "/")
-                parts.queryItems = parts.queryItems?.filter { $0.name != "raw" }
+                let filtered = parts.queryItems?.filter { $0.name != "raw" }
+                parts.queryItems = (filtered?.isEmpty == true) ? nil : filtered
             }
         }
         if parts.host?.lowercased() == "raw.githubusercontent.com" {
@@ -204,18 +205,7 @@ actor XSignCatalogIO {
         let url = Self.canonicalURL(input)
         guard !ProtectedSourcesVault.isRetiredSource(url) else { return nil }
         if let result = read(file(url)) { return result }
-        guard includeBundled else { return nil }
-        let isIPAOMTK = url.absoluteString == ProtectedSourcesVault.ipaomtkLiveURLString
-        let isIPABlack = url.absoluteString == "https://raw.githubusercontent.com/ipa-black/IPABLACK/main/repo.json"
-        let isReference = url.absoluteString == "https://raw.githubusercontent.com/ipa-black/X-SIGN/main/Feather/Resources/XSignCatalogReference.json"
-        guard isIPAOMTK || isIPABlack || isReference else { return nil }
-        let oldName = isIPAOMTK ? "ipaomtk_live_cache.json" : isReference ? "reference_cache.json" : "ipablack_cache.json"
-        let legacy = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("XSignInstantStoreCache_v2", isDirectory: true).appendingPathComponent(oldName)
-        if let result = read(legacy) { return result }
-        let seed = isIPAOMTK ? "XSignCatalogIPAOMTKLive" : isReference ? "XSignCatalogReference" : "XSignCatalogIPABlack"
-        guard let bundled = bundledResources?.appendingPathComponent(seed + ".json") ?? Bundle.main.url(forResource: seed, withExtension: "json") else { return nil }
-        return read(bundled)
+        return nil // Retired bundled and legacy disk catalogs are never used.
     }
 
     func fetch(_ input: URL) async throws -> XSignRepositoryRecord {
@@ -233,12 +223,37 @@ actor XSignCatalogIO {
     }
 
     private func download(_ url: URL) async throws -> XSignRepositoryRecord {
+        if XSignRESTSource.handles(url) {
+            let data = try await XSignRESTSource.fetch(url, session: session, maximumBytes: Self.maximumBytes)
+            guard !ProtectedSourcesVault.isRetiredSource(url) else { throw XSignCatalogError.invalidURL }
+            guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw XSignCatalogError.invalidJSON }
+            if let configuration = XSignDashboardSources.configuration(for: url) {
+                root["name"] = configuration.name
+                root["identifier"] = configuration.id
+                if let icon = configuration.icon_url { root["iconURL"] = icon }
+            }
+            let normalized = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+            let result = try Self.decode(normalized)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try normalized.write(to: file(url), options: .atomic)
+            } catch {
+                // A full/unavailable cache must not discard a valid in-memory catalogue.
+            }
+            return result
+        }
         let destination = file(url)
         let tagFile = destination.appendingPathExtension("etag")
-        for attempt in 0..<2 {
-            var request = URLRequest(url: url)
+        var endpoints = [url]
+        if url.absoluteString == ProtectedSourcesVault.defaultOwnedURLString,
+           let alt = URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString) {
+            endpoints.append(alt)
+        }
+        for attempt in 0..<max(2, endpoints.count) {
+            let requestURL = endpoints[min(attempt, endpoints.count - 1)]
+            var request = URLRequest(url: requestURL)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.setValue("X-SIGN/2.0", forHTTPHeaderField: "User-Agent")
+            request.setValue("XSign/1.0", forHTTPHeaderField: "User-Agent")
             if attempt == 0, FileManager.default.fileExists(atPath: destination.path),
                let tag = try? String(contentsOf: tagFile, encoding: .utf8), !tag.isEmpty {
                 request.setValue(tag, forHTTPHeaderField: "If-None-Match")
@@ -255,11 +270,12 @@ actor XSignCatalogIO {
             guard length > 0 else { throw XSignCatalogError.invalidResponse }
             guard length <= Self.maximumBytes else { throw XSignCatalogError.tooLarge }
             let data = try Data(contentsOf: temporary, options: .mappedIfSafe)
-            let result = try Self.decode(data)
+            let normalized = try XSignSourceAdapter.normalize(data, from: url)
+            let result = try Self.decode(normalized)
             // Write only a validated source. Network/JSON failures retain the last good file.
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                try data.write(to: destination, options: .atomic)
+                try normalized.write(to: destination, options: .atomic)
                 if let tag = http.value(forHTTPHeaderField: "ETag") {
                     try tag.write(to: tagFile, atomically: true, encoding: .utf8)
                 } else {

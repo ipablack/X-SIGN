@@ -31,28 +31,13 @@ struct SourcesAddView: View {
 			}
 		_filteredRecommendedSourcesData = filtered
 	}
-	
+
 	@State var recommendedSourcesData: [(url: URL, data: ASRepository)] = []
-	let recommendedSources: [URL] = [
-		"https://raw.githubusercontent.com/claration/Feather/refs/heads/main/app-repo.json",
-		"https://raw.githubusercontent.com/Aidoku/Aidoku/altstore/apps.json",
-		"https://github.com/chachillie/Flycast-iOS/raw/main/flycast-ios.json",
-		"https://xitrix.github.io/iTorrent/AltStore.json",
-		"https://altstore.oatmealdome.me/",
-		"https://raw.githubusercontent.com/LiveContainer/LiveContainer/refs/heads/main/apps.json",
-		"https://pokemmo.com/altstore",
-		"https://provenance-emu.com/apps.json",
-		"https://community-apps.sidestore.io/sidecommunity.json",
-		"https://alt.getutm.app",
-		"https://raw.githubusercontent.com/paigely/Navic/refs/heads/master/app-repo.json",
-		"https://stikdebug.xyz/index.json",
-		"https://apps.manicemu.site/altstore",
-		"https://alt.crystall1ne.dev"
-	].map { URL(string: $0)! }
-	
+	let recommendedSources: [URL] = []
+
 	@State private var _isImporting = false
 	@State private var _sourceURL = ""
-	
+
 	// MARK: Body
 	var body: some View {
 		NBNavigationView(.localized("Add Source"), displayMode: .inline) {
@@ -62,41 +47,24 @@ struct SourcesAddView: View {
 						.keyboardType(.URL)
 						.textInputAutocapitalization(.never)
 				} footer: {
-					Text(.localized("The only supported repositories are AltStore repositories."))
+					Text(.localized("أضف رابط HTTPS لسورس AltStore أو JSON متوافق."))
 					Text(verbatim: "[\(String.localized("Learn more about how to setup a repository..."))](https://faq.altstore.io/developers/make-a-source)")
 				}
-				
+
 				Section {
-					Button(.localized("Import"), systemImage: "square.and.arrow.down") {
+					Button {
 						_isImporting = true
 						_fetchImportedRepositories(UIPasteboard.general.string) {
 							dismiss()
 						}
+					} label: {
+						Label(.localized("Import"), systemImage: "square.and.arrow.down")
 					}
-					
-					Button(.localized("Export"), systemImage: "doc.on.doc") {
-						let sources = Storage.shared.getSources()
-						guard !sources.isEmpty else {
-							UIAlertController.showAlertWithOk(
-								title: .localized("Error"),
-								message: .localized("No sources to export")
-							)
-							return
-						}
-						UIPasteboard.general.string = sources.map {
-							$0.sourceURL!.absoluteString
-						}.joined(separator: "\n")
-						UIAlertController.showAlertWithOk(
-							title: .localized("Success"),
-							message: .localized("Sources copied to clipboard")
-						) {
-							dismiss()
-						}
-					}
+
 				} footer: {
 					Text(.localized("Supports importing from KravaSign/MapleSign and ESign."))
 				}
-				
+
 				if !_filteredRecommendedSourcesData.isEmpty {
 					NBSection(.localized("Featured")) {
 						ForEach(_filteredRecommendedSourcesData, id: \.url) { (url, source) in
@@ -122,20 +90,14 @@ struct SourcesAddView: View {
 			}
 			.toolbar {
 				NBToolbarButton(role: .cancel)
-				
-				if !_isImporting {
-					NBToolbarButton(
-						.localized("Save"),
-						style: .text,
-						placement: .confirmationAction,
-						isDisabled: _sourceURL.isEmpty
-					) {
-						FR.handleSource(_sourceURL) {
-							dismiss()
+
+				ToolbarItem(placement: .confirmationAction) {
+					if !_isImporting {
+						Button(.localized("Save")) {
+							FR.handleSource(_sourceURL) { dismiss() }
 						}
-					}
-				} else {
-					ToolbarItem(placement: .confirmationAction) {
+						.disabled(_sourceURL.isEmpty)
+					} else {
 						ProgressView()
 					}
 				}
@@ -146,7 +108,7 @@ struct SourcesAddView: View {
 			}
 		}
 	}
-	
+
 	private func _fetchRecommendedRepositories() async {
 		let fetched = await _concurrentFetchRepositories(from: recommendedSources)
 		await MainActor.run {
@@ -154,20 +116,20 @@ struct SourcesAddView: View {
 			_refreshFilteredRecommendedSourcesData()
 		}
 	}
-	
+
 	private func _fetchImportedRepositories(
 		_ code: String?,
 		competion: @escaping () -> Void
 	) {
 		guard let code else { return }
-		
+
 		let handler = ASDeobfuscator(with: code)
 		let repoUrls = handler.decode().compactMap { URL(string: $0) }
 		guard !repoUrls.isEmpty else { return }
-		
+
 		Task {
 			let fetched = await _concurrentFetchRepositories(from: repoUrls)
-			
+
 			let dict = Dictionary(fetched, uniquingKeysWith: { first, _ in first })
 
 			await MainActor.run {
@@ -177,12 +139,12 @@ struct SourcesAddView: View {
 			}
 		}
 	}
-	
+
 	private func _concurrentFetchRepositories(
 		from urls: [URL]
 	) async -> [(url: URL, data: ASRepository)] {
 		var results: [(url: URL, data: ASRepository)] = []
-		
+
 		await withTaskGroup(of: (URL, ASRepository)?.self) { group in
 			for url in urls {
 				group.addTask {
@@ -192,7 +154,7 @@ struct SourcesAddView: View {
 							case .success(let repo):
 								continuation.resume(returning: (url, repo))
 							case .failure(let error):
-								Logger.misc.error("Failed to fetch \(url): \(error.localizedDescription)")
+								Logger.misc.error("Failed to fetch source: \(error.localizedDescription)")
 								continuation.resume(returning: nil)
 							}
 						}
@@ -205,7 +167,7 @@ struct SourcesAddView: View {
 				}
 			}
 		}
-		
+
 		return results
 	}
 

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Zip
+
 import SwiftUI
 
 final class AppFileHandler: NSObject, @unchecked Sendable {
@@ -34,14 +34,18 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		self._download = download
 		self._sourceProvenance = sourceProvenance ?? download?.sourceProvenance
         self._consumeTemporaryFile = consumeTemporaryFile
-		self._uniqueWorkDir = _fileManager.temporaryDirectory
-			.appendingPathComponent("FeatherImport_\(_uuid)", isDirectory: true)
+		self._uniqueWorkDir = XSignPrivateFiles.workDirectory(prefix: "Import")
 		
 		super.init()
 	}
 	
 	func copy() async throws {
-		try _fileManager.createDirectoryIfNeeded(at: _uniqueWorkDir)
+        let input = try _ipa.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard _ipa.isFileURL, input.isRegularFile == true, input.isSymbolicLink != true,
+              let size = input.fileSize, size > 0, UInt64(size) <= 8 * 1024 * 1024 * 1024 else {
+            throw XSignIPAExtractor.InvalidArchive.tooLarge
+        }
+		try XSignPrivateFiles.createDirectory(_uniqueWorkDir)
 		
 		let destinationURL = _uniqueWorkDir.appendingPathComponent(_ipa.lastPathComponent)
 
@@ -61,24 +65,14 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	}
 	
 	func extract() async throws {
-		if _ipa.pathExtension == "ipa" {
-			Zip.addCustomFileExtension("ipa")
-		}
-		if _ipa.pathExtension == "tipa" {
-			Zip.addCustomFileExtension("tipa")
-		}
-		
 		let download = self._download
         let progressGate = XSignDownloadProgressGate()
 		
 		try await withCheckedThrowingContinuation { continuation in
 			DispatchQueue.global(qos: .utility).async {
 				do {
-					try Zip.unzipFile(
-						self._ipa,
-						destination: self._uniqueWorkDir,
-						overwrite: true,
-						password: nil,
+                    let extracted = self._uniqueWorkDir.appendingPathComponent("Extracted")
+                    try XSignIPAExtractor.extract(self._ipa, to: extracted,
 						progress: { progress in
                             if let download = download, progress.isFinite,
                                progressGate.shouldPublish(Int(max(0, min(1, progress)) * 100)) {
@@ -95,7 +89,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 						}
 					)
 					
-					self.uniqueWorkDirPayload = self._uniqueWorkDir.appendingPathComponent("Payload")
+					self.uniqueWorkDirPayload = extracted.appendingPathComponent("Payload")
                     if download?.requireUnencryptedBinary == true, let payload = self.uniqueWorkDirPayload {
                         try XSignMachOEncryption.verifyPayload(at: payload)
                     }

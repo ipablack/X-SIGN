@@ -42,13 +42,11 @@ public struct NBPillView: View {
 		.frame(maxWidth: .infinity)
 		.padding(.vertical, 10)
 		.background(
-			UnevenRoundedRectangle(
-				cornerRadii: .init(
-					topLeading: radii.topLeading,
-					bottomLeading: radii.bottomLeading,
-					bottomTrailing: radii.bottomTrailing,
-					topTrailing: radii.topTrailing
-				),
+			NBUnevenRoundedRectangle(
+				topLeadingRadius: radii.topLeading,
+				bottomLeadingRadius: radii.bottomLeading,
+				bottomTrailingRadius: radii.bottomTrailing,
+				topTrailingRadius: radii.topTrailing,
 				style: .continuous
 			)
 			.fill(color.opacity(0.15))

@@ -33,8 +33,7 @@ final class SigningHandler: NSObject {
 	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options) {
 		self._app = app
 		self._options = options
-		self._uniqueWorkDir = _fileManager.temporaryDirectory
-			.appendingPathComponent("FeatherSigning_\(_uuid)", isDirectory: true)
+		self._uniqueWorkDir = XSignPrivateFiles.workDirectory(prefix: "Signing")
 		super.init()
 	}
 	
@@ -44,13 +43,14 @@ final class SigningHandler: NSObject {
 			throw SigningFileHandlerError.appNotFound
 		}
 
-		try _fileManager.createDirectoryIfNeeded(at: _uniqueWorkDir)
+		try XSignIPAExtractor.validateTree(appUrl)
+        try XSignPrivateFiles.createDirectory(_uniqueWorkDir)
 		
 		let movedAppURL = _uniqueWorkDir.appendingPathComponent(appUrl.lastPathComponent)
 		
 		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
 		_movedAppPath = movedAppURL
-		Logger.misc.info("[\(self._uuid)] Moved Payload to: \(movedAppURL.path)")
+		Logger.misc.info("[\(self._uuid)] Prepared private signing workspace")
 	}
 	
 	func modify() async throws {
@@ -139,7 +139,7 @@ final class SigningHandler: NSObject {
 		destinationURL = destinationURL.appendingPathComponent(movedAppPath.lastPathComponent)
 		
 		try _fileManager.moveItem(at: movedAppPath, to: destinationURL)
-		Logger.misc.info("[\(self._uuid)] Moved App to: \(destinationURL.path)")
+		Logger.misc.info("[\(self._uuid)] Saved signed app privately")
 		
 		try? _fileManager.removeItem(at: _uniqueWorkDir)
 	}
@@ -374,9 +374,14 @@ extension SigningHandler {
 	}
 	
 	private func _removeFiles(for app: URL, from appendingComponent: [String]) async throws {
-		let filesToRemove = appendingComponent.map {
-			app.appendingPathComponent($0)
-		}
+        let filesToRemove = try appendingComponent.map { relative -> URL in
+            let parts = relative.split(separator: "/", omittingEmptySubsequences: false)
+            guard !relative.contains("\\"), !relative.contains("\0"),
+                  parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+                throw XSignIPAExtractor.InvalidArchive.unsafePath
+            }
+            return app.appendingPathComponent(relative)
+        }
 		
 		for url in filesToRemove {
 			try _fileManager.removeFileIfNeeded(at: url)

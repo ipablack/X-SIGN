@@ -1,8 +1,10 @@
 NAME := X-SIGN
 SCHEME := Feather
 PLATFORMS := iphoneos
+XSIGN_BUILD_NUMBER ?= 1
 
-TMP := $(TMPDIR)/$(NAME)
+TMP := $(or $(TMPDIR),/tmp)/$(NAME)
+RESULT_BUNDLE_ARGUMENT := $(if $(XSIGN_RESULT_BUNDLE),-resultBundlePath "$(XSIGN_RESULT_BUNDLE)",)
 
 .PHONY: all clean deps $(PLATFORMS)
 
@@ -25,8 +27,10 @@ $(PLATFORMS): deps
 		-configuration Release \
 		-destination "generic/platform=iOS" \
 		-derivedDataPath $(TMP)/$@ \
+		$(RESULT_BUNDLE_ARGUMENT) \
 		-skipPackagePluginValidation \
 		CODE_SIGNING_ALLOWED=NO \
+		CURRENT_PROJECT_VERSION="$(XSIGN_BUILD_NUMBER)" \
 		ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES=NO
 
 	mkdir -p _build/Payload

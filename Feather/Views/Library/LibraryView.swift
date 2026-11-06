@@ -14,7 +14,7 @@ struct LibraryView: View {
     @AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
 	@StateObject var downloadManager = DownloadManager.shared
 	@StateObject var sourcesViewModel = SourcesViewModel.shared
-	
+
 	@State private var _selectedInfoAppPresenting: AnyApp?
 	@State private var _selectedSigningAppPresenting: AnyApp?
 	@State private var _selectedInstallAppPresenting: AnyApp?
@@ -23,31 +23,34 @@ struct LibraryView: View {
     @State private var _batchApps: [any AppInfoPresentable] = []
     @State private var _isBulkSigningPresenting = false
     @State private var _isImportingFiles = false
+    @State private var _showCertificateSetup = false
+    @State private var _isImporterDismissing = false
+    @State private var _pendingCertificateApps: [any AppInfoPresentable] = []
 	@State private var _isSettingsPresenting = false
 	@State private var _alertDownloadString: String = ""
-	
+
 	@State private var _signingInProgressUUIDs: Set<String> = []
 	@State private var _oneClickStatusMessage: String? = nil
-	
+
 	@State private var _selectedAppUUIDs: Set<String> = []
 	@State private var _editMode: EditMode = .inactive
-	
+
 	@State private var _searchText = ""
 	@State private var _selectedScope: Scope = .all
-	
+
 	@Namespace private var _namespace
-	
+
 	private func filteredAndSortedApps<T>(from apps: FetchedResults<T>) -> [T] where T: NSManagedObject {
 		let query = AppStoreBilingualEngine.normalize(_searchText)
 		guard !query.isEmpty else { return Array(apps) }
-		
+
 		return apps.filter { item in
 			let name = (item.value(forKey: "name") as? String) ?? ""
 			let identifier = (item.value(forKey: "identifier") as? String) ?? ""
 			let combined = AppStoreBilingualEngine.normalize("\(name) \(identifier)")
-			
+
 			if combined.contains(query) { return true }
-			
+
 			for group in AppStoreBilingualEngine.preNormalizedSynonymGroups {
 				if group.contains(where: { combined.contains($0) }) &&
 				   group.contains(where: { $0.contains(query) || query.contains($0) }) {
@@ -57,39 +60,48 @@ struct LibraryView: View {
 			return false
 		}
 	}
-	
+
 	private var _filteredSignedApps: [Signed] {
 		filteredAndSortedApps(from: _signedApps)
 	}
-	
+
 	private var _filteredImportedApps: [Imported] {
 		filteredAndSortedApps(from: _importedApps)
 	}
-	
+
 	@FetchRequest(
 		entity: Signed.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
 	) private var _signedApps: FetchedResults<Signed>
-	
+
 	@FetchRequest(
 		entity: Imported.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
 	) private var _importedApps: FetchedResults<Imported>
-	
+
 	@FetchRequest(
 		entity: CertificatePair.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
 	) private var _certificates: FetchedResults<CertificatePair>
-	
+
 	@FetchRequest(
 		entity: AltSource.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
 	) private var _sources: FetchedResults<AltSource>
-	
+
 	var body: some View {
 		NBNavigationView("التوقيع") {
 			NBListAdaptable {
                 Section {
+                    if Storage.shared.activeSigningCertificate() == nil {
+                        Button {
+                            _showCertificateSetup = true
+                        } label: {
+                            Label("إعداد التوقيع مرة واحدة", systemImage: "checkmark.seal")
+                        }
+                        Text("أضف شهادتك، ثم اختر IPA ليبدأ التوقيع محلياً. لا يحتاج التوقيع إلى Pairing أو سيرفر خارجي.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if _filteredSignedApps.isEmpty && _filteredImportedApps.isEmpty {
                         Text("استورد ملف IPA من جهازك لتعديل معلوماته وتوقيعه محلياً.")
                             .font(.footnote).foregroundStyle(.secondary)
@@ -105,7 +117,7 @@ struct LibraryView: View {
 					.listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
 					.listRowBackground(Color.clear)
 				}
-				
+
 				if let status = _oneClickStatusMessage {
 					Section {
 						HStack(spacing: 10) {
@@ -119,7 +131,7 @@ struct LibraryView: View {
 						.padding(.vertical, 4)
 					}
 				}
-				
+
 				if !_filteredImportedApps.isEmpty && (_selectedScope == .all || _selectedScope == .imported) {
 					NBSection("جاهزة للتوقيع اللحظي", secondary: _filteredImportedApps.count.description) {
 						ForEach(_filteredImportedApps, id: \.uuid) { app in
@@ -132,7 +144,7 @@ struct LibraryView: View {
 									selectedAppUUIDs: $_selectedAppUUIDs
 								)
 								.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-								
+
 								HStack(spacing: 10) {
 									Button {
 										_ultraFastSign(app: app)
@@ -147,7 +159,7 @@ struct LibraryView: View {
 											} else {
 												Image(systemName: "bolt.fill")
 													.font(.footnote.weight(.bold))
-												Text("توقيع وتثبيت لحظي")
+												Text("توقيع مباشر")
 													.font(.footnote.weight(.bold))
 											}
 										}
@@ -161,7 +173,7 @@ struct LibraryView: View {
 									}
 									.buttonStyle(.plain)
 									.disabled(_signingInProgressUUIDs.contains(app.uuid ?? ""))
-									
+
 									Button {
 										_selectedSigningAppPresenting = AnyApp(base: app)
 									} label: {
@@ -178,7 +190,7 @@ struct LibraryView: View {
 						}
 					}
 				}
-				
+
 				if !_filteredSignedApps.isEmpty && (_selectedScope == .all || _selectedScope == .signed) {
 					NBSection("الموقعة والجاهزة للتثبيت", secondary: _filteredSignedApps.count.description) {
 						ForEach(_filteredSignedApps, id: \.uuid) { app in
@@ -195,13 +207,13 @@ struct LibraryView: View {
 				}
 			}
 			.searchable(text: $_searchText, placement: .platform(), prompt: "بحث في التوقيع (عربي / إنجليزي)...")
-			.scrollDismissesKeyboard(.interactively)
+			.xsignDismissKeyboardOnScroll()
 			.toolbar {
-				ToolbarItem(placement: .topBarLeading) {
+				ToolbarItem(placement: .navigationBarLeading) {
 					EditButton()
 				}
-				
-				ToolbarItemGroup(placement: .topBarTrailing) {
+
+				ToolbarItemGroup(placement: .navigationBarTrailing) {
 					if _editMode.isEditing {
                         Button {
                             _batchApps = _allSelectedApps
@@ -217,17 +229,21 @@ struct LibraryView: View {
 						.disabled(_selectedAppUUIDs.isEmpty)
 					} else {
 						Menu {
-							Button("استيراد ملفات IPA", systemImage: "arrow.down.doc") {
+							Button {
 								_isImportingPresenting = true
+							} label: {
+								Label("استيراد ملفات IPA", systemImage: "arrow.down.doc")
 							}
-							Button("استيراد وتوقيع من رابط مباشر", systemImage: "link") {
+							Button {
 								_isDownloadingPresenting = true
+							} label: {
+								Label("استيراد وتوقيع من رابط مباشر", systemImage: "link")
 							}
 						} label: {
 							Image(systemName: "arrow.down.doc.fill")
 								.font(.system(size: 18))
 						}
-						
+
 						AppStoreAccountAppIconButton {
 							_isSettingsPresenting = true
 						}
@@ -235,6 +251,12 @@ struct LibraryView: View {
 				}
 			}
 			.environment(\.editMode, $_editMode)
+            .sheet(isPresented: $_showCertificateSetup, onDismiss: {
+                let pending = _pendingCertificateApps
+                _pendingCertificateApps = []
+                if Storage.shared.activeSigningCertificate() != nil { _signImportedApps(pending) }
+                AutoSignPipelineManager.shared.presentNextReadyApp()
+            }) { CertificatesAddView() }
             .sheet(isPresented: $_isBulkSigningPresenting, onDismiss: { _batchApps = []; AutoSignPipelineManager.shared.presentNextReadyApp() }) {
                 XSignBulkSigningView(apps: _batchApps)
             }
@@ -242,19 +264,29 @@ struct LibraryView: View {
 				LibraryInfoView(app: app.base)
 			}
 			.sheet(item: $_selectedInstallAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
-				InstallPreviewView(app: app.base, isSharing: app.archive)
-					.presentationDetents([.height(200)])
-					.presentationDragIndicator(.visible)
+				InstallPreviewView(app: app.base)
+					.xsignCompactSheet(height: 300)
+
 			}
 			.fullScreenCover(item: $_selectedSigningAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
 				SigningView(app: app.base)
 					.compatNavigationTransition(id: app.base.uuid ?? "", ns: _namespace)
 			}
-			.sheet(isPresented: $_isImportingPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+			.sheet(isPresented: $_isImportingPresenting, onDismiss: {
+                _isImporterDismissing = false
+                if !_isImportingFiles {
+                    let pending = _pendingCertificateApps
+                    _pendingCertificateApps = []
+                    _signImportedApps(pending)
+                }
+                AutoSignPipelineManager.shared.presentNextReadyApp()
+            }) {
 				FileImporterRepresentableView(
 					allowedContentTypes: [.ipa, .tipa],
 					allowsMultipleSelection: true,
 					onDocumentsPicked: { urls in
+                        _isImporterDismissing = true
+                        _isImportingPresenting = false
 						_instantImportAndAutoSign(urls: urls)
 					}
 				)
@@ -288,7 +320,7 @@ struct LibraryView: View {
 		}
 		.environment(\.layoutDirection, .rightToLeft)
 	}
-	
+
 	// MARK: - Direct Native Importer + Instant Auto-Sign
     private var _allSelectedApps: [any AppInfoPresentable] {
         let imported: [any AppInfoPresentable] = Array(_importedApps)
@@ -313,7 +345,7 @@ struct LibraryView: View {
                 if hasAccess { url.stopAccessingSecurityScopedResource() }
                 switch result {
                 case .success(let uuid):
-                    if let app = AutoSignPipelineManager.fetchImportedApps().first(where: { $0.uuid == uuid }) {
+                    if let app = _importedApps.first(where: { $0.uuid == uuid }) ?? _findImported(uuid) {
                         imported.append(app)
                     } else { failures.append(url.lastPathComponent + ": تعذّر العثور على التطبيق المستورد.") }
                 case .failure(let error): failures.append(url.lastPathComponent + ": " + error.localizedDescription)
@@ -321,8 +353,7 @@ struct LibraryView: View {
             }
             _oneClickStatusMessage = nil
             let presentResult = {
-                if urls.count == 1, let app = imported.first { _ultraFastSign(app: app) }
-                else if !imported.isEmpty { _batchApps = imported; _isBulkSigningPresenting = true }
+                _signImportedApps(imported)
             }
             if !failures.isEmpty {
                 UIAlertController.showAlertWithOk(title: "تعذّر استيراد بعض الملفات", message: failures.prefix(5).joined(separator: "\n"), action: presentResult)
@@ -332,30 +363,21 @@ struct LibraryView: View {
 
 	// MARK: - Ultra-Fast Instant Signing via ZSign
 	private func _ultraFastSign(app: AppInfoPresentable) {
-		let selectedCertIndex = UserDefaults.standard.integer(forKey: "feather.selectedCert")
-		let activeCert: CertificatePair? = {
-			if _certificates.indices.contains(selectedCertIndex) {
-				return _certificates[selectedCertIndex]
-			}
-			return _certificates.first
-		}()
-		
-		guard let cert = activeCert else {
-			_oneClickStatusMessage = nil
-			UIAlertController.showAlertWithOk(
-				title: "لا توجد شهادة",
-				message: "يرجى إضافة شهادة توقيع أولاً من أيقونة الحساب في الأعلى."
-			)
-			return
-		}
-		
+        guard !_signingInProgressUUIDs.contains(app.uuid ?? "") else { return }
+        guard let cert = Storage.shared.activeSigningCertificate() else {
+            _pendingCertificateApps = [app]
+            _showCertificateSetup = true
+            return
+        }
+
 		let uuid = app.uuid ?? ""
 		UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
 		_signingInProgressUUIDs.insert(uuid)
 		_oneClickStatusMessage = "توقيع لحظي لـ \(app.name ?? "التطبيق")..."
-		
-		let options = OptionsManager.shared.options
-		
+
+		var options = OptionsManager.shared.options
+        options.signingOption = .default
+
 		FR.signPackageFileWithResult(
 			app,
 			using: options,
@@ -365,7 +387,7 @@ struct LibraryView: View {
 			DispatchQueue.main.async {
 				_signingInProgressUUIDs.remove(uuid)
 				_oneClickStatusMessage = nil
-				
+
                 switch result {
                 case .failure(let error):
 					UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -375,14 +397,36 @@ struct LibraryView: View {
 					)
                 case .success(let uuid):
 					UINotificationFeedbackGenerator().notificationOccurred(.success)
-					if let newlySigned = AutoSignPipelineManager.fetchSignedApps().first(where: { $0.uuid == uuid }) {
+					if let newlySigned = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
 						_selectedInstallAppPresenting = AnyApp(base: newlySigned)
 					}
 				}
 			}
 		}
 	}
-	
+
+    private func _findImported(_ uuid: String) -> Imported? {
+        let request = NSFetchRequest<Imported>(entityName: "Imported")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "uuid == %@", uuid)
+        return (try? Storage.shared.context.fetch(request))?.first
+    }
+
+    private func _signImportedApps(_ apps: [any AppInfoPresentable]) {
+        guard !apps.isEmpty else { return }
+        if _isImporterDismissing {
+            _pendingCertificateApps = apps
+            return
+        }
+        guard Storage.shared.activeSigningCertificate() != nil else {
+            _pendingCertificateApps = apps
+            _showCertificateSetup = true
+            return
+        }
+        if apps.count == 1, let app = apps.first { _ultraFastSign(app: app) }
+        else { _batchApps = apps; _isBulkSigningPresenting = true }
+    }
+
     private func _bulkDeleteSelectedApps() {
         for app in _allSelectedApps { Storage.shared.deleteApp(for: app) }
         _selectedAppUUIDs.removeAll()
@@ -392,7 +436,7 @@ struct LibraryView: View {
 		case all
 		case imported
 		case signed
-		
+
 		var displayName: String {
 			switch self {
 			case .all:      return "الكل"

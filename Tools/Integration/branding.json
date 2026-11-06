@@ -1,0 +1,15 @@
+{
+  "display_name": "XSign",
+  "bundle_identifier": "com.ipablack.xsign",
+  "version": "1.0",
+  "minimum_ios": "15.0",
+  "icon_source_url": "https://up6.cc/2026/11/179399545145851.png",
+  "source_sha256": "976cb1dc20231d3093e48bfb4f5217b3a8b1c904cff13e02ef2366428fab7f1e",
+  "icon_asset": "Feather/Resources/Assets.xcassets/AppIcon.appiconset/xsign.png",
+  "icon_sha256": "b441faca96a9a6d74757de654cb41225e114c0ab782137d3ed642c6383d89537",
+  "icon_size": [
+    1024,
+    1024
+  ],
+  "conversion": "Opaque RGB PNG; original 512px pixels scaled 2x without palette changes or cropping."
+}

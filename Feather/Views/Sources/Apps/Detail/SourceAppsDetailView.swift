@@ -18,21 +18,21 @@ struct SourceAppsDetailView: View {
 	@State var cancellable: AnyCancellable? // Combine
 	@State private var _isScreenshotPreviewPresented: Bool = false
 	@State private var _selectedScreenshotIndex: Int = 0
-	
+
 	var currentDownload: Download? {
 		downloadManager.getDownload(by: app.currentUniqueId)
 	}
-	
+
 	let sourceURL: URL?
 	let source: ASRepository
 	let app: ASRepository.App
-	
+
 	var body: some View {
 		ScrollView {
 			if #available(iOS 18, *) {
 				_header().flexibleHeaderContent()
 			}
-			
+
 			VStack(alignment: .leading, spacing: 10) {
 				HStack(spacing: 10) {
 					if let iconURL = app.iconURL {
@@ -55,27 +55,27 @@ struct SourceAppsDetailView: View {
 						Text(app.currentDescription ?? .localized("An awesome application"))
 							.font(.subheadline)
 							.foregroundColor(.secondary)
-						
+
 						Spacer()
-						
+
 						DownloadButtonView(sourceURL: sourceURL, source: source, app: app)
 					}
 					.lineLimit(2)
 					.frame(maxWidth: .infinity, alignment: .leading)
 				}
-				
+
 				Divider()
 				_infoPills(app: app)
 				Divider()
-                
+
 				if let screenshotURLs = app.screenshotURLs {
 					NBSection(.localized("Screenshots")) {
 						_screenshots(screenshotURLs: screenshotURLs)
 					}
-                    
+
 					Divider()
 				}
-				
+
 				if
 					let currentVer = app.currentVersion,
 					let whatsNewDesc = app.currentAppVersion?.localizedDescription
@@ -101,10 +101,10 @@ struct SourceAppsDetailView: View {
 							}
 						}
 					}
-					
+
 					Divider()
 				}
-				
+
 				if let appDesc = app.localizedDescription {
 					NBSection(.localized("Description")) {
 						VStack(alignment: .leading, spacing: 2) {
@@ -112,42 +112,42 @@ struct SourceAppsDetailView: View {
 						}
 						.frame(maxWidth: .infinity, alignment: .leading)
 					}
-					
+
 					Divider()
 				}
-                
+
 				NBSection(.localized("Information")) {
 					VStack(spacing: 12) {
 						if let sourceName = source.name {
 							_infoRow(title: .localized("Source"), value: sourceName)
 						}
-                        
+
 						if let developer = app.developer {
 							_infoRow(title: .localized("Developer"), value: developer)
 						}
-						
+
 						if let size = app.size {
 							_infoRow(title: .localized("Size"), value: size.formattedByteCount)
 						}
-						
+
 						if let category = app.category {
 							_infoRow(title: .localized("Category"), value: category.capitalized)
 						}
-						
+
 						if let version = app.currentVersion {
 							_infoRow(title: .localized("Version"), value: version)
 						}
-						
+
 						if let date = app.currentDate?.date {
 							_infoRow(title: .localized("Updated"), value: DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none))
 						}
-						
+
 						if let bundleId = app.id {
 							_infoRow(title: .localized("Identifier"), value: bundleId)
 						}
 					}
 				}
-				
+
 				if let appPermissions = app.appPermissions {
 					NBSection(.localized("Permissions")) {
 						Group {
@@ -193,20 +193,6 @@ struct SourceAppsDetailView: View {
 		}
 		.flexibleHeaderScrollView()
 		.shouldSetInset()
-		.toolbar {
-			NBToolbarButton(
-				systemImage: "square.and.arrow.up",
-				placement: .topBarTrailing
-			) {
-				let sharedString = """
-				\(app.currentName) - \(app.currentVersion ?? "0")
-				\(app.currentDescription ?? .localized("An awesome application"))
-				---
-				\(source.website?.absoluteString ?? source.name ?? "")
-				"""
-				UIActivityViewController.show(activityItems: [sharedString])
-			}
-		}
 		.fullScreenCover(isPresented: $_isScreenshotPreviewPresented) {
 			if let screenshotURLs = app.screenshotURLs {
 				ScreenshotPreviewView(
@@ -216,11 +202,11 @@ struct SourceAppsDetailView: View {
 			}
 		}
 	}
-	
+
 	var standardIcon: some View {
 		Image("App_Unknown").appIconStyle(size: 111, isCircle: false)
 	}
-	
+
 	var standardHeader: some View {
 		Image("App_Unknown")
 			.resizable()
@@ -250,7 +236,7 @@ extension SourceAppsDetailView {
 			} else {
 				standardHeader
 			}
-			
+
 			NBVariableBlurView()
 				.rotationEffect(.degrees(-180))
 				.overlay(
@@ -265,7 +251,7 @@ extension SourceAppsDetailView {
 				)
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _infoPills(app: ASRepository.App) -> some View {
 		let pillItems = _buildPills(from: app)
@@ -282,27 +268,27 @@ extension SourceAppsDetailView {
 			}
 		}
 	}
-	
+
 	private func _buildPills(from app: ASRepository.App) -> [NBPillItem] {
 		var pills: [NBPillItem] = []
-		
+
 		if let version = app.currentVersion {
 			pills.append(NBPillItem(title: version, icon: "tag", color: Color.accentColor))
 		}
-		
+
 		if let size = app.size {
 			pills.append(NBPillItem(title: size.formattedByteCount, icon: "archivebox", color: .secondary))
 		}
-		
+
 		return pills
 	}
-	
+
 	@ViewBuilder
 	private func _infoRow(title: String, value: String) -> some View {
-		LabeledContent(title, value: value)
+		XSignLabeledContent(title, value: value)
 		Divider()
 	}
-	
+
 	@ViewBuilder
 	private func _screenshots(screenshotURLs: [URL]) -> some View {
 		ScrollView(.horizontal, showsIndicators: false) {

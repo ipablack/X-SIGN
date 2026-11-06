@@ -10,7 +10,7 @@ import NimbleExtensions
 
 public struct NBToolbarButton: ToolbarContent {
 	@Environment(\.dismiss) private var dismiss
-	
+
 	private var _title: String
 	private var _icon: String
 	private var _style: NBToolbarMenuStyle
@@ -18,7 +18,7 @@ public struct NBToolbarButton: ToolbarContent {
 	private var _isDisabled: Bool
 	private var _action: () -> Void
 	private var _role: NBToolbarButtonRole?
-	
+
 	public init(
 		_ title: String = "",
 		systemImage: String = "",
@@ -34,7 +34,7 @@ public struct NBToolbarButton: ToolbarContent {
 		self._isDisabled = isDisabled
 		self._action = action
 	}
-	
+
 	public init(
 		role: NBToolbarButtonRole,
 		placement: ToolbarItemPlacement = .cancellationAction
@@ -43,7 +43,7 @@ public struct NBToolbarButton: ToolbarContent {
 		self._placement = placement
 		self._isDisabled = false
 		self._action = {}
-		
+
 		switch role {
 		case .cancel:
 			self._title = .localized("Cancel")
@@ -57,10 +57,10 @@ public struct NBToolbarButton: ToolbarContent {
 			self._title = .localized("Close")
 			self._icon = "xmark"
 			self._style = .icon
-			self._placement = .topBarTrailing
+			self._placement = .navigationBarTrailing
 		}
 	}
-	
+
 	public var body: some ToolbarContent {
 		ToolbarItem(placement: _placement) {
 			Button {

@@ -6,3 +6,9 @@ xcuserdata/
 deps
 cert.json
 _build
+
+# Unified Studio development outputs
+/Tools/StudioSource/node_modules/
+/Tools/StudioSource/dist/
+__pycache__/
+*.pyc

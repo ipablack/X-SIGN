@@ -28,11 +28,11 @@ struct DownloadButtonView: View {
 						.stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
 						.rotationEffect(.degrees(-90))
 						.frame(width: 31, height: 31)
-						.animation(.smooth, value: downloadProgress)
+						.animation(.easeInOut(duration: 0.25), value: downloadProgress)
 
 					Image(systemName: downloadProgress >= 0.75 ? "archivebox" : "square.fill")
 						.foregroundStyle(.tint)
-						.font(.footnote).bold()
+						.font(.footnote.bold())
 				}
 				.onTapGesture {
 					if downloadProgress <= 0.75 {
@@ -88,7 +88,7 @@ struct DownloadButtonView: View {
 			downloadProgress = download.overallProgress
 		}
 	}
-	
+
 	private func _sourceProvenance() -> SourceAppProvenance? {
 		guard let source else { return nil }
 		return SourceAppProvenance(sourceURL: sourceURL, repository: source, app: app)

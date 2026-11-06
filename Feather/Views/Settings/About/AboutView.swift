@@ -40,9 +40,8 @@ struct AboutView: View {
 				VStack {
 					FRAppIconView(size: 72)
 					
-					Text("Xsign")
-						.font(.largeTitle)
-						.bold()
+					Text("XSign")
+						.font(.largeTitle.bold())
 						.foregroundStyle(Color.accentColor)
 					
 					HStack(spacing: 4) {

@@ -13,17 +13,17 @@ import NimbleViews
 // MARK: - View
 struct SourceNewsCardInfoView: View {
 	var new: ASRepository.News
-	
+
 	// MARK: Body
 	var body: some View {
-		NavigationStack {
+		XSignNavigationView {
 			ScrollView {
 				VStack(alignment: .leading, spacing: 20) {
 					ZStack(alignment: .bottomLeading) {
 						let placeholderView = {
 							Color.gray.opacity(0.2)
 						}()
-						
+
 						if let iconURL = new.imageURL {
 							LazyImage(url: iconURL) { state in
 								if let image = state.image {
@@ -48,20 +48,20 @@ struct SourceNewsCardInfoView: View {
 						RoundedRectangle(cornerRadius: 12, style: .continuous)
 							.strokeBorder(Color.gray.opacity(0.2), lineWidth: 1)
 					)
-					
+
 					VStack(alignment: .leading, spacing: 12) {
 						Text(new.title)
 							.font(.title.bold())
 							.foregroundStyle(.tint)
 							.multilineTextAlignment(.leading)
-						
+
 						if !new.caption.isEmpty {
 							Text(new.caption)
 								.font(.body)
 								.foregroundStyle(.secondary)
 								.multilineTextAlignment(.leading)
 						}
-						
+
 						if let url = new.url {
 							Button {
 								UIApplication.shared.open(url)
@@ -70,7 +70,7 @@ struct SourceNewsCardInfoView: View {
 							}
 							.buttonStyle(.plain)
 						}
-						
+
 						if let date = new.date?.date {
 							Text(date.formatted(date: .abbreviated, time: .omitted))
 								.font(.footnote)

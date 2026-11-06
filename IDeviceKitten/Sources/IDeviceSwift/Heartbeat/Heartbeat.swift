@@ -73,6 +73,6 @@ public class HeartbeatManager {
 	/// Returns (idevice) pairing file path
 	/// - Returns: `Documents/Feather/pairingFile.plist`
 	static public func pairingFile() -> String {
-		FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("pairingFile.plist").relativePath
+		FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("XSignPrivate/pairingFile.plist").relativePath
 	}
 }

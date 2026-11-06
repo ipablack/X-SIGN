@@ -1,0 +1,56 @@
+{
+  "project": "XSign / IPA BLACK",
+  "app_version": "1.0",
+  "default_build": 1,
+  "canonical_workflow": "XSign_Full_Link.yml",
+  "canonical_guide": "Tools/Delivery/XSign_Unified_Guide_AR.md",
+  "application_repository": "ipablack/X-SIGN",
+  "source_repository": "ipablack/repo",
+  "source_priority": [
+    "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+    "https://supapi.trystore.net/rest/v1/plus_library_apps"
+  ],
+  "sources_can_be_added_removed_or_hidden": true,
+  "built_in_sources_are_removable": true,
+  "non_altstore_json_sources_supported": true,
+  "configuration_authority": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+  "installer": "Feather Server / Semi Local",
+  "native_signing": true,
+  "pairing_required": false,
+  "external_manifest_service": "https://api.palera.in/genPlist",
+  "ipa_export_ui": false,
+  "minimum_ios": "15.0",
+  "prepared_locally": true,
+  "pushed_to_github": false,
+  "site_published_from_this_task": false,
+  "native_build_verified_here": false,
+  "physical_device_install_verified_here": false,
+  "future_work": "Change panel writer, Swift reader and shared contract together; publish only the canonical workflow and unified package.",
+  "source_setup_supported": true,
+  "source_setup_secret": "XSIGN_CONTROL_TOKEN",
+  "source_repository_preview": {
+    "commit": "f81a27d",
+    "revision": 2,
+    "apps": 0,
+    "plan_revision": 3,
+    "missing_files": [
+      ".github/workflows/ipa_manager.yml",
+      "xsign-config.json",
+      "studio.html"
+    ]
+  },
+  "request_audit": "Tools/Delivery/Request_Audit_AR.md",
+  "local_swift_syntax_files_checked": 86,
+  "local_swift_syntax_only": true,
+  "empty_application_repository_recovery": {
+    "supported": true,
+    "public_base_commit": "84bb3b8f22ac07b963a5a4ef8ad38f3e44bb8ca8",
+    "public_base_repository": "ipablack/X-SIGN",
+    "workflows_restored": false
+  },
+  "build_runner": {
+    "default": "macos-15-intel",
+    "alternative": "macos-26-intel",
+    "reason": "Run 42270819790 was not acquired; GitHub reported macOS arm64 capacity constraints before any build step."
+  }
+}

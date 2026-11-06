@@ -1,0 +1,261 @@
+{
+  "name": "XSign Unified 1.0 — App, Studio and IPA Publisher",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "build_number": {
+          "description": "Optional positive build number; default is 1; increase it for later releases",
+          "type": "string",
+          "required": false,
+          "default": "1"
+        },
+        "macos_runner": {
+          "description": "Standard Intel macOS runner; use the other Intel image if a pool is unavailable",
+          "type": "choice",
+          "required": false,
+          "default": "macos-15-intel",
+          "options": [
+            "macos-15-intel",
+            "macos-26-intel"
+          ]
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "xsign-controlled-${{ github.ref }}",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "preflight": {
+      "if": "github.ref_type == 'branch'",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 15,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "fetch-depth": 1,
+            "submodules": false
+          }
+        },
+        {
+          "name": "Apply checked source update; preserve unknown changes",
+          "shell": "bash",
+          "run": "__REVIEWED_INSTALLER__"
+        },
+        {
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version": "22"
+          }
+        },
+        {
+          "name": "Install locked dashboard test dependencies",
+          "working-directory": "Tools/StudioSource",
+          "run": "npm ci --ignore-scripts --no-audit --no-fund"
+        },
+        {
+          "name": "Verify dashboard, backend and website-preserving merge",
+          "shell": "bash",
+          "run": "set -euo pipefail\n{\n  python3 Tools/Tests/check_workflow_consolidation.py\n  python3 Tools/Tests/check_source_bootstrap.py\n  node Tools/Tests/xsign_studio_v2_checks.cjs\n  python3 Tools/Tests/check_unified_contract.py\n  python3 Tools/Tests/check_build_environment.py\n  python3 Tools/Tests/check_ios_compatibility.py\n  python3 Tools/Tests/check_identity.py\n  node --test DomainBackend/tests/manifest.test.cjs\n  python3 DomainBackend/tests/configure_test.py\n  python3 Tools/Tests/check_zsign_provisioning.py\n  python3 -m compileall -q DomainBackend Tools/Tests\n  git diff --check\n} 2>&1 | tee \"$RUNNER_TEMP/xsign-local-preflight.log\"\n"
+        },
+        {
+          "name": "Disable reviewed superseded workflows on the default branch",
+          "env": {
+            "GH_TOKEN": "${{ github.token }}"
+          },
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 Tools/Disable_Legacy_Workflows.py\n"
+        },
+        {
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "XSign-reviewed-installer",
+            "path": "${{ runner.temp }}/apply-reviewed-update.py",
+            "if-no-files-found": "error",
+            "retention-days": 14
+          }
+        },
+        {
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "XSign-Unified-Panel-and-Source",
+            "path": "Tools/XSign_Studio.html\nTools/StudioSource/src/\nTools/StudioSource/scripts/\nTools/StudioSource/tests/\nTools/StudioSource/package*.json\nTools/Integration/\nTools/Delivery/",
+            "if-no-files-found": "error",
+            "include-hidden-files": true,
+            "retention-days": 14
+          }
+        },
+        {
+          "name": "Diagnose Feather public service (availability is not a build result)",
+          "continue-on-error": true,
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 Tools/Verify_Feather_Manifest.py 2>&1 | tee \"$RUNNER_TEMP/xsign-local-feather-service.log\"\n"
+        },
+        {
+          "name": "Keep check logs",
+          "if": "always()",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "XSign-preflight-logs",
+            "path": "${{ runner.temp }}/xsign-local-*.log",
+            "if-no-files-found": "ignore",
+            "retention-days": 14
+          }
+        }
+      ],
+      "permissions": {
+        "contents": "read",
+        "actions": "write"
+      }
+    },
+    "build": {
+      "needs": "preflight",
+      "runs-on": "${{ inputs.macos_runner || 'macos-15-intel' }}",
+      "timeout-minutes": 90,
+      "permissions": {
+        "contents": "write"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "fetch-depth": 1,
+            "submodules": false
+          }
+        },
+        {
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version": "22"
+          }
+        },
+        {
+          "uses": "actions/download-artifact@v7",
+          "with": {
+            "name": "XSign-reviewed-installer",
+            "path": "${{ runner.temp }}/xsign-installer"
+          }
+        },
+        {
+          "name": "Apply the identical reviewed source payload",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 \"$RUNNER_TEMP/xsign-installer/apply-reviewed-update.py\"\n"
+        },
+        {
+          "name": "Install locked dashboard dependencies on the macOS worker",
+          "working-directory": "Tools/StudioSource",
+          "shell": "bash",
+          "run": "npm ci --ignore-scripts --no-audit --no-fund"
+        },
+        {
+          "name": "Select installed stable Xcode 26 and verify the iOS SDK",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 Tools/Select_Xcode.py | tee \"$RUNNER_TEMP/xsign-local-toolchain.log\"\n"
+        },
+        {
+          "name": "Build and verify the iOS application",
+          "shell": "bash",
+          "run": "set -euo pipefail\nxcodebuild -version\nexport XSIGN_BUILD_NUMBER=\"${XSIGN_REQUESTED_BUILD:-1}\"\npython3 - <<'CHECK_BUILD'\nimport os,re\nassert re.fullmatch(r'[1-9][0-9]{0,8}',os.environ['XSIGN_BUILD_NUMBER']), 'Use a positive numeric build number, at most 9 digits'\nCHECK_BUILD\nexport XSIGN_RESULT_BUNDLE=\"$RUNNER_TEMP/xsign-build.xcresult\"\nmake XSIGN_BUILD_NUMBER=\"$XSIGN_BUILD_NUMBER\" 2>&1 | tee \"$RUNNER_TEMP/xsign-local-build.log\"\npython3 - <<'VERIFY_LOCAL_IPA'\nfrom pathlib import Path\nimport zipfile,plistlib,os\np=Path('packages/X-SIGN.ipa')\nwith zipfile.ZipFile(p) as z:\n    assert z.testzip() is None\n    assert not any(n.lower().endswith(('.p12','.ipa')) for n in z.namelist()), 'Private signing keys or nested IPA must not be bundled'\n    infos=[n for n in z.namelist() if n.startswith('Payload/') and n.count('/')==2 and n.endswith('/Info.plist')]\n    assert len(infos)==1\n    info_min=plistlib.loads(z.read(infos[0])).get('MinimumOSVersion','99.0')\n    minimum=tuple((list(map(int,info_min.split('.')))+[0,0])[:3])\n    assert minimum <= (15,0,0), 'IPA does not support iOS 15'\n    assert plistlib.loads(z.read(infos[0])).get('UIFileSharingEnabled') is not True, 'File sharing must be disabled'\n    info=plistlib.loads(z.read(infos[0]))\n    assert info.get('CFBundleIdentifier')=='com.ipablack.xsign', 'Unexpected XSign bundle identifier'\n    assert info.get('CFBundleDisplayName')=='XSign' and info.get('CFBundleName')=='XSign', 'Unexpected app name'\n    icons=info.get('CFBundleIcons',{}).get('CFBundlePrimaryIcon',{})\n    assert icons.get('CFBundleIconName')=='AppIcon' or icons.get('CFBundleIconFiles'), 'Built app has no primary icon'\n    assert str(info.get('CFBundleVersion')) == os.environ['XSIGN_BUILD_NUMBER'], 'IPA build does not match requested build'\n    executable=infos[0].rsplit('/',1)[0]+'/'+info['CFBundleExecutable']\n    assert len(z.read(executable))>4096\n    assert info.get('CFBundleShortVersionString')=='1.0'\n    assert str(info.get('CFBundleVersion')) == os.environ['XSIGN_BUILD_NUMBER']\nprint('Verified the built IPA archive and app executable')\nVERIFY_LOCAL_IPA\n",
+          "env": {
+            "XSIGN_REQUESTED_BUILD": "${{ inputs.build_number }}"
+          }
+        },
+        {
+          "name": "Run Swift security, catalog policy, signing and transfer checks",
+          "shell": "bash",
+          "run": "set -euo pipefail\n{\n  python3 Tools/Tests/prepare_source_selection_checks.py\n  swiftc -swift-version 5 -parse-as-library \"$RUNNER_TEMP/xsign-source-policy.swift\" Feather/Utilities/XSignRESTSource.swift Feather/Utilities/XSignSourceAdapter.swift Feather/Utilities/XSignSelfUpdatePolicy.swift Tools/Tests/xsign_source_selection_checks.swift -o \"$RUNNER_TEMP/xsign-source-checks\"\n  \"$RUNNER_TEMP/xsign-source-checks\"\n  swiftc -swift-version 5 -parse-as-library Feather/Utilities/XSignCertificateSelection.swift Tools/Tests/xsign_certificate_selection_checks.swift -o \"$RUNNER_TEMP/xsign-certificate-checks\"\n  \"$RUNNER_TEMP/xsign-certificate-checks\"\n  swiftc -swift-version 5 -parse-as-library Feather/Utilities/XSignPrivateFiles.swift Tools/Tests/xsign_private_storage_checks.swift -o \"$RUNNER_TEMP/xsign-private-storage-checks\"\n  \"$RUNNER_TEMP/xsign-private-storage-checks\"\n  swiftc -swift-version 5 -parse-as-library IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/IDeviceOwnedStaging.swift Tools/Tests/xsign_owned_staging_checks.swift -o \"$RUNNER_TEMP/xsign-staging-checks\"\n  \"$RUNNER_TEMP/xsign-staging-checks\"\n  swiftc -swift-version 5 -parse-as-library IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/IDeviceFileTransfer.swift Tools/Tests/xsign_local_transfer_checks.swift -o \"$RUNNER_TEMP/xsign-transfer-checks\"\n  \"$RUNNER_TEMP/xsign-transfer-checks\"\n  swiftc -swift-version 5 -parse-as-library Feather/Utilities/XSignSelfUpdatePolicy.swift Tools/Tests/xsign_self_update_policy_checks.swift -o \"$RUNNER_TEMP/xsign-self-update-checks\"\n  \"$RUNNER_TEMP/xsign-self-update-checks\"\n  python3 Tools/Tests/make_self_update_key_fixture.py\n  swiftc -swift-version 5 -parse-as-library Feather/Utilities/XSignSelfUpdateKey.swift Tools/Tests/xsign_self_update_key_checks.swift -o \"$RUNNER_TEMP/xsign-self-update-key-checks\"\n  \"$RUNNER_TEMP/xsign-self-update-key-checks\"\n  node Tools/Tests/xsign_studio_v2_checks.cjs\n  python3 Tools/Tests/check_options_compat.py\n  python3 Tools/Tests/check_zsign_provisioning.py\n  python3 Tools/Tests/prepare_local_signing_server_checks.py\n  python3 Tools/Tests/make_ota_tls_fixtures.py\n  python3 Tools/Tests/make_ipa_security_fixtures.py\n  XSIGN_OTA_TLS_FIXTURES=\"$RUNNER_TEMP/xsign-ota-tls-fixtures\" XSIGN_IPA_FIXTURES=\"$RUNNER_TEMP/xsign-ipa-fixtures\" swift run --package-path \"$RUNNER_TEMP/xsign-local-server-checks\" --jobs 2 XSignLocalServerChecks\n  git diff --check\n} 2>&1 | tee \"$RUNNER_TEMP/xsign-local-checks.log\"\n"
+        },
+        {
+          "name": "Record actual verification scope",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 - <<'XSIGN_SCOPE'\nfrom pathlib import Path\nPath('packages/BUILD_MODE.txt').write_text('XSign 1.0: native signing + Feather Semi Local manifest service.\\nThe app, Studio and publisher share the same reviewed source contract.\\nXcode build and automated checks do not confirm physical-device installation.\\n')\nXSIGN_SCOPE\n"
+        },
+        {
+          "name": "Upload the checked application",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "XSign-1.0-Feather-Server-iOS15",
+            "path": "packages/X-SIGN.ipa\npackages/BUILD_MODE.txt",
+            "if-no-files-found": "error",
+            "retention-days": 14
+          }
+        },
+        {
+          "name": "Save tested source changes to the selected branch",
+          "shell": "bash",
+          "run": "set -euo pipefail\ngit add -A --pathspec-from-file=\"$RUNNER_TEMP/xsign-secure-local-signing-paths.nul\" --pathspec-file-nul\nif git diff --cached --quiet; then exit 0; fi\ngit config user.name 'github-actions[bot]'\ngit config user.email '41898282+github-actions[bot]@users.noreply.github.com'\ngit commit -m 'Connect full XSign native dashboard contract and verified IPA updates [skip ci]'\ngit push origin \"HEAD:refs/heads/${GITHUB_REF_NAME}\"\n"
+        },
+        {
+          "name": "Summarize actual native errors",
+          "if": "failure()",
+          "shell": "bash",
+          "run": "python3 - <<'XSIGN_NATIVE_ERRORS'\nfrom pathlib import Path\nimport os\nroot=Path(os.environ['RUNNER_TEMP'])\nerrors=[]\nfor name in ['xsign-local-toolchain.log','xsign-local-build.log','xsign-local-checks.log']:\n    path=root/name\n    if not path.is_file():continue\n    for line in path.read_text(errors='replace').splitlines():\n        if any(marker in line for marker in ['error:', 'fatal error:', 'No usable stable Xcode', '** BUILD FAILED **']):\n            if line not in errors:errors.append(line[:1800])\nwith Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as output:\n    output.write('## Native verification failed\\n\\n')\n    output.write('\\n'.join('    '+line for line in errors[:30]) if errors else 'Inspect the failing step and the XSign-native-logs artifact for the actual error.')\n    output.write('\\n\\nFull native logs and the Xcode result bundle are preserved in XSign-native-logs. No app source is committed when verification fails.\\n')\nXSIGN_NATIVE_ERRORS\n"
+        },
+        {
+          "name": "Preserve native check and build logs",
+          "if": "always()",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "XSign-native-logs",
+            "path": "${{ runner.temp }}/xsign-local-*.log\n${{ runner.temp }}/xsign-build.xcresult\n",
+            "if-no-files-found": "ignore",
+            "retention-days": 14,
+            "include-hidden-files": true
+          }
+        }
+      ]
+    },
+    "source-setup": {
+      "needs": "build",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 15,
+      "permissions": {
+        "contents": "read"
+      },
+      "env": {
+        "XSIGN_CONTROL_TOKEN": "${{ secrets.XSIGN_CONTROL_TOKEN }}"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "fetch-depth": 1,
+            "submodules": false
+          }
+        },
+        {
+          "uses": "actions/download-artifact@v7",
+          "with": {
+            "name": "XSign-reviewed-installer",
+            "path": "${{ runner.temp }}/xsign-installer"
+          }
+        },
+        {
+          "name": "Apply identical reviewed setup tools",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 \"$RUNNER_TEMP/xsign-installer/apply-reviewed-update.py\"\n"
+        },
+        {
+          "name": "Initialize source repository, publisher and Studio without losing apps",
+          "if": "env.XSIGN_CONTROL_TOKEN != ''",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 Tools/Bootstrap_Source_Repository.py\n"
+        },
+        {
+          "name": "Report missing cross-repository permission honestly",
+          "if": "env.XSIGN_CONTROL_TOKEN == ''",
+          "shell": "bash",
+          "run": "set -euo pipefail\npython3 - <<'XSIGN_SETUP_NOTE'\nimport os\nfrom pathlib import Path\nwith Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as f:\n    f.write('## Source repository: manual setup required\\n\\nThe app build succeeded; ipablack/repo was NOT changed because XSIGN_CONTROL_TOKEN is missing.\\nAdd a token with Contents + Workflows write access to ipablack/repo as this repository secret and rerun to initialize repo.json, xsign-config.json, ipa_manager.yml and studio.html automatically.\\nThe complete files are also in XSign-Unified-Panel-and-Source for manual installation.\\nThe current website is not deployed by this workflow.\\n')\nXSIGN_SETUP_NOTE\n"
+        }
+      ]
+    }
+  }
+}

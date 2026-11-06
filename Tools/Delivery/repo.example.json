@@ -1,0 +1,197 @@
+{
+  "name": "IPA BLACK",
+  "identifier": "xsign.core.owned",
+  "subtitle": "المصدر الرسمي لتطبيق X-SIGN",
+  "description": "المكتبة الرسمية وتكوين لوحة تحكم X-SIGN المعتمدة.",
+  "iconURL": "https://up6.cc/2026/11/179399545145851.png",
+  "website": "https://x-sign.web.app",
+  "tintColor": "#005BBB",
+  "repo_revision_id": 1,
+  "featuredApps": [],
+  "categories": [
+    {
+      "id": "social",
+      "name": "التواصل الاجتماعي",
+      "isGame": false
+    },
+    {
+      "id": "media",
+      "name": "صور وفيديو ووسائط",
+      "isGame": false
+    },
+    {
+      "id": "tools",
+      "name": "أدوات التطوير",
+      "isGame": false
+    },
+    {
+      "id": "productivity",
+      "name": "إنتاجية",
+      "isGame": false
+    },
+    {
+      "id": "games",
+      "name": "ألعاب",
+      "isGame": true
+    }
+  ],
+  "news": [],
+  "apps": [],
+  "xsign_config": {
+    "splash_screen": {
+      "engine": "vector",
+      "animation_style": "laser_draw",
+      "show_sign_feather": true,
+      "duration_seconds": 3.2,
+      "custom_code": "",
+      "size_px": 225,
+      "stroke_width": 8,
+      "glow_radius": 18,
+      "subtitle": "IPA BLACK"
+    },
+    "theme": {
+      "app_tint_hex": "#005BBB",
+      "splash_bg_top_hex": "#002B66",
+      "splash_bg_bottom_hex": "#00183B",
+      "splash_logo_hex": "#FFFFFF",
+      "appearance": "system"
+    },
+    "maintenance": {
+      "enabled": false,
+      "title": "التطبيق قيد الصيانة",
+      "message": "نقوم حالياً بتحديث الخدمات، يرجى المحاولة لاحقاً.",
+      "button_url": "https://x-sign.web.app"
+    },
+    "force_update": {
+      "enabled": false,
+      "min_version": "1.0.0",
+      "update_url": "https://x-sign.web.app",
+      "message": "يتوفر تحديث جديد ومهم لتطبيق X-SIGN.",
+      "min_build_version": ""
+    },
+    "security_locks": {
+      "allow_app_metadata_editing": true,
+      "lock_bundle_rename": false,
+      "lock_icon_change": false,
+      "lock_dylib_injection": false,
+      "anti_vpn_proxy": false,
+      "require_online_handshake": false,
+      "vpn_warning_message": "عذراً، لا يمكن استخدام تطبيق X-Sign أو تحميل التطبيقات أثناء تشغيل VPN أو برامج مراقبة الشبكة (Proxy)."
+    },
+    "app_control": {
+      "top_banner_enabled": false,
+      "top_banner_text": "",
+      "top_banner_url": "https://x-sign.web.app",
+      "cache_flush_id": 1,
+      "purge_sources_id": 1,
+      "core_sources": [
+        {
+          "name": "IPA BLACK",
+          "id": "xsign.core.owned",
+          "url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
+        },
+        {
+          "name": "متجر بلس",
+          "id": "xsign.core.primary",
+          "url": "https://supapi.trystore.net/rest/v1/plus_library_apps"
+        }
+      ]
+    },
+    "dashboard": {
+      "schema_version": 2,
+      "allow_user_sources": true,
+      "signing_enabled": true,
+      "tab_order": [
+        "today",
+        "apps",
+        "games",
+        "search",
+        "library"
+      ],
+      "sources": [
+        {
+          "enabled": true,
+          "format": "auto",
+          "id": "xsign.core.owned",
+          "name": "IPA BLACK",
+          "url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
+        },
+        {
+          "enabled": true,
+          "format": "auto",
+          "id": "xsign.core.primary",
+          "name": "متجر بلس",
+          "url": "https://supapi.trystore.net/rest/v1/plus_library_apps"
+        }
+      ],
+      "sections": [
+        {
+          "enabled": true,
+          "limit": 12,
+          "id": "today-news",
+          "title": "الأخبار",
+          "page": "today",
+          "kind": "news"
+        },
+        {
+          "enabled": true,
+          "limit": 12,
+          "id": "today-featured",
+          "title": "مختارات IPA BLACK",
+          "page": "today",
+          "kind": "featured"
+        },
+        {
+          "enabled": true,
+          "limit": 60,
+          "id": "today-apps",
+          "title": "جديد المتجر",
+          "page": "today",
+          "kind": "apps"
+        },
+        {
+          "enabled": true,
+          "limit": 12,
+          "id": "apps-sources",
+          "title": "المصادر",
+          "page": "apps",
+          "kind": "sources"
+        },
+        {
+          "enabled": true,
+          "limit": 12,
+          "id": "apps-categories",
+          "title": "التصنيفات",
+          "page": "apps",
+          "kind": "categories"
+        },
+        {
+          "enabled": true,
+          "limit": 60,
+          "id": "apps-list",
+          "title": "التطبيقات",
+          "page": "apps",
+          "kind": "apps"
+        },
+        {
+          "enabled": true,
+          "limit": 60,
+          "id": "games-list",
+          "title": "الألعاب",
+          "page": "games",
+          "kind": "apps"
+        }
+      ],
+      "update": {
+        "enabled": false,
+        "latest_version": "",
+        "build_version": "",
+        "ipa_url": "",
+        "sha256": "",
+        "manifest_url": "",
+        "notes": "",
+        "html": ""
+      }
+    }
+  }
+}

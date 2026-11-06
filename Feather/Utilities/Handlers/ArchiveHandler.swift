@@ -1,101 +1,51 @@
-//
-//  ArchiveHandler.swift
-//  Feather
-//
-//  Created by samara on 22.04.2025.
-//
-
 import Foundation
-import UIKit.UIApplication
-import Zip
 import SwiftUI
+import ZIPFoundation
 import IDeviceSwift
 
+// Creates a private, temporary IPA for the iOS installer. There is no export or share API.
 final class ArchiveHandler: NSObject {
-	@ObservedObject var viewModel: InstallerStatusViewModel
-	
-	private let _fileManager = FileManager.default
-	private let _uuid = UUID().uuidString
-	private var _payloadUrl: URL?
-	
-	private var _app: AppInfoPresentable
-	private let _uniqueWorkDir: URL
-	
-	init(app: AppInfoPresentable, viewModel: InstallerStatusViewModel) {
-		self.viewModel = viewModel
-		self._app = app
-		self._uniqueWorkDir = _fileManager.temporaryDirectory
-			.appendingPathComponent("FeatherInstall_\(_uuid)", isDirectory: true)
-		
-		super.init()
-	}
-	
-	func move() async throws {
-		let storedURL = await MainActor.run { Storage.shared.getAppDirectory(for: self._app) }
-		guard let appUrl = storedURL else {
-			throw SigningFileHandlerError.appNotFound
-		}
-		
-		let payloadUrl = _uniqueWorkDir.appendingPathComponent("Payload")
-		let movedAppURL = payloadUrl.appendingPathComponent(appUrl.lastPathComponent)
+    @ObservedObject var viewModel: InstallerStatusViewModel
+    private let fileManager = FileManager.default
+    private let app: AppInfoPresentable
+    private let work = XSignPrivateFiles.workDirectory(prefix: "Install")
+    private var payload: URL?
+    private(set) var installationMetadata: XSignOTABundleMetadata?
 
-		try _fileManager.createDirectoryIfNeeded(at: payloadUrl)
-		
-		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
-		_payloadUrl = payloadUrl
-	}
-	
-	func archive(forLocalInstallation: Bool = false) async throws -> URL {
-		return try await Task.detached(priority: .userInitiated) { [self] in
-			guard let payloadUrl = await self._payloadUrl else {
-				throw SigningFileHandlerError.appNotFound
-			}
-			
-			let zipUrl = self._uniqueWorkDir.appendingPathComponent("Archive.zip")
-			let ipaUrl = self._uniqueWorkDir.appendingPathComponent("Archive.ipa")
-			
-            let progressGate = XSignDownloadProgressGate()
-			try await Zip.zipFiles(
-				paths: [payloadUrl],
-				zipFilePath: zipUrl,
-				password: nil,
-				compression: forLocalInstallation ? .NoCompression : ZipCompression.allCases[min(ZipCompression.allCases.count - 1, max(0, ArchiveHandler.getCompressionLevel()))],
-				progress: { progress in
-                    guard progress.isFinite, progressGate.shouldPublish(Int(progress * 100)) else { return }
-					Task { @MainActor in
-						self.viewModel.packageProgress = progress
-					}
-				})
-			
-			try FileManager.default.moveItem(at: zipUrl, to: ipaUrl)
-			return ipaUrl
-		}.value
-	}
-	
-	func moveToArchive(_ package: URL, shouldOpen: Bool = false) async throws -> URL? {
-		let values = await MainActor.run { (self._app.name, self._app.version) }
-        let appendingString = XSignAppMetadata.archiveFileName(name: values.0, version: values.1, suffix: "\(Int(Date().timeIntervalSince1970))_\(_uuid.prefix(8))")
-		let dest = _fileManager.archives.appendingPathComponent(appendingString)
-		
-		try _fileManager.moveItem(
-			at: package,
-			to: dest
-		)
-		
-		if shouldOpen, let sharedURL = FileManager.default.archives.toSharedDocumentsURL() {
-			await MainActor.run {
-				UIApplication.open(sharedURL)
-			}
-		}
-		
-		return dest
-	}
-	
-    func clean() {
-        try? _fileManager.removeItem(at: _uniqueWorkDir)
+    init(app: AppInfoPresentable, viewModel: InstallerStatusViewModel) {
+        self.app = app
+        self.viewModel = viewModel
+        super.init()
     }
 
-	static func getCompressionLevel() -> Int {
-		UserDefaults.standard.integer(forKey: "Feather.compressionLevel")
-	}
+    @discardableResult
+    func move() async throws -> XSignOTABundleMetadata {
+        guard let original = await MainActor.run(body: { Storage.shared.getAppDirectory(for: self.app) }) else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        try XSignIPAExtractor.validateTree(original)
+        let payload = work.appendingPathComponent("Payload")
+        try XSignPrivateFiles.createDirectory(payload)
+        let copied = payload.appendingPathComponent(original.lastPathComponent)
+        try fileManager.copyItem(at: original, to: copied)
+        let metadata = try XSignOTABundleMetadata.read(from: copied)
+        installationMetadata = metadata
+        self.payload = payload
+        return metadata
+    }
+
+    func archive() async throws -> URL {
+        guard let payload else { throw SigningFileHandlerError.appNotFound }
+        let package = work.appendingPathComponent("Install.ipa")
+        try await Task.detached(priority: .userInitiated) {
+            try Task.checkCancellation()
+            // Installation is local: avoid spending CPU recompressing an already signed bundle.
+            try FileManager.default.zipItem(at: payload, to: package, shouldKeepParent: true, compressionMethod: .none)
+            try XSignPrivateFiles.protect(package)
+        }.value
+        await MainActor.run { self.viewModel.packageProgress = 1 }
+        return package
+    }
+
+    func clean() { try? fileManager.removeItem(at: work) }
 }

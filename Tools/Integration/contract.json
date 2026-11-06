@@ -1,0 +1,62 @@
+{
+  "schema_version": 2,
+  "app_repository": "ipablack/X-SIGN",
+  "reviewed_base_commit": "84bb3b8",
+  "minimum_ios": "15.0",
+  "build_bundle_identifier": "com.ipablack.xsign",
+  "config_url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+  "publish_repository": "ipablack/repo",
+  "publish_branch": "main",
+  "catalogue_path": "repo.json",
+  "projection_path": "xsign-config.json",
+  "workflow": "ipa_manager.yml",
+  "verification": "JavaScript and source-application checks run locally; native SDK build and installation require macOS and an iPhone.",
+  "bindings": {
+    "xsign_config.theme": "Feather/FeatherApp.swift",
+    "xsign_config.splash_screen": "Feather/FeatherApp.swift",
+    "xsign_config.maintenance": "Feather/FeatherApp.swift",
+    "xsign_config.force_update": "Feather/FeatherApp.swift",
+    "xsign_config.dashboard.sources": "Feather/Utilities/XSignDashboardPolicy.swift",
+    "xsign_config.dashboard.sections": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "xsign_config.dashboard.tab_order": "Feather/Views/TabView/Bars/TabbarView.swift",
+    "xsign_config.dashboard.allow_user_sources": "Feather/Views/Sources/SourcesView.swift",
+    "xsign_config.dashboard.signing_enabled": "Feather/FeatherApp.swift",
+    "xsign_config.dashboard.update": "Feather/Views/Settings/XSignAppUpdateView.swift",
+    "xsign_config.security_locks": "Feather/Utilities/Handlers/SigningHandler.swift",
+    "xsign_config.app_control": "Feather/FeatherApp.swift",
+    "apps": "Feather/Views/Sources/SourcesView.swift",
+    "news": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "categories": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "featuredApps": "Feather/Views/Sources/XSignConfiguredStoreView.swift"
+  },
+  "not_enforced_in_local_signing_build": [
+    "anti_vpn_proxy",
+    "require_online_handshake"
+  ],
+  "publisher_to_update_fields": {
+    "version": "latest_version",
+    "buildVersion": "build_version",
+    "downloadURL": "ipa_url",
+    "sha256": "sha256"
+  },
+  "app_version": "1.0",
+  "installer": "Feather Server / Semi Local (api.palera.in)",
+  "default_build_number": 1,
+  "canonical_workflow": "XSign_Full_Link.yml",
+  "canonical_guide": "Tools/Delivery/XSign_Unified_Guide_AR.md",
+  "source_priority": [
+    "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+    "https://supapi.trystore.net/rest/v1/plus_library_apps"
+  ],
+  "managed_sources_editable": true,
+  "built_in_sources_removable": true,
+  "source_formats": [
+    "auto",
+    "altstore",
+    "json"
+  ],
+  "configuration_authority_independent_of_source_list": true,
+  "display_name": "XSign",
+  "icon_source_url": "https://up6.cc/2026/11/179399545145851.png",
+  "panel_design": "Tools/Integration/panel-origin.json"
+}

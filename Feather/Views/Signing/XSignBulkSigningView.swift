@@ -58,6 +58,7 @@ struct XSignBulkSigningView: View {
     @StateObject private var model: XSignBulkSigningModel
     @State private var certificateIndex: Int
     @State private var installApp: AnyApp?
+    @State private var showCertificateSetup = false
     @FetchRequest(entity: CertificatePair.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)])
     private var certificates: FetchedResults<CertificatePair>
 
@@ -66,7 +67,7 @@ struct XSignBulkSigningView: View {
         _certificateIndex = State(initialValue: UserDefaults.standard.integer(forKey: "feather.selectedCert"))
     }
     private var selectedCertificate: CertificatePair? {
-        certificates.indices.contains(certificateIndex) ? certificates[certificateIndex] : certificates.first
+        Storage.shared.activeSigningCertificate(preferredIndex: certificateIndex)
     }
     private var completed: Int {
         model.queue.entries.filter { entry in
@@ -78,7 +79,9 @@ struct XSignBulkSigningView: View {
         NavigationView {
             List {
                 Section {
-                    if certificates.isEmpty { Text("أضف شهادة من إعدادات الحساب أولًا.") }
+                    if selectedCertificate == nil {
+                        Button("إعداد التوقيع مرة واحدة") { showCertificateSetup = true }
+                    }
                     else {
                         Picker("الشهادة", selection: $certificateIndex) {
                             ForEach(Array(certificates.enumerated()), id: \.element.objectID) { index, certificate in
@@ -111,7 +114,7 @@ struct XSignBulkSigningView: View {
                             if case .working = entry.state { ProgressView() }
                             if case .succeeded(let uuid) = entry.state {
                                 Button("تثبيت") {
-                                    if let signed = AutoSignPipelineManager.fetchSignedApps().first(where: { $0.uuid == uuid }) {
+                                    if let signed = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
                                         installApp = AnyApp(base: signed)
                                     } else { model.errorMessage = "لم تعد النسخة الموقعة موجودة في المكتبة." }
                                 }
@@ -125,6 +128,9 @@ struct XSignBulkSigningView: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) {
                 Button("إغلاق") { dismiss() }.disabled(model.queue.isRunning)
             } }
+            .sheet(isPresented: $showCertificateSetup, onDismiss: {
+                certificateIndex = UserDefaults.standard.integer(forKey: "feather.selectedCert")
+            }) { CertificatesAddView() }
             .sheet(item: $installApp) { app in InstallPreviewView(app: app.base) }
         }
         .navigationViewStyle(.stack)

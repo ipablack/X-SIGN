@@ -64,19 +64,23 @@ extension ResetView {
 	@ViewBuilder
 	private func _cache() -> some View {
 		Section {
-			Button(.localized("Reset Work Cache"), systemImage: "xmark.rectangle.portrait") {
+			Button {
 				Self.resetAlert(title: .localized("Reset Work Cache")) {
 					Self.clearWorkCache()
 				}
+			} label: {
+				Label(.localized("Reset Work Cache"), systemImage: "xmark.rectangle.portrait")
 			}
 			
-			Button(.localized("Reset Network Cache"), systemImage: "xmark.rectangle.portrait") {
+			Button {
 				Self.resetAlert(
 					title: .localized("Reset Network Cache"),
 					message: _cacheSize()
 				) {
 					Self.clearNetworkCache()
 				}
+			} label: {
+				Label(.localized("Reset Network Cache"), systemImage: "xmark.rectangle.portrait")
 			}
 		}
 	}
@@ -84,40 +88,48 @@ extension ResetView {
 	@ViewBuilder
 	private func _coredata() -> some View {
 		Section {
-			Button(.localized("Reset Sources"), systemImage: "xmark.circle") {
+			Button {
 				Self.resetAlert(
 					title: .localized("Reset Sources"),
 					message: Storage.shared.countContent(for: AltSource.self)
 				) {
 					Self.resetSources()
 				}
+			} label: {
+				Label(.localized("Reset Sources"), systemImage: "xmark.circle")
 			}
 			
-			Button(.localized("Reset Signed Apps"), systemImage: "xmark.circle") {
+			Button {
 				Self.resetAlert(
 					title: .localized("Reset Signed Apps"),
 					message: Storage.shared.countContent(for: Signed.self)
 				) {
 					Self.deleteSignedApps()
 				}
+			} label: {
+				Label(.localized("Reset Signed Apps"), systemImage: "xmark.circle")
 			}
 			
-			Button(.localized("Reset Imported Apps"), systemImage: "xmark.circle") {
+			Button {
 				Self.resetAlert(
 					title: .localized("Reset Imported Apps"),
 					message: Storage.shared.countContent(for: Imported.self)
 				) {
 					Self.deleteImportedApps()
 				}
+			} label: {
+				Label(.localized("Reset Imported Apps"), systemImage: "xmark.circle")
 			}
 			
-			Button(.localized("Reset Certificates"), systemImage: "xmark.circle") {
+			Button {
 				Self.resetAlert(
 					title: .localized("Reset Certificates"),
 					message: Storage.shared.countContent(for: CertificatePair.self)
 				) {
 					Self.resetCertificates()
 				}
+			} label: {
+				Label(.localized("Reset Certificates"), systemImage: "xmark.circle")
 			}
 		}
 	}
@@ -125,16 +137,20 @@ extension ResetView {
 	@ViewBuilder
 	private func _all() -> some View {
 		Section {
-			Button(.localized("Reset Settings"), systemImage: "xmark.octagon") {
+			Button {
 				Self.resetAlert(title: .localized("Reset Settings")) {
 					Self.resetUserDefaults()
 				}
+			} label: {
+				Label(.localized("Reset Settings"), systemImage: "xmark.octagon")
 			}
 			
-			Button(.localized("Reset All"), systemImage: "xmark.octagon") {
+			Button {
 				Self.resetAlert(title: .localized("Reset All")) {
 					Self.resetAll()
 				}
+			} label: {
+				Label(.localized("Reset All"), systemImage: "xmark.octagon")
 			}
 		}
 		.foregroundStyle(.red)
@@ -145,11 +161,12 @@ extension ResetView {
 extension ResetView {
 	static func clearWorkCache() {
 		let fileManager = FileManager.default
+        try? fileManager.removeItem(at: XSignPrivateFiles.workRoot)
 		let tmpDirectory = fileManager.temporaryDirectory
 		
-		if let files = try? fileManager.contentsOfDirectory(atPath: tmpDirectory.path()) {
+		if let files = try? fileManager.contentsOfDirectory(atPath: tmpDirectory.path) {
 			for file in files {
-				try? fileManager.removeItem(atPath: tmpDirectory.appendingPathComponent(file).path())
+				try? fileManager.removeItem(atPath: tmpDirectory.appendingPathComponent(file).path)
 			}
 		}
 	}
@@ -184,6 +201,7 @@ extension ResetView {
 	}
 	
 	static func resetCertificates(resetAll: Bool = false) {
+        XSignCertificateSecrets.deleteAll()
 		if !resetAll { UserDefaults.standard.set(0, forKey: "feather.selectedCert") }
 		Storage.shared.clearContext(request: CertificatePair.fetchRequest())
 		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)

@@ -1,0 +1,116 @@
+import Foundation
+
+@main
+struct ApprovedSourceChecks {
+    static func main() throws {
+        let policyKeys=[XSignDashboardSources.key,XSignDashboardSources.historyKey,XSignDashboardSources.userKey]
+        let savedPolicy=policyKeys.map { UserDefaults.standard.object(forKey:$0) }
+        policyKeys.forEach { UserDefaults.standard.removeObject(forKey:$0) }
+        defer { for (key,value) in zip(policyKeys,savedPolicy) {
+            if let value { UserDefaults.standard.set(value,forKey:key) } else { UserDefaults.standard.removeObject(forKey:key) }
+        } }
+        let key = ProtectedSourcesVault.ownedURLKey
+        let saved = UserDefaults.standard.string(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+        precondition(ProtectedSourcesVault.coreURLs == [ProtectedSourcesVault.defaultOwnedURLString, XSignRESTSource.primaryURL])
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: XSignRESTSource.primaryURL)))
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString)))
+        precondition(XSignCatalogIO.canonicalURL(URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString)!).absoluteString == ProtectedSourcesVault.defaultOwnedURLString)
+        precondition(ProtectedSourcesVault.validOwnedURL(ProtectedSourcesVault.defaultOwnedGitHubRawURLString)?.absoluteString == ProtectedSourcesVault.defaultOwnedURLString)
+        for value in ProtectedSourcesVault.legacyURLs {
+            precondition(ProtectedSourcesVault.isRetiredSource(URL(string: value)))
+            precondition(ProtectedSourcesVault.validOwnedURL(value) == nil)
+        }
+        let candidate = "https://sources.example.test/repo.json"
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: candidate), identifier: "xsign.core.owned"))
+        precondition(ProtectedSourcesVault.validOwnedURL("http://sources.example.test/repo.json") == nil)
+        precondition(ProtectedSourcesVault.validOwnedURL("https://user:password@sources.example.test/repo.json") == nil)
+        precondition(ProtectedSourcesVault.validOwnedURL(XSignRESTSource.primaryURL) == nil)
+        let old = [XSignCoreSourceItem(name: "Old", id: "xsign.core.ipablack", url: ProtectedSourcesVault.legacyURLs[0])]
+        precondition(SourceSelection.resolvedManagedSources(old).count == 2)
+        let configured = old + [XSignCoreSourceItem(name: "IPA BLACK", id: "xsign.core.owned", url: candidate)]
+        precondition(SourceSelection.resolvedManagedSources(configured).map(\.url) == [ProtectedSourcesVault.defaultOwnedURLString,XSignRESTSource.primaryURL])
+        UserDefaults.standard.set(candidate, forKey: key)
+        precondition(ProtectedSourcesVault.coreURLs.count == 2)
+        precondition(ProtectedSourcesVault.ownedURL?.absoluteString==ProtectedSourcesVault.defaultOwnedURLString)
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: candidate)))
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: "https://another.example.test/repo.json")))
+
+        let rows: [[String: Any]] = [
+            ["id": "one", "name": "Name", "name_ar": "الاسم", "description_ar": "الوصف", "developer_name": "Developer", "bundle_id": "com.example.app", "download_url": "https://example.test/app.ipa", "version": "1.2"],
+            ["id": "hidden", "name": "Hidden", "download_url": "https://example.test/hidden.ipa", "is_hidden": true],
+            ["id": "restricted", "name": "Restricted", "download_url": "https://example.test/restricted.ipa", "allow_ipa_download": false],
+            ["id": "purchase", "name": "Purchase", "download_url": "https://example.test/purchase.ipa", "purchase_required": true]
+        ]
+        let converted = try XSignRESTSource.normalize(rows)
+        let root = try JSONSerialization.jsonObject(with: converted) as! [String: Any]
+        let apps = root["apps"] as! [[String: Any]]
+        precondition(apps.count == 1 && apps[0]["name"] as? String == "الاسم")
+        precondition(apps[0]["developerName"] as? String == "Developer")
+        precondition(apps[0]["bundleIdentifier"] as? String == "com.example.app")
+        precondition(apps[0]["downloadURL"] as? String == "https://example.test/app.ipa")
+        let publicRows: [[String: Any]] = [
+            ["id":"public-plus", "name":"Public", "bundle_id":"com.example.public", "version":"1.0",
+             "download_url":"https://example.test/public.ipa", "allow_ipa_download":false,
+             "purchase_required":false, "category":"Games"],
+            ["id":"metadata-only", "name":"Metadata", "download_url":NSNull(),
+             "allow_ipa_download":false, "purchase_required":false],
+            ["id":"paid-plus", "name":"Paid", "download_url":"https://example.test/paid.ipa",
+             "allow_ipa_download":false, "purchase_required":true],
+            ["id":"hidden-plus", "name":"Hidden", "download_url":"https://example.test/hidden.ipa",
+             "allow_ipa_download":false, "purchase_required":false, "hide_in_library":true],
+            ["id":"unknown-permission", "name":"Unknown", "download_url":"https://example.test/unknown.ipa",
+             "allow_ipa_download":false]
+        ]
+        let plusData = try XSignRESTSource.normalize(publicRows, allowPublishedFreeLinks: true)
+        let plusRoot = try JSONSerialization.jsonObject(with: plusData) as! [String: Any]
+        let plusApps = plusRoot["apps"] as! [[String: Any]]
+        precondition(plusApps.count == 1)
+        precondition(plusApps[0]["bundleIdentifier"] as? String == "com.example.public")
+        precondition(plusRoot["name"] as? String == "متجر بلس")
+        precondition((plusRoot["categories"] as! [[String: Any]])[0]["isGame"] as? Bool == true)
+        let metadataOnly = try XSignRESTSource.normalize([publicRows[1]], allowPublishedFreeLinks: true)
+        let metadataRoot = try JSONSerialization.jsonObject(with: metadataOnly) as! [String: Any]
+        precondition((metadataRoot["apps"] as! [[String: Any]]).isEmpty)
+        do {
+            _ = try XSignRESTSource.normalize([["name":"Broken generic schema"]])
+            preconditionFailure("An unknown generic schema erased a source cache")
+        } catch {}
+        precondition(XSignRESTSource.PageRange("0-249/400")?.total == 400)
+        precondition(XSignRESTSource.PageRange("0-249/100") == nil)
+        let dashboard=try JSONDecoder().decode(XSignDashboardConfig.self,from:Data(#"{"schema_version":2,"sources":[{"id":"test","name":"Custom","url":"https://custom.example/repo.json"}],"sections":[]}"#.utf8))
+        precondition(XSignDashboardSources.apply(dashboard))
+        precondition(SourceSelection.resolvedManagedSources(nil).count==1)
+        let empty=try JSONDecoder().decode(XSignDashboardConfig.self,from:Data(#"{"schema_version":2,"sources":[]}"#.utf8))
+        precondition(XSignDashboardSources.apply(empty))
+        precondition(SourceSelection.resolvedManagedSources(nil).isEmpty)
+        let orderedConfig = try JSONDecoder().decode(XSignDashboardConfig.self,from:JSONSerialization.data(withJSONObject:["schema_version":2,"sources":[
+            ["id":"plus","name":"Plus","url":XSignRESTSource.primaryURL],
+            ["id":"owner","name":"IPA BLACK","url":ProtectedSourcesVault.defaultOwnedGitHubRawURLString]
+        ]]))
+        precondition(XSignDashboardSources.apply(orderedConfig))
+        precondition(SourceSelection.resolvedManagedSources(nil).map(\.id)==["owner","plus"])
+        let legacyURL=ProtectedSourcesVault.legacyURLs[0]
+        let explicitLegacy=try JSONDecoder().decode(XSignDashboardConfig.self,from:JSONSerialization.data(withJSONObject:["schema_version":2,"sources":[["id":"chosen","name":"Explicit source","url":legacyURL]]]))
+        precondition(XSignDashboardSources.apply(explicitLegacy))
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string:legacyURL)))
+        precondition(XSignDashboardSources.apply(empty))
+        precondition(SourceSelection.resolvedManagedSources(nil).isEmpty && ProtectedSourcesVault.isRetiredSource(URL(string:legacyURL)))
+        precondition(!XSignDashboardSources.isUserSource(URL(string:"https://custom.example/repo.json")!))
+        XSignDashboardSources.registerUser(URL(string:"https://custom.example/repo.json")!)
+        precondition(XSignDashboardSources.isUserSource(URL(string:"https://custom.example/repo.json")!))
+        precondition(XSignVersion.older("1.9",than:"1.10"))
+        precondition(!XSignVersion.valid("1.bad"))
+        let generic=Data(#"{"data":{"items":[{"title":"Example","bundle_id":"com.example.app","ipa":"https://example.test/a.ipa","logo":"https://example.test/i.png"}]},"icon":"https://example.test/source.png"}"#.utf8)
+        let genericData=try XSignSourceAdapter.normalize(generic,from:URL(string:"https://example.test/repo.json")!)
+        let genericRoot=try JSONSerialization.jsonObject(with:genericData) as! [String:Any]
+        precondition((genericRoot["apps"] as! [[String:Any]]).count==1)
+        precondition(genericRoot["iconURL"] as? String=="https://example.test/source.png")
+        do { _=try XSignSourceAdapter.normalize(Data("<html>no</html>".utf8),from:URL(string:"https://example.test/repo.json")!);preconditionFailure("HTML accepted") } catch {}
+        print("PASS: only approved source slots, retired feeds rejected, observed REST schema normalized")
+    }
+}

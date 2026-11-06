@@ -45,11 +45,22 @@ final class CertificateFileHandler: NSObject {
 			throw CertificateFileHandlerError.certNotValid
 		}
 		
+        for file in [_key, _provision] {
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
+                  let size = values.fileSize, size > 0, size <= 8_388_608 else {
+                throw CertificateFileHandlerError.certNotValid
+            }
+        }
 		let destinationURL = try await _directory()
 
-		try _fileManager.createDirectory(at: destinationURL, withIntermediateDirectories: true)
-		try _fileManager.copyItem(at: _key, to: destinationURL.appendingPathComponent(_key.lastPathComponent))
-		try _fileManager.copyItem(at: _provision, to: destinationURL.appendingPathComponent(_provision.lastPathComponent))
+		try XSignPrivateFiles.createDirectory(destinationURL)
+		try _fileManager.copyItem(at: _key, to: destinationURL.appendingPathComponent("identity.p12"))
+		try _fileManager.copyItem(at: _provision, to: destinationURL.appendingPathComponent("identity.mobileprovision"))
+        for file in try _fileManager.contentsOfDirectory(at: destinationURL, includingPropertiesForKeys: nil) {
+            try _fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+            try XSignPrivateFiles.protect(file)
+        }
 	}
 	
 	@MainActor

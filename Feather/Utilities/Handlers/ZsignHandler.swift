@@ -45,15 +45,18 @@ final class ZsignHandler {
 		}
 
         let credentials = try await MainActor.run { () throws -> (String, String, String) in
-            guard !cert.revoked, cert.expiration.map({ $0 > Date() }) ?? true,
+            guard !cert.revoked, cert.expiration.map({ $0 > Date() }) ?? false,
                   let provision = Storage.shared.getFile(.provision, from: cert),
                   let key = Storage.shared.getFile(.certificate, from: cert),
                   FileManager.default.isReadableFile(atPath: provision.path),
                   FileManager.default.isReadableFile(atPath: key.path) else {
                 throw NSError(domain: "XSign.Signing", code: 401, userInfo: [NSLocalizedDescriptionKey: "الشهادة غير متاحة أو منتهية أو ملغاة. اختر شهادة صالحة."])
             }
-            return (provision.path, key.path, cert.password ?? "")
+            return (provision.path, key.path, try Storage.shared.signingPassword(for: cert))
         }
+        let profile = try XSignProvisioningProfile.read(at: URL(fileURLWithPath: credentials.0))
+        let info = try XSignAppMetadata.readInfo(at: _appUrl.appendingPathComponent("Info.plist"))
+        _ = try profile.identifier(for: info["CFBundleIdentifier"] as? String ?? "", matchExactID: false)
         if let entitlements = _options.appEntitlementsFile {
             _ = try XSignAppMetadata.readInfo(at: entitlements)
         }

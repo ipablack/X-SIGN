@@ -56,7 +56,7 @@ public struct NBSheetButton: View {
 		.foregroundColor(foregroundColor)
 		.clipShape(RoundedRectangle(cornerRadius: _cornerRadius, style: .continuous))
 		.contentShape(RoundedRectangle(cornerRadius: _cornerRadius, style: .continuous))
-		.fontWeight(.semibold)
+		.font(.body.weight(.semibold))
 		.frame(height: 50)
 	}
 	

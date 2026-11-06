@@ -25,23 +25,26 @@ extension Storage {
 		let new = CertificatePair(context: context)
 		new.uuid = uuid
 		new.date = Date()
-		new.password = password
+		new.password = XSignCertificateSecrets.marker
 		new.ppQCheck = ppq
 		new.expiration = expiration
 		new.nickname = nickname
 		new.isDefault = isDefault
         do {
+            try XSignCertificateSecrets.save(password ?? "", uuid: uuid)
             try saveContextNow()
             revokagedCertificate(for: new)
             generator.impactOccurred()
             completion(nil)
         } catch {
+            XSignCertificateSecrets.delete(uuid: uuid)
             context.delete(new)
             completion(error)
         }
 	}
 	
 	func deleteCertificate(for cert: CertificatePair) {
+        if let uuid = cert.uuid { XSignCertificateSecrets.delete(uuid: uuid) }
 		if let url = getUuidDirectory(for: cert) {
 			try? FileManager.default.removeItem(at: url)
 		}
@@ -66,10 +69,11 @@ extension Storage {
 	func revokagedCertificate(for cert: CertificatePair) {
 		guard !cert.revoked else { return }
 		
+        guard let password = try? signingPassword(for: cert) else { return }
 		Zsign.checkRevokage(
 			provisionPath: Storage.shared.getFile(.provision, from: cert)?.path ?? "",
 			p12Path: Storage.shared.getFile(.certificate, from: cert)?.path ?? "",
-			p12Password: cert.password ?? ""
+			p12Password: password
 		) { (status, _, _) in
 			if status == 1 {
 				DispatchQueue.main.async {
@@ -110,6 +114,43 @@ extension Storage {
 		return FileManager.default.certificates(uuid)
 	}
 	
+    func signingPassword(for certificate: CertificatePair) throws -> String {
+        guard let uuid = certificate.uuid else { throw SigningFileHandlerError.missingCertifcate }
+        if certificate.password != XSignCertificateSecrets.marker {
+            try XSignCertificateSecrets.save(certificate.password ?? "", uuid: uuid)
+            let legacy = certificate.password
+            certificate.password = XSignCertificateSecrets.marker
+            do { try saveContextNow() }
+            catch { certificate.password = legacy; throw error }
+        }
+        return try XSignCertificateSecrets.read(uuid: uuid)
+    }
+
+    func migrateSigningPasswords() throws {
+        for certificate in getAllCertificates() where certificate.password != XSignCertificateSecrets.marker {
+            _ = try signingPassword(for: certificate)
+        }
+    }
+
+    func activeSigningCertificate(preferredIndex: Int? = nil) -> CertificatePair? {
+        let certificates = getAllCertificates()
+        let candidates = certificates.map { certificate in
+            XSignCertificateSelection.Candidate(
+                expiration: certificate.expiration,
+                revoked: certificate.revoked,
+                hasFiles: [FileRequest.certificate, .provision].allSatisfy { type in
+                    guard let file = getFile(type, from: certificate) else { return false }
+                    return FileManager.default.isReadableFile(atPath: file.path)
+                }
+            )
+        }
+        guard let index = XSignCertificateSelection.index(
+            in: candidates,
+            preferred: preferredIndex ?? UserDefaults.standard.integer(forKey: "feather.selectedCert")
+        ) else { return nil }
+        return certificates[index]
+    }
+
 	func getAllCertificates() -> [CertificatePair] {
 		let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]

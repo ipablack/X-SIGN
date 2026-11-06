@@ -52,8 +52,7 @@
 					.foregroundStyle(.pink)
 			
 				Text(.localized("Donations"))
-					.font(.title)
-					.bold()
+					.font(.title.bold())
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 		}
@@ -86,7 +85,7 @@
 				.clipShape(
 					RoundedRectangle(cornerRadius: 12, style: .continuous)
 				)
-				.bold()
+				.font(.body.bold())
 		}
 	}
 

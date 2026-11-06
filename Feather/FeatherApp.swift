@@ -40,6 +40,7 @@ struct XSignRemoteConfig: Codable, Equatable, Sendable {
 	let force_update: XSignForceUpdate?
 	let security_locks: XSignSecurityLocks?
 	let app_control: XSignAppControl?
+    let dashboard: XSignDashboardConfig?
 }
 
 struct XSignSplashConfig: Codable, Equatable, Hashable, Sendable {
@@ -59,6 +60,7 @@ struct XSignThemeColors: Codable, Equatable, Sendable {
 	let splash_bg_top_hex: String?
 	let splash_bg_bottom_hex: String?
 	let splash_logo_hex: String?
+    let appearance: String?
 }
 
 struct XSignMaintenance: Codable, Equatable, Sendable {
@@ -69,6 +71,7 @@ struct XSignMaintenance: Codable, Equatable, Sendable {
 }
 
 struct XSignForceUpdate: Codable, Equatable, Sendable {
+    let min_build_version: String?
 	let enabled: Bool?
 	let min_version: String?
 	let update_url: String?
@@ -108,11 +111,11 @@ struct XSignAppControl: Codable, Equatable, Sendable {
 @MainActor
 final class XSignSecurityEnforcer: ObservableObject {
 	static let shared = XSignSecurityEnforcer()
-	
+
 	private let locksStorageKey = "xsign.persistedSecurityLocks_v4"
 	private let pathMonitor = NWPathMonitor()
 	private let monitorQueue = DispatchQueue(label: "com.ipablack.xsign.netguard", qos: .utility)
-	
+
 	@Published var locks: XSignSecurityLocks = XSignSecurityLocks(
         allow_app_metadata_editing: true,
 		lock_bundle_rename: true,
@@ -124,7 +127,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 	)
 	@Published var isVPNOrProxyDetected: Bool = false
 	@Published var didCompleteOnlineHandshake: Bool = false
-	
+
 	init() {
 		if let data = UserDefaults.standard.data(forKey: locksStorageKey),
 		   let saved = try? JSONDecoder().decode(XSignSecurityLocks.self, from: data) {
@@ -133,7 +136,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 		evaluateNetworkSecurity()
 		startEventDrivenNetworkMonitor()
 	}
-	
+
 	func updateLocks(_ newLocks: XSignSecurityLocks?, verifiedOnline: Bool = false) {
 		guard let newLocks = newLocks else { return }
 		if self.locks != newLocks {
@@ -145,7 +148,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 		}
 		evaluateNetworkSecurity()
 	}
-	
+
 	private func startEventDrivenNetworkMonitor() {
 		pathMonitor.pathUpdateHandler = { [weak self] path in
             let connected = path.status == .satisfied
@@ -162,7 +165,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 		}
 		pathMonitor.start(queue: monitorQueue)
 	}
-	
+
 	func evaluateNetworkSecurity() {
 		let antiVPNEnabled = false // Local installation requires a local tunnel.
 		DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -175,7 +178,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 			}
 		}
 	}
-	
+
 	nonisolated static func isVPNOrProxyActiveOnDevice() -> Bool {
 		guard let cfSettings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() else {
 			return false
@@ -183,7 +186,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 		guard let cfDict = cfSettings as NSDictionary as? [String: Any] else {
 			return false
 		}
-		
+
 		let proxyKeys = [
 			"HTTPEnable", "HTTPSEnable", "SOCKSEnable", "ProxyAutoConfigEnable",
 			"HTTPProxy", "HTTPSProxy", "SOCKSProxy"
@@ -192,7 +195,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 			if let val = cfDict[key] as? Int, val == 1 { return true }
 			if let str = cfDict[key] as? String, !str.isEmpty { return true }
 		}
-		
+
 		if let scoped = cfDict["__SCOPED__"] as? [String: Any] {
 			let vpnPrefixes = ["tap", "tun", "utun", "ppp", "ipsec", "wg", "pptp", "l2tp"]
 			for iface in scoped.keys {
@@ -204,7 +207,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 		}
 		return false
 	}
-	
+
 	func validateSigningPermissions(
 		originalName: String,
 		newName: String,
@@ -230,9 +233,11 @@ final class XSignSecurityEnforcer: ObservableObject {
 @MainActor
 final class XSignRemoteManager: ObservableObject {
     static let shared = XSignRemoteManager()
-    private let cacheKey = "xsign.cachedRemoteRoot_v7"
+    private let cacheKey = "xsign.cachedOwnerRemoteRoot_v1"
     @Published private(set) var config: XSignRemoteConfig?
     @Published private(set) var currentRevisionID = 0
+    @Published private(set) var lastRemoteSync: Date?
+    @Published private(set) var remoteSyncStatus = "بانتظار المزامنة"
     @Published private(set) var sourceName = "IPA BLACK"
     private var cachedRoot: XSignRemoteRoot?
     private var requestTask: Task<XSignRemoteRoot?, Never>?
@@ -244,11 +249,11 @@ final class XSignRemoteManager: ObservableObject {
            let root = try? JSONDecoder().decode(XSignRemoteRoot.self, from: data) {
             cachedRoot = root
             config = root.xsign_config
+            XSignDashboardSources.apply(config?.dashboard)
             currentRevisionID = root.repo_revision_id ?? 0
             sourceName = root.name ?? sourceName
+            remoteSyncStatus = "يُستخدم آخر تكوين محفوظ حتى اكتمال الاتصال"
             XSignSecurityEnforcer.shared.updateLocks(config?.security_locks, verifiedOnline: false)
-        } else if let data = UserDefaults.standard.data(forKey: "xsign.cachedRemoteConfig_v6") {
-            config = try? JSONDecoder().decode(XSignRemoteConfig.self, from: data)
         }
     }
 
@@ -256,24 +261,19 @@ final class XSignRemoteManager: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
     var isMaintenanceActive: Bool { config?.maintenance?.enabled == true }
+    var currentBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0" }
     var isForceUpdateRequired: Bool {
-        guard let update = config?.force_update, update.enabled == true,
-              let required = update.min_version else { return false }
-        return Self.versionIsOlder(currentVersion, than: required)
+        guard let update=config?.force_update,update.enabled == true else { return false }
+        return XSignReleaseVersion.isNewer(currentVersion:currentVersion,currentBuild:currentBuild,
+            targetVersion:update.min_version ?? currentVersion,targetBuild:update.min_build_version)
     }
     nonisolated static func versionIsOlder(_ current: String, than required: String) -> Bool {
-        let lhs = current.split(separator: ".").map { Int($0) ?? 0 }
-        let rhs = required.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(lhs.count, rhs.count) {
-            let a = i < lhs.count ? lhs[i] : 0
-            let b = i < rhs.count ? rhs[i] : 0
-            if a != b { return a < b }
-        }
-        return false
+        XSignVersion.older(current, than: required)
     }
     var blockingReason: String? {
         if isMaintenanceActive { return config?.maintenance?.message ?? "التطبيق قيد الصيانة." }
         if isForceUpdateRequired { return config?.force_update?.message ?? "يرجى تحديث التطبيق أولاً." }
+        if config?.dashboard?.signing_enabled == false { return "التوقيع متوقف مؤقتاً بقرار إدارة XSign." }
         return nil
     }
 
@@ -299,6 +299,7 @@ final class XSignRemoteManager: ObservableObject {
         }
         guard let root, let next = root.xsign_config else {
             XSignSecurityEnforcer.shared.didCompleteOnlineHandshake = false
+            remoteSyncStatus = "تعذّر جلب التكوين؛ بقي آخر إعداد صالح"
             return
         }
         let changedRevision = root != cachedRoot
@@ -307,6 +308,8 @@ final class XSignRemoteManager: ObservableObject {
         if changedConfig { config = next }
         sourceName = root.name ?? sourceName
         currentRevisionID = root.repo_revision_id ?? currentRevisionID
+        lastRemoteSync = lastSuccess == Date.distantPast ? nil : lastSuccess
+        remoteSyncStatus = "تمت قراءة تكوين IPA BLACK بنجاح"
         if changedConfig || changedRevision,
            let data = try? JSONEncoder().encode(root) { UserDefaults.standard.set(data, forKey: cacheKey) }
         XSignSecurityEnforcer.shared.updateLocks(next.security_locks, verifiedOnline: true)
@@ -317,9 +320,16 @@ final class XSignRemoteManager: ObservableObject {
             UserDefaults.standard.set(tint, forKey: "Feather.userTintColor")
             UserDefaults.standard.set(false, forKey: "Feather.hasCustomTintColor")
         }
+        if let appearance = next.theme?.appearance, ["system","light","dark"].contains(appearance),
+           UserDefaults.standard.string(forKey:"xsign.lastRemoteAppearance") != appearance {
+            UserDefaults.standard.set(appearance,forKey:"xsign.lastRemoteAppearance")
+            UserDefaults.standard.set(appearance == "dark" ? 2 : appearance == "light" ? 1 : 0,forKey:"Feather.userInterfaceStyle")
+        }
         let cache = storeCache ?? AppStoreCacheManager.shared
         let sourcesVM = sourcesViewModel ?? SourcesViewModel.shared
-        let commandChanged = cache.configureManagedSources(next.app_control?.core_sources)
+        let sourcePolicyChanged = XSignDashboardSources.apply(next.dashboard)
+        if sourcePolicyChanged { cache.invalidateNetworkCache() }
+        let commandChanged = cache.configureManagedSources(next.app_control?.core_sources) || sourcePolicyChanged
         var needsRefresh = changedRevision || commandChanged || !cache.hasLoadedCatalog || Date().timeIntervalSince(lastCatalogRefresh) >= 60
         if let flush = next.app_control?.cache_flush_id,
            flush > UserDefaults.standard.integer(forKey: "xsign.lastCacheFlushID") {
@@ -354,17 +364,20 @@ final class XSignRemoteManager: ObservableObject {
         configuration.urlCache = nil
         let session = URLSession(configuration: configuration)
         defer { session.invalidateAndCancel() }
-        let base = "https://raw.githubusercontent.com/ipa-black/IPABLACK/refs/heads/main/"
-        for filename in ["repo.json"] {
-            guard let url = URL(string: base + filename) else { continue }
+        guard let ownerURL = URL(string: ProtectedSourcesVault.defaultOwnedURLString) else { return nil }
+        var endpoints: [(String, URL)] = [("owner-repo.json", ownerURL)]
+        if ownerURL.absoluteString == ProtectedSourcesVault.defaultOwnedURLString,
+           let alt = URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString) {
+            endpoints.append(("owner-repo-github.json", alt))
+        }
+        for (filename, url) in endpoints {
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
             request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
             let tagKey = "xsign.config.etag." + filename
             if cached != nil, let etag = UserDefaults.standard.string(forKey: tagKey) {
                 request.setValue(etag, forHTTPHeaderField: "If-None-Match")
             }
-            guard let (data, response) = try? await session.data(for: request),
-                  let http = response as? HTTPURLResponse else { continue }
+            guard let (data, http) = try? await XSignBoundedHTTP.fetch(request, using: session, limit: 16_777_216) else { continue }
             if http.statusCode == 304 { return cached }
             guard http.statusCode == 200, data.count <= 16_777_216,
                   let decoded = try? JSONDecoder().decode(XSignRemoteRoot.self, from: data),
@@ -436,9 +449,8 @@ struct XSignCustomCSSSplashWebView: UIViewRepresentable {
 struct FeatherApp: App {
 	@UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 	@Environment(\.scenePhase) private var scenePhase
-	
-	let heartbeat = HeartbeatManager.shared
-	
+
+
 	@StateObject var downloadManager = DownloadManager.shared
 	@StateObject private var storeCache = AppStoreCacheManager.shared
     @StateObject private var autoSign = AutoSignPipelineManager.shared
@@ -446,12 +458,12 @@ struct FeatherApp: App {
 	@StateObject private var remoteManager = XSignRemoteManager.shared
 	@StateObject private var securityEnforcer = XSignSecurityEnforcer.shared
 	@StateObject private var storage = Storage.shared
-	
+
 	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
     @AppStorage("Feather.userInterfaceStyle")
     private var userInterfaceStyle: Int = UIUserInterfaceStyle.unspecified.rawValue
 	@State private var _showSplash = true
-	
+
 	private var activeTintColor: Color {
 		Color(hex: userTintHex)
 	}
@@ -474,7 +486,7 @@ struct FeatherApp: App {
             }
         }
     }
-	
+
 	var body: some Scene {
 		WindowGroup {
             Group {
@@ -506,7 +518,7 @@ struct FeatherApp: App {
 							.background(activeTintColor)
 						}
 					}
-					
+
 					DownloadHeaderView(downloadManager: downloadManager)
 						.transition(.move(edge: .top).combined(with: .opacity))
 					VariedTabbarView()
@@ -516,8 +528,8 @@ struct FeatherApp: App {
 				}
 				.tint(activeTintColor)
 				.accentColor(activeTintColor)
-				.animation(.smooth, value: downloadManager.manualDownloads.description)
-				
+				.animation(.easeInOut(duration: 0.25), value: downloadManager.manualDownloads.description)
+
 
 				if _showSplash {
 					XSignPhotoIdenticalSplashView(
@@ -538,7 +550,7 @@ struct FeatherApp: App {
 						.transition(.opacity)
 						.zIndex(1000)
 				}
-				
+
 				if securityEnforcer.isVPNOrProxyDetected {
 					XSignVPNBlockedOverlayView(
 						message: securityEnforcer.locks.vpn_warning_message ?? "عذراً، لا يمكن استخدام التطبيق أو التحميل أثناء تشغيل VPN أو مراقب شبكة."
@@ -552,12 +564,15 @@ struct FeatherApp: App {
             .tint(activeTintColor)
             .accentColor(activeTintColor)
 			.preferredColorScheme(preferredAppColorScheme)
+            .sheet(isPresented: $autoSign.showCertificateSetup, onDismiss: {
+                autoSign.resumeAfterCertificateSetup()
+            }) { CertificatesAddView() }
             .sheet(item: $autoSign.readyToInstallApp, onDismiss: {
                 autoSign.presentNextReadyApp()
             }) { signedApp in
-                InstallPreviewView(app: signedApp.base, isSharing: signedApp.archive)
-                    .presentationDetents([.height(200)])
-                    .presentationDragIndicator(.visible)
+                InstallPreviewView(app: signedApp.base)
+                    .xsignCompactSheet(height: 300)
+
             }
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
@@ -582,14 +597,6 @@ struct FeatherApp: App {
             .onChange(of: userInterfaceStyle) { _ in
                 applyAppearanceToWindows()
             }
-			.onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
-				DispatchQueue.main.async {
-					UIAlertController.showAlertWithOk(
-						title: "InvalidHostID",
-						message: .localized("Your pairing file is invalid and is incompatible with your device, please import a valid pairing file.")
-					)
-				}
-			}
 			.onAppear {
 				if UserDefaults.standard.string(forKey: "Feather.userTintColor") == nil {
 					UserDefaults.standard.set("#005BBB", forKey: "Feather.userTintColor")
@@ -600,7 +607,7 @@ struct FeatherApp: App {
             }
 		}
 	}
-	
+
 	private func _handleURL(_ url: URL) {
 		XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
 		if XSignSecurityEnforcer.shared.isVPNOrProxyDetected {
@@ -610,69 +617,15 @@ struct FeatherApp: App {
 			)
 			return
 		}
-		
-		if url.scheme == "feather" {
-			if url.host == "import-certificate" {
-				guard
-					let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-					let queryItems = components.queryItems
-				else {
-					return
-				}
-				
-				func queryValue(_ name: String) -> String? {
-					queryItems.first(where: { $0.name == name })?.value?.removingPercentEncoding
-				}
-				
-				guard
-					let p12Base64 = queryValue("p12"),
-					let provisionBase64 = queryValue("mobileprovision"),
-					let passwordBase64 = queryValue("password"),
-					let passwordData = Data(base64Encoded: passwordBase64),
-					let password = String(data: passwordData, encoding: .utf8)
-				else {
-					return
-				}
-				
-				let generator = UINotificationFeedbackGenerator()
-				generator.prepare()
-				
-				guard
-					let p12URL = FileManager.default.decodeAndWrite(base64: p12Base64, pathComponent: ".p12"),
-					let provisionURL = FileManager.default.decodeAndWrite(base64: provisionBase64, pathComponent: ".mobileprovision"),
-					FR.checkPasswordForCertificate(for: p12URL, with: password, using: provisionURL)
-				else {
-					generator.notificationOccurred(.error)
-					return
-				}
-				
-				FR.handleCertificateFiles(
-					p12URL: p12URL,
-					provisionURL: provisionURL,
-					p12Password: password,
-					certificateName: "xsign"
-				) { error in
-					if let error = error {
-						UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription)
-					} else {
-						generator.notificationOccurred(.success)
-					}
-				}
-				
-				return
-			}
-			if url.host == "export-certificate" {
-				guard
-					let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-				else {
-					return
-				}
-				
-				let queryItems = components.queryItems?.reduce(into: [String: String]()) { $0[$1.name.lowercased()] = $1.value } ?? [:]
-				guard let callbackTemplate = queryItems["callback_template"]?.removingPercentEncoding else { return }
-				
-				FR.exportCertificateAndOpenUrl(using: callbackTemplate)
-			}
+
+		if url.scheme == "xsign" {
+            if url.host == "import-certificate" {
+                UIAlertController.showAlertWithOk(title: "إعداد التوقيع", message:
+                    "استورد P12 وMobileProvision من إعداد التوقيع داخل التطبيق. روابط استيراد الشهادات معطّلة لحماية المفاتيح وكلمات المرور.")
+                return
+            }
+            if url.host == "export-certificate" { return }
+
 			if let fullPath = url.validatedScheme(after: "/source/") {
 				FR.handleSource(fullPath) { }
 			}
@@ -693,17 +646,16 @@ struct FeatherApp: App {
 			}
 		} else {
 			if url.pathExtension == "ipa" || url.pathExtension == "tipa" {
-				Task.detached(priority: .high) {
-					autoreleasepool {
-						if FileManager.default.isFileFromFileProvider(at: url) {
-							guard url.startAccessingSecurityScopedResource() else { return }
-							defer { url.stopAccessingSecurityScopedResource() }
-							FR.handlePackageFile(url) { _ in }
-						} else {
-							FR.handlePackageFile(url) { _ in }
-						}
-					}
-				}
+                Task { @MainActor in
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    let result: Result<String, Error> = await withCheckedContinuation { continuation in
+                        FR.importPackageFile(url) { continuation.resume(returning: $0) }
+                    }
+                    if case .failure(let error) = result {
+                        UIAlertController.showAlertWithOk(title: "تعذّر استيراد IPA", message: error.localizedDescription)
+                    }
+                }
 				return
 			}
 		}
@@ -714,26 +666,26 @@ struct FeatherApp: App {
 struct XSignVPNBlockedOverlayView: View {
 	let message: String
 	var onRetry: () -> Void
-	
+
 	var body: some View {
 		ZStack {
 			AppStoreTheme.background.ignoresSafeArea()
-			
+
 			VStack(spacing: 18) {
 				Image(systemName: "network.badge.shield.half.filled")
 					.font(.system(size: 58))
 					.foregroundColor(.red)
-				
+
 				Text("تم إيقاف الاتصال لحماية التطبيق")
 					.font(.title3.bold())
 					.foregroundColor(.primary)
-				
+
 				Text(message)
 					.font(.subheadline)
 					.foregroundColor(.secondary)
 					.multilineTextAlignment(.center)
 					.padding(.horizontal, 28)
-				
+
 				Button(action: onRetry) {
 					Text("إعادة الفحص بعد إيقاف الـ VPN")
 						.font(.headline.bold())
@@ -755,24 +707,28 @@ struct XSignVPNBlockedOverlayView: View {
 struct XSignRemoteGateOverlayView: View {
 	@ObservedObject var remoteManager: XSignRemoteManager
 	let tintColor: Color
+    @State private var showInternalUpdate=false
     @AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
-	
+
 	var body: some View {
-		ZStack {
+        ZStack {
+            if !remoteManager.isMaintenanceActive,remoteManager.config?.dashboard?.update?.enabled == true {
+                XSignAppUpdateView()
+            } else {
 			AppStoreTheme.background.ignoresSafeArea()
-			
+
 			VStack(spacing: 20) {
 				Image(systemName: remoteManager.isMaintenanceActive ? "wrench.and.screwdriver.fill" : "arrow.down.circle.fill")
 					.font(.system(size: 56))
 					.foregroundColor(tintColor)
-				
+
 				Text(remoteManager.isMaintenanceActive
 					 ? (remoteManager.config?.maintenance?.title ?? "التطبيق قيد الصيانة")
 					 : "تحديث إجباري مطلوب")
 					.font(.title2.bold())
 					.foregroundColor(.primary)
 					.multilineTextAlignment(.center)
-				
+
 				Text(remoteManager.isMaintenanceActive
 					 ? (remoteManager.config?.maintenance?.message ?? "يرجى المحاولة لاحقاً.")
 					 : (remoteManager.config?.force_update?.message ?? "يرجى تحديث التطبيق لأحدث إصدار."))
@@ -780,8 +736,12 @@ struct XSignRemoteGateOverlayView: View {
 					.foregroundColor(.secondary)
 					.multilineTextAlignment(.center)
 					.padding(.horizontal, 24)
-				
+
 				Button {
+                    if !remoteManager.isMaintenanceActive, remoteManager.config?.dashboard?.update?.enabled == true {
+                        showInternalUpdate=true
+                        return
+                    }
 					let target = remoteManager.isMaintenanceActive
 						? (remoteManager.config?.maintenance?.button_url ?? "")
 						: (remoteManager.config?.force_update?.update_url ?? "")
@@ -801,6 +761,8 @@ struct XSignRemoteGateOverlayView: View {
 			}
 			.padding(24)
 		}
+        }
+        .sheet(isPresented:$showInternalUpdate) { XSignAppUpdateView() }
 	}
 }
 
@@ -809,7 +771,7 @@ struct ExactImageXLeftRibbon: Shape {
 	func path(in rect: CGRect) -> Path {
 		let w = rect.width, h = rect.height
 		func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * w, y: y * h) }
-		
+
 		var path = Path()
 		path.move(to: pt(0.3157, 0.1961))
 		path.addLine(to: pt(0.4431, 0.1961))
@@ -830,7 +792,7 @@ struct ExactImageXRightRibbon: Shape {
 	func path(in rect: CGRect) -> Path {
 		let w = rect.width, h = rect.height
 		func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * w, y: y * h) }
-		
+
 		var path = Path()
 		path.move(to: pt(0.7451, 0.0569))
 		path.addLine(to: pt(0.5765, 0.3961))
@@ -851,7 +813,7 @@ struct ExactImageSignFeatherWing: Shape {
 	func path(in rect: CGRect) -> Path {
 		let w = rect.width, h = rect.height
 		func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * w, y: y * h) }
-		
+
 		var path = Path()
 		path.move(to: pt(0.604, 0.812))
 		path.addCurve(to: pt(0.725, 0.760), control1: pt(0.625, 0.782), control2: pt(0.665, 0.785))
@@ -876,7 +838,7 @@ struct PhotoIdenticalXVectorView: View {
 	var rightOffset: CGSize = .zero
     var strokeWidth: CGFloat = 2.8
     var glowRadius: CGFloat = 18
-	
+
 	var body: some View {
 		ZStack {
 			ZStack {
@@ -887,7 +849,7 @@ struct PhotoIdenticalXVectorView: View {
 					.stroke(logoColor, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .miter, miterLimit: 18))
 			}
 			.offset(leftOffset)
-			
+
 			ZStack {
 				ExactImageXRightRibbon()
 					.fill(logoColor.opacity(fillAlpha))
@@ -896,14 +858,14 @@ struct PhotoIdenticalXVectorView: View {
 					.stroke(logoColor, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .miter, miterLimit: 18))
 			}
 			.offset(rightOffset)
-			
+
 			if showSignAndFeather {
 				ZStack {
 					Text("Sign")
 						.font(.custom("Georgia-Italic", size: 52))
 						.foregroundColor(logoColor)
 						.position(x: 146, y: 262)
-					
+
 					ExactImageSignFeatherWing()
 						.fill(logoColor)
 				}
@@ -1021,16 +983,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
 		return true
 	}
-	
+
 	func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
 		ImagePipeline.shared.cache.removeAll()
 		URLCache.shared.removeAllCachedResponses()
 	}
-	
+
 	private func _createLowMemoryPipeline() {
 		DataLoader.sharedUrlCache.diskCapacity = 0
 		DataLoader.sharedUrlCache.memoryCapacity = 0
-		
+
 		let pipeline = ImagePipeline {
 			let dataLoader: DataLoader = {
 				let config = URLSessionConfiguration.default
@@ -1039,7 +1001,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 				config.httpMaximumConnectionsPerHost = 4
 				return DataLoader(configuration: config)
 			}()
-			let dataCache = try? DataCache(name: "thewonderofyou.Feather.datacache")
+			let dataCache = try? DataCache(name: "com.ipablack.xsign.datacache")
 			let imageCache = Nuke.ImageCache()
 			dataCache?.sizeLimit = 300 * 1024 * 1024
 			imageCache.costLimit = 32 * 1024 * 1024
@@ -1051,10 +1013,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 			$0.isStoringPreviewsInMemoryCache = false
 			$0.isDecompressionEnabled = true
 		}
-		
+
 		ImagePipeline.shared = pipeline
 	}
-	
+
 	private func _createDocumentsDirectories() {
 		let fileManager = FileManager.default
 
@@ -1064,26 +1026,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 			fileManager.signed,
 			fileManager.unsigned
 		]
-		
+
 		for url in directories {
 			try? fileManager.createDirectoryIfNeeded(at: url)
 		}
 	}
-	
+
 	private func _configureProtectedCoreSources() {
 		let context = Storage.shared.context
 		context.perform {
 			let request = NSFetchRequest<AltSource>(entityName: "AltSource")
 			let existingSources = (try? context.fetch(request)) ?? []
-			
+
             for source in existingSources where ProtectedSourcesVault.isRetiredSource(source.sourceURL, identifier: source.identifier) {
                 context.delete(source)
             }
 
-			let coreRepos: [(name: String, id: String, url: String)] = [
-				("IPA BLACK", "xsign.core.ipablack", ProtectedSourcesVault.ipaBlackURLString)
-			]
-			
+            let coreRepos = AppStoreCacheManager.resolvedManagedSources(nil).map {
+                (name: $0.name, id: $0.id, url: $0.url)
+            }
+
 			let updatedExisting = (try? context.fetch(request)) ?? []
 			for repo in coreRepos {
 				guard let repoURL = URL(string: repo.url) else { continue }
@@ -1099,30 +1061,30 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 					newSource.date = Date()
 				}
 			}
-			
+
 			try? context.save()
 		}
 	}
-	
+
 	private func _addDefaultCertificates() {
 		guard let signingAssetsURL = Bundle.main.url(forResource: "signing-assets", withExtension: nil) else {
 			return
 		}
-		
+
 		do {
 			let folderContents = try FileManager.default.contentsOfDirectory(
 				at: signingAssetsURL,
 				includingPropertiesForKeys: nil,
 				options: .skipsHiddenFiles
 			)
-			
+
 			for folderURL in folderContents {
 				guard folderURL.hasDirectoryPath else { continue }
-				
+
 				let p12URL = folderURL.appendingPathComponent("cert.p12")
 				let provisionURL = folderURL.appendingPathComponent("cert.mobileprovision")
 				let passwordURL = folderURL.appendingPathComponent("cert.txt")
-				
+
 				guard
 					FileManager.default.fileExists(atPath: p12URL.path),
 					FileManager.default.fileExists(atPath: provisionURL.path),
@@ -1131,17 +1093,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 					Logger.misc.warning("Skipping xsign cert: missing required files")
 					continue
 				}
-				
+
 				// حساب البصمة الرقمية للشهادة ليتعرف التطبيق على أي شهادة جديدة حتى لو كان اسمها دائماً xsign
 				let p12Data = try Data(contentsOf: p12URL)
 				let certFingerprint = SHA256.hash(data: p12Data).compactMap { String(format: "%02x", $0) }.joined()
 				let importKey = "feather.didImportCert.\(certFingerprint)"
-				
+
 				guard UserDefaults.standard.bool(forKey: importKey) == false else { continue }
-				
+
 				let rawPassword = try String(contentsOf: passwordURL, encoding: .utf8)
 				let password = rawPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-				
+
 				FR.handleCertificateFiles(
 					p12URL: p12URL,
 					provisionURL: provisionURL,

@@ -13,7 +13,7 @@ struct ConfigurationView: View {
 	@StateObject private var _optionsManager = OptionsManager.shared
 	@State var isRandomAlertPresenting = false
 	@State var randomString = ""
-	
+
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("Signing Options")) {
@@ -41,7 +41,7 @@ struct ConfigurationView: View {
 			NBToolbarMenu(
 				systemImage: "character.textbox",
 				style: .icon,
-				placement: .topBarTrailing
+				placement: .navigationBarTrailing
 			) {
 				_randomMenuItem()
 			}
@@ -68,7 +68,7 @@ extension ConfigurationView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _randomMenuAlert() -> some View {
 		TextField(.localized("String"), text: $randomString)
@@ -77,7 +77,7 @@ extension ConfigurationView {
 				_optionsManager.options.ppqString = randomString
 			}
 		}
-		
+
 		Button(.localized("Cancel"), role: .cancel) {}
 	}
 }

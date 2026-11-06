@@ -1,0 +1,27 @@
+{
+  ".github/workflows/XSign_AppStore_Experience.yml": [
+    "cbedc0bd8a864c67ee5fb794a1fa748335ec880fc344d261d752742116597ad8"
+  ],
+  ".github/workflows/XSign_Internal_Signing_Server.yml": [
+    "fbb5a16c84871d6591b8402dad069bfcbdd788a153eb71df7f8501d5363b29d5"
+  ],
+  ".github/workflows/XSign_Controlled_Store_iOS15.yml": [
+    "fce55aedadf08acede19ce1e00804375f587fb2a8346dde8074d4adbacc704d7",
+    "5191be9a40e9575b073d33d620d40ee1c4b08a0e24b2250f939eae70040a03f6"
+  ],
+  ".github/workflows/Restore_XSign_Full.yml": [
+    "000c048ce5eb01b74a8f6bf7032d679f4cf26afbc5dba63a48b41e19f0b978d3"
+  ],
+  ".github/workflows/Fix_XSign_Build.yml": [
+    "bd96d5aea86e67a13571a1d73cad80433545e36996c9659cd56146a2b52fcd2d"
+  ],
+  ".github/workflows/Setup_XSign_Install_Domain.yml": [
+    "3cec497792a30ac362313b48c305382ead76339b167515242f4cb5bbecb5522d"
+  ],
+  ".github/workflows/release.yml": [
+    "da441433b76690e155def2b38d187e6afd96250912091a152697b1b79621ca4a"
+  ],
+  ".github/workflows/update_repo.yml": [
+    "929f8351c4453eae7fbf047e61fc8d571a49a52f830f89d6fe81101c933763fd"
+  ]
+}

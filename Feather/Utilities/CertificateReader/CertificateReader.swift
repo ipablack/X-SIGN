@@ -22,14 +22,18 @@ class CertificateReader: NSObject {
 		guard let file = file else { return nil }
 		
 		do {
-			let fileData = try Data(contentsOf: file)
+            let properties = try file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey])
+            guard properties.isRegularFile == true, properties.isSymbolicLink != true,
+                  let size = properties.fileSize, size <= 8_388_608 else { return nil }
+			let fileData = try Data(contentsOf: file, options: .mappedIfSafe)
 			
 			guard let xmlRange = fileData.range(of: Data("<?xml".utf8)) else {
 				Logger.misc.error("XML start not found")
 				return nil
 			}
 			
-			let xmlData = fileData.subdata(in: xmlRange.lowerBound..<fileData.endIndex)
+            guard let end = fileData.range(of: Data("</plist>".utf8), in: xmlRange.lowerBound..<fileData.endIndex) else { return nil }
+            let xmlData = fileData.subdata(in: xmlRange.lowerBound..<end.upperBound)
 			
 			let decoder = PropertyListDecoder()
 			let data = try decoder.decode(Certificate.self, from: xmlData)

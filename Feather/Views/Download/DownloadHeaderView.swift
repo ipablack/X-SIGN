@@ -11,7 +11,7 @@ import NimbleExtensions
 
 struct DownloadHeaderView: View {
 	@ObservedObject var downloadManager: DownloadManager
-	
+
 	var body: some View {
 		ZStack {
 			if !downloadManager.manualDownloads.isEmpty {
@@ -19,7 +19,7 @@ struct DownloadHeaderView: View {
 					VStack(spacing: 12) {
 						if let firstDownload = downloadManager.manualDownloads.first {
 							DownloadItemView(download: firstDownload)
-							
+
 							if downloadManager.manualDownloads.count > 1 {
 								HStack {
 									Spacer()
@@ -46,23 +46,23 @@ struct DownloadItemView: View {
 	@State private var bytesDownloaded: Int64 = 0
 	@State private var totalBytes: Int64 = 0
 	@State private var unpackageProgress: Double = 0
-	
+
 	var body: some View {
 		VStack(alignment: .leading, spacing: 4) {
 			Text(download.fileName)
 				.font(.subheadline)
 				.lineLimit(1)
-			
+
 			ProgressView(value: overallProgress)
 				.progressViewStyle(.linear)
-			
+
 			HStack {
 				Text(verbatim: "\(Int(overallProgress * 100))%")
-					.contentTransition(.numericText())
+
 				Spacer()
 				if totalBytes > 0 {
 					Text(verbatim: "\($bytesDownloaded.wrappedValue.formattedByteCount) / \(totalBytes.formattedByteCount)")
-						.contentTransition(.numericText())
+
 				}
 			}
 			.font(.caption)
@@ -74,7 +74,7 @@ struct DownloadItemView: View {
 		.onReceive(download.$totalBytes) { self.totalBytes = $0 }
 		.onReceive(download.$unpackageProgress) { self.unpackageProgress = $0 }
 	}
-	
+
 	private var overallProgress: Double {
 		download.onlyArchiving
 			? unpackageProgress

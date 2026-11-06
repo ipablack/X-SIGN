@@ -1,0 +1,929 @@
+{
+  ".gitignore": [
+    "06a94bc7fb67b72647f15bed7d149cf3399e09cfec5367bc7d726bed8357fb68",
+    "f19ce7e47ef73d52ce7825d68ab3afb40e1004ade2252a7de0375b5554d8d426"
+  ],
+  "DomainBackend/.gitignore": [
+    null,
+    "280c97002872bb3022e101f34f71b129f59290da8e6f59c343316a6be508af8c"
+  ],
+  "DomainBackend/README_AR.md": [
+    null,
+    "1e17d0309c038ad78f65270e2627e39c02ab011ae23ca65be71c430736af9139"
+  ],
+  "DomainBackend/configure.py": [
+    null,
+    "b83986de1e6d889c26c8505433b7209574de51c50d3b861c53fb16ab574892d2"
+  ],
+  "DomainBackend/functions/core.cjs": [
+    null,
+    "f60d07005177d3164f5f2b7a6af90c3554d808b9d8de025db52335ea36fcd74e",
+    "49cee0921c3bb30174d54de99ad4fa6eccb9fddf2433c1fff594c4d5d26e89a4"
+  ],
+  "DomainBackend/functions/index.cjs": [
+    null,
+    "975c6d4118d9102a74456fbe2ecec21edb25b3de7c5eb2f0c9dc4f95a0bcbeb4"
+  ],
+  "DomainBackend/functions/package.json": [
+    null,
+    "c891dafb9a092105df517d965c64d711b49489a363aa4022e49d1c1834250247"
+  ],
+  "DomainBackend/tests/configure_test.py": [
+    null,
+    "3834227733f659c23b96947aeeb26f53a94eb863d7430fe2ddae9addc34238f2"
+  ],
+  "DomainBackend/tests/manifest.test.cjs": [
+    null,
+    "716b8ee9ca5ec756e262bdf69afef56c468339f972b0712dabfd505d4d6b26bb"
+  ],
+  "DomainBackend/verify.py": [
+    null,
+    "d8b5b06846f173398d760f94441016c1300400a2d3b9204968c0ee85b2093f26"
+  ],
+  "Feather.xcconfig": [
+    "62d585e9964054db82269d8573d525594b8138f480020786cdd069797ed9bdb7",
+    "ec0a7ea406906a9977efe12cd9215418b2a26ff894867aef25ebd3133b9fa0d8",
+    "a84fa1a41ad452e14f1040eed8be84c47ceefc77ec1555d801ba45429b6ab7b5"
+  ],
+  "Feather.xcodeproj/project.pbxproj": [
+    "bed7d59566f36fcaef049c2056939d48d810a0b2ddbe60cad0341830498973dd",
+    "5300fa19bbace79b4d7ecf63a826f5a36d8486491a889439c26134f56a9c5d4a",
+    "c50a362d1a6ce2a60c8cd264e6fe3f65c7ce050d25513e0867a25fd42a86a58b",
+    "30790d041a7264164e18a3ef8fd911fe4103f7d0e24f0b85cb5aed073c035d5f",
+    "39cf8ecea1fa732ac104d037a43bdf4a61365eb2ac3cd1f00ece4c90b58a91ee"
+  ],
+  "Feather.xcworkspace/xcshareddata/swiftpm/Package.resolved": [
+    "ee656458c546050d9ad7267d08660b25e60483cc99a6b62404b8dee108c8531c",
+    "00db7ded2359fd936beeab766c847171421e31b307b2c0f9cc7c95ef79b52211"
+  ],
+  "Feather/Backend/Observable/UpdateManager.swift": [
+    "43f3fe420612443596ff8e8532acd4a74ecc5cd549df5fb4ea1cf5149c476ffe",
+    "a95b3b6caa5f724c4e212943d59daf5edd67ac5caaafa915b6857801ffc3d38e",
+    "09adcd678918772a7d61f5bb42216f930c3ebdca846d2975d507d4de6fabab3d"
+  ],
+  "Feather/Backend/Server/ServerInstaller+Compute.swift": [
+    "705a4e3c900e974f6f661639ca02eaf20c106616185e594ef3bd3a29b02f785a",
+    null,
+    "9252f46f6141f9e76e42801f87a1cdf2ba459ca0a1647e97ef7a2dcca005e848"
+  ],
+  "Feather/Backend/Server/ServerInstaller+TLS.swift": [
+    "9c045e5f92e6cbe05ce7a9068fe31810afe1e5a2235a81037b96c4d6323b1beb",
+    null
+  ],
+  "Feather/Backend/Server/ServerInstaller.swift": [
+    "cfde0868a70da483cd530731bd6e32a4a74c5c784fe12e331e480a2899303b6c",
+    null
+  ],
+  "Feather/Backend/Server/XSignBoundedHTTP.swift": [
+    null,
+    "0ee2c39fed940f997588cc4d62fddb35fc8d9936c7fbd5658c5e88e61b0b9ac3"
+  ],
+  "Feather/Backend/Server/XSignLocalRequestAuthentication.swift": [
+    null,
+    "03b7015ef37064fe95f76cc57d636d0b768929c26386be9fe28e2708817c945a"
+  ],
+  "Feather/Backend/Server/XSignLocalSigningJobs.swift": [
+    null,
+    "e6e47964c5b912bff1c0161e0f946ef89da37182627f5de82af276dcf5bc92ef",
+    "4540d318a5e28473ad0b3c3227ead224b55f41fbc15c19cc42aedeac2a9bc695"
+  ],
+  "Feather/Backend/Server/XSignLocalSigningServer.swift": [
+    null,
+    "5d80362d8f8482a0d6f027dfe21eeee705a44d48e0371aac099a0a781d3ea415",
+    "0217276a4ae183dc0ffc57609efdeceadde84ce40f913228d0d71790ba3726bb"
+  ],
+  "Feather/Backend/Server/XSignOTAInstaller.swift": [
+    null,
+    "dfcf4f5aa69d8ac02eecd3d0078e7813586ef4cae7f311fd6b85542438fa5acf",
+    "71a5261609aa1fde7ad072fc6216278ce4c8cba338dc0ae948a0c615ff5db1f4"
+  ],
+  "Feather/Backend/Server/XSignOTAProtocol.swift": [
+    null,
+    "a04420ff4958100e62ea8e8639e417265f1d34be77434f347ea74f443bc12f92",
+    "8730590af5f6725aba11c0237c8921508d9ea0f212ff571148dd2ed23e41d6fa",
+    "d5f3abaf4b50a414159eaf056fc4a3262081cfd3b39518f5b20501ba677df5a9"
+  ],
+  "Feather/Backend/Server/XSignOTATLS.swift": [
+    null,
+    "83d50098599f05dcab7f1772eb271684bb178585d5cf6b09becc801712dc8143"
+  ],
+  "Feather/Backend/Storage/Storage+Certificate.swift": [
+    "2f00a8647c0c7cb5fded265d954e34653ffc09a47f74982a3f41c682a512939f",
+    "5a98b828254f01efb686cd83e3efe79b73bbf1175f2e69bac58a9bdd676d8ede",
+    "19891715a4aa8167f113d5798dc13159321929c12e869869b95369ec20852b72"
+  ],
+  "Feather/Backend/Storage/Storage+Shared.swift": [
+    "afff6e95a423a120f7064a9b837d8e761405bb2698e7de6bb5545a8654198491",
+    "7c77e7391aa46e3e3898fa6143ec33ba4d6d0491278374d48899db251561d35d"
+  ],
+  "Feather/Backend/Storage/Storage+SourceMetadata.swift": [
+    "cae2a04de36272ec7409e4301022e77f92c256eae380671d274241b2d20e2d72",
+    "e5553e4d7341fd237e1007a9154bf7c02574ed311e91e14d338efafaaabe61a2"
+  ],
+  "Feather/Backend/Storage/Storage.swift": [
+    "250876e39d187f828218b1ac0138df96a2d67012c7b1d3c4d08f59f9c66ead8a",
+    "1e0230348f4818921913c1577298bd0c1bac209798a012aaa71b19422a6a0a3b"
+  ],
+  "Feather/Extensions/FileManager+documents.swift": [
+    "aa7e0f966561db147b99a5ceea12fb64ff1d1ca5686b5ca84d143461b79c814e",
+    "cc3b235119a7a926de96e366e9676c98cb9cd414f45fb66d68e036ecd9ea422c"
+  ],
+  "Feather/Extensions/ZipCompression+cases.swift": [
+    "2a9c3f654e73107cce70196338adf1f4b26341439c6ef0d8c20ff01d112a5333",
+    null
+  ],
+  "Feather/FeatherApp.swift": [
+    "c256a3a3ba5e5c88825176dba21c2c2a9f09d9835199e342ba22ab104b0b5bc7",
+    "f8e62c84fa1b65e32a7fb47508b67a5640e106f136ae38271064d0dc5ed80a70",
+    "6493896cddfbd794a8bdd82a37e9d77ab8bc295f498411d89a74c141257916bd",
+    "7d6df835c1ae41eca27b3a54bc2856d54d232cd90114dfe8030970a74bd5e95e",
+    "3502b4a95dcfd34ec44913f6ec573052b80463b4ab34b55b237355d06c31a683",
+    "fb53fabed240a70510a0ec15e16cb53ac5bfea85af764858ab9598a559078169",
+    "cba21cd35e7bdbf5f51554ce8d7757d810b9b4e438e674c6dd73aed0567cbab2",
+    "e7c5e15573ac5c055171f9f513d399bd85ee7f24270dcb50826cf9cca93755e4",
+    "6e4f38408a76c17d8cf5d2c61aaf49aa70befc00a86d65744761438eaebf86fb",
+    "f70a27ab561c20afbb49cf8ea171f5921046f8b4e1b42655afd9a49091faad8e",
+    "33ba87cb1355bf08dfdd3cb952fd7c56fb870c642130bb725077f0051773836d"
+  ],
+  "Feather/Resources/Info.plist": [
+    "8d80b308b166200d034807f41f636e492f2ff049f0eec65204b10331524cab49",
+    "25625c3cf0a33f252ca9c3da2886c93a7a8250c9ab3f54dca26364fffdff69cd",
+    "f8815ed892a4b93057d0d2bd6e001334f2bd0d9516ef1c4ba618df4ff985b851",
+    "2dd16941dbc0b36d3364a6ee8cc7cdf6cb98e9c09ee10d6bbb1683c4eb076c62",
+    "5837a3a619beeb21eac0a9bd82b444cdf6296dff368530e8ce27819a40e42358"
+  ],
+  "Feather/Resources/XSignCatalogIPABlack.json": [
+    "1629749fd47c6292d9d2156785c6079488b2f407c76d6520280187bb234e3ec0",
+    null
+  ],
+  "Feather/Resources/XSignCatalogIPAOMTKLive.json": [
+    "433e449c13bf5ed685307efd7cca462fff8f35b3a932bcb6e85415e097328e55",
+    null
+  ],
+  "Feather/Resources/XSignCatalogReference.json": [
+    "6b7c3d74178349319cc24acb91013d49d0f16890a8f0c5407563c05ba2021a68",
+    null
+  ],
+  "Feather/Resources/XSignLaunchIPABlack.json": [
+    "5865e9e746650ccd1d3201b0d65d9d76b6e7aa48830ce7cf182c4f3db1869790",
+    null
+  ],
+  "Feather/Resources/XSignLaunchIPAOMTKLive.json": [
+    "16852305269e0888d3f1d7b5a04ac993ba0af5014da7da9179725e4560905abe",
+    null
+  ],
+  "Feather/Resources/XSignLaunchReference.json": [
+    "c2afbed4d935a827f436fc16ef92636460cb9602a8811300eb7e1a6bea63c755",
+    null
+  ],
+  "Feather/Utilities/CertificateReader/CertificateReader.swift": [
+    "343a436dcbba4ac98bb1fd97c85cd395b96badc652f42a37918c43bbd53d89f1",
+    "11d7c5370214aa079cbdb12b23cc9bbe3ad4d120ba858d204adb084f0fd6b6cf"
+  ],
+  "Feather/Utilities/FR.swift": [
+    "c074c4d29c9cca4b0a65deff6b893fe73639309ec206b33bc5f50afbf25facc8",
+    "9faca5b037dd8062e87f28588eb0774cdcbb04a869d5f116f1079f1c068dd831",
+    "07cc0cd250332d4ba62f3d61a2d202253adbf99a5119342ef77615ee1d13d62d",
+    "86677bfd25b95143793fb9c2aaa78d2045298195beff87012fbac83c712730f2",
+    "a98b8429c5ab12212ee0dfcb49e841467c456f3b9799338a1baf78ce190aabe1",
+    "6cc0d3ffb51d34a1047000ee3b3969979932a37cb72b2684baff60377e7d19ab",
+    "d775217913e38400207fa0f7f166e3332dff61e614f5d3ecc2848a0258c33703",
+    "70531c194f21e4d3a9b5078537b1b83de36cb075ba1bd5f7db3f59b39a98c7cc"
+  ],
+  "Feather/Utilities/Handlers/AppFileHandler.swift": [
+    "7ed8e660c5f82b96ff695b1b87b7e39cec7b2df5ba8676290f7fc87bea86c79d",
+    "b2dc7f2101c5e8fc2e36dc882bcacb45fbfd08b29c6ce5271c78f96c2146b7e9"
+  ],
+  "Feather/Utilities/Handlers/ArchiveHandler.swift": [
+    "764ef3571617c0e220711bb7a5ab8f3c268d61882460ba37e59312158c88bc2b",
+    "2c5ede3d3c5a9cdc65eeed43c8a7d8b7ac094c54e9d7400d937dda89d20af4cb",
+    "ee7cc71457c9c4fe7b9709f3677207baa353f229d317de0aa1a0d56fe690ef3b",
+    "f8de2309877a1c9a57cff4262c9f0ecdaa8df117175e14e000fd9caac6773f91",
+    "62c1c63ff14f9e75186f677b68f4163470d3550eb301b615d217720408931cf8"
+  ],
+  "Feather/Utilities/Handlers/CertificateFileHandler.swift": [
+    "1292b7f4e4d7ac10c3dccbcc53cd7847abf428db92406601459b3cd14a8344ff",
+    "2d6832e19ab7f328af9400240f227205670a50f52bbe920b3cfeb05566097986"
+  ],
+  "Feather/Utilities/Handlers/SigningHandler.swift": [
+    "e1b06d1baaeeb42d06f8b17db244f45227c09733fcddd5c92ec29d10ac1632a8",
+    "57068d5d657aa54e2cea70057c3fa14496a1e0d4347551c7aab77f249bf6c6c7"
+  ],
+  "Feather/Utilities/Handlers/ZsignHandler.swift": [
+    "91b6c3715c30d53a947295aeea6c721cf0e7ce828aaaafa040ea19acc991889d",
+    "0277eac1175fd70fedd7c9570810922f5018b7794f31c47f06dfd4e049473c1d"
+  ],
+  "Feather/Utilities/XSignCertificateSecrets.swift": [
+    null,
+    "eeb22da512ccba64dcb5f83c500a2fb0b1d674f625e24959585e6da2ba29458c"
+  ],
+  "Feather/Utilities/XSignCertificateSelection.swift": [
+    null,
+    "cdc73338ff60c95e3e8f79aa6725733d7a2177866bba2a50a6113175a0b1f8b8"
+  ],
+  "Feather/Utilities/XSignDashboardPolicy.swift": [
+    null,
+    "79ad210eb1e1e3d9a4d4b0d1d1e5a4055648bda9655a0a0086e634db0548371a",
+    "85c66b0abbab574aef384debf7b9e5390f5ca2fc44a22c6b734a2e0da64a3c74",
+    "69345385a96c0cff816dc088c3d12971b7a4dc08c6708d0252d95d47d4749d3d",
+    "7afeb20f2e291a5779f88bf9fbe23ba4ba0e955469d55f18fe8cfd4210616abe"
+  ],
+  "Feather/Utilities/XSignIPAExtractor.swift": [
+    null,
+    "a03749a478daf8e7901c4c3b0e7a29ab2055e5a43a854ebdeb1f06cc80e5377a"
+  ],
+  "Feather/Utilities/XSignPrivateFiles.swift": [
+    null,
+    "13fb8acaaef3c61d731dfa5aefa4f5b0a12db94b0139bdd137f89a826d0fc8f9",
+    "9c1c95350ce0534cf07410b143a55573b24f0b3cece35f75aa61baf4ee15c9a3"
+  ],
+  "Feather/Utilities/XSignRESTSource.swift": [
+    null,
+    "7b2dcbff40fd9186e50b0d3f13992cbf7fd8048ad04bd4d098c05f1cb591a56b"
+  ],
+  "Feather/Utilities/XSignSelfUpdateCertificate.swift": [
+    null,
+    "69d86787f2212b3b5e361ada8f8729d5e9c8caa84076839de21f84ce75667447"
+  ],
+  "Feather/Utilities/XSignSelfUpdateKey.swift": [
+    null,
+    "7e55fa33febc7da2f6ae6c8a588ff88314424e3243758e15989b4d6fe4661bb0"
+  ],
+  "Feather/Utilities/XSignSelfUpdatePolicy.swift": [
+    null,
+    "e0e51a4bb2862e8ddad576efa1fa6189544254ab1c4957afa2ec0ac818ea56d8",
+    "45c885c18564483601454e655ccd71df4023fc01541de5c87b1d6951d7661b2b"
+  ],
+  "Feather/Utilities/XSignSourceAdapter.swift": [
+    null,
+    "5bf94f8a694757b521ca27bbc4085520154a40a7840e1292b0d753389d18d2e2",
+    "c4c408655c8281aa1ebe6938df425b48778ad3a516dbddfe3ba084fbfb300e2c"
+  ],
+  "Feather/Views/Common/XSignLegacyCompatibility.swift": [
+    null,
+    "346aef710973cdcfa9f5eccf506f8b81ebd483a5ffd2480c62f7106042fa9998",
+    "35541b694c4e10ce343c125bc6b0675e120bb55eab1f5fcac7c72bc9f0706242"
+  ],
+  "Feather/Views/Download/DownloadHeaderView.swift": [
+    "4b180ec409187c52e2ff6cb1785003a117d369028f06f2a289091195e60bb64f",
+    "e6e9efc4ae20bfb84ddb52efd8f5936db13484cedde15fda3cdf8f8d1ed8d5aa"
+  ],
+  "Feather/Views/Library/Info/LibraryInfoView.swift": [
+    "6456eedeb28daa17ce3bf8791b1f194e458bcc881456484011a79e6b449fa039",
+    "ff62a0dcb562e5ac7ad786abd69fcd8bff2dda2e27c6207a8925770f8429b47c",
+    "24f14548ea4e6ef2a42c51705214aa82046fd92190e06831d2eb2017684b5d08"
+  ],
+  "Feather/Views/Library/Install/InstallPreviewView.swift": [
+    "9c134b861f3e289c408315d84c8b0ef7d4f04100d5d1558baf260504378a0c1e",
+    "25745bafd0f83ea2376f41edf9ae21bf84e40a02f9ddf9e7f7f94d36f5647fe8",
+    "96750bd391db7f432e3c6b6d839e0737bf23f77abc30d92a9781c8783d6966d9",
+    "eff777daca02fffafb769ddcd49cdfcc19fce6711109f56e44ca603053d85a8d",
+    "1956631e0d54c2c49fe2b7fd3f6743ceb5e745759aeb643b4307b8b2d78f0c31",
+    "99b3d30bd6b817d82fe42260ff98c44c72cc71280a281f3825cb03ada3607bda",
+    "f856e719fee7f08df09dd201578fa3439393fca04bb9951f30a36a9aedcbfe4b",
+    "d5838a6c52100273d8735e5828acc4527a51c0439040b866dcaab5df3e24baa3"
+  ],
+  "Feather/Views/Library/Install/InstallProgressView.swift": [
+    "28348d7c041d139caad55eb1d95658c6cced3f326f07aee4cc3fe501c2b8644e",
+    "9a00f7bb9c6f705f44c68b21d2ff1df6a256fc27d217d1517996e5593af8aede"
+  ],
+  "Feather/Views/Library/LibraryCellView.swift": [
+    "a70a263726b65f185ab5ab17b6ebaf222b740b8e6c173c41860ccd22ae1fb148",
+    "faf4d3f9bb3f999c18f0c07d9585b17729b47dad5e1874de0c5f72a7902e846b",
+    "8e6ecd216373ca2a71f682e3b063c207bc2f96b4722cc27c9f005b33d2aa6ae3"
+  ],
+  "Feather/Views/Library/LibraryView.swift": [
+    "ebfaaf37784eb0fc1afd0f6fe50a61c088ffacbadd61b3112fef8674a3914565",
+    "2071240d36f783fe404f5206f81df5c81ef4126381c58dab8700c398ca737c57",
+    "567d841433ebd559cb1a88c611f1a4d320f510097d1485252bef844116ed1e14",
+    "cdc0733f9c5d5bf94a6079570ea911f120572e3e644592e7a5045b70eb93e4c3",
+    "b2c647d600b48fca47cdc0006b6c4b72e7dc15cf9b78e9f13b89df59c7a3f46d",
+    "72d97579bfc50cf1c8bf8a9b17734456230f2742f3c0a320571872ef4a570b01"
+  ],
+  "Feather/Views/Settings/App Icon/AppIconView.swift": [
+    "106fb1b096bce4a297cfe38fb500a9101647e6a0a5fca100582eeceef049509f",
+    "b9b41a9eaa1a62fc978bfbb46ff3aefc6614d7a3451383288621ca6d2ce49cb9",
+    "8878dbb3189c71eb0a3ef33de67ec918d21778c38f9523a0ef39ef53840677a9"
+  ],
+  "Feather/Views/Settings/Archive & Compression/ArchiveView.swift": [
+    "46c51399eb94140c40be232ba816eb3af76e37b9b5d5309ea44c2838c7f99de4",
+    null
+  ],
+  "Feather/Views/Settings/Certificates/CertificatesAddView.swift": [
+    "3d96e829c5d37a1e466da94256f629af2c60bce11ff77a4537d654d9380e8fd8",
+    "5d21f73be07bcdcafc240eb94dd47da99783ec26ea3b7971204baff53deec4e8"
+  ],
+  "Feather/Views/Settings/Certificates/CertificatesCellView.swift": [
+    "3b302d11cf7ca5e7507471893cd2172d30c820bb29887fdd7dbdbd8f9bb2462e",
+    "c268d1132692ab1fa03a6e953ecda5feaf42e47520c87c26c75abec4c1a22dbd"
+  ],
+  "Feather/Views/Settings/Certificates/CertificatesView.swift": [
+    "1f6ddba24627b5ab969ac54b68710377821d58a9669aea73cb11367118960596",
+    "7859cf95833e81e8d59886f6cd2c2ce264ae4e4a48389e9b5df8dbb77d49287f",
+    "06ef7d2f9231a56b8035008c36970c14c7c3ae1b7c1e4aff69bf4ac5447c574e"
+  ],
+  "Feather/Views/Settings/Certificates/Info/CertificatesInfoView.swift": [
+    "aefa6516acb030242e62c3841f8315609ac967dde5c65ba5f02430da6fd65019",
+    "653bc7bebf79c2649a27b384db54c84d6731d14a824d30d054eee572447cfc21",
+    "8763382a2e14340d691a7a2cc494787fb597c7da36ad9fd4b0f8363b58930b9d"
+  ],
+  "Feather/Views/Settings/Installation/InstallationView.swift": [
+    "a2ee8dc983b1732f2808c245778f15cfbbe6caaa3f0fbf8fa2f8b1af14bb9872",
+    "ccafc694e1541c9b57502a0ac831bcc5050c824ed2d334b4380b1ff0b46491dd",
+    "3aeec29df3aab955a4589fac8933685affa933dde947b6be8fd6f9e3358f25c2",
+    "b6827f04ebdbacdaf798ab3d68817d47cf8ba2f8ebf7a0e8207cc6eeb1832458",
+    "eeeb2395c2d30728afcc9633e129b44424b00f0f8741611f6af286cdbf4ce2e3"
+  ],
+  "Feather/Views/Settings/Installation/Server & SSL/ServerView.swift": [
+    "6a32d321f84eb1a9d060fd17da785043cb49b2ec93906cfdba16661f4a4c8ac1",
+    "f73acaf66536c460b554063b3a9bab3d3a690af83b84a8724de8626d594d7334",
+    "bc1906dec5b25c31484cfea2407734caf93068f4529990b00bbfcc7a02c4079a",
+    "21f9f52b6c55b47d39a9710a0cdc2d7985ce51fae91b5aadb1d4fe6657e8d7e3"
+  ],
+  "Feather/Views/Settings/Installation/Tunnel & Pairing/TunnelView.swift": [
+    "67d2e918843fc3b568c3e9ec3c4df4b269e7ff20274ff1e5829b7f9d1dac9c40",
+    "5b3c21ad8f695687cf372390187bd5e79a0cd035ca927c59f29d5d4ab47fc4c0",
+    null
+  ],
+  "Feather/Views/Settings/Reset/ResetView.swift": [
+    "181b018cfb3cd708e9f4116df21de7a8f5a7346ef4d725fabcbdb573327be14a",
+    "675928ae82b6d4b717c551d6b6a3beadff244dfa68c43e6cdba5ce8ac33fef92",
+    "5de05ccb759796a2e5d6076bfe63aaa449bea11cc795eb49910f39459e3aace8"
+  ],
+  "Feather/Views/Settings/SettingsView.swift": [
+    "d3830a6d43104e2a233e9d8e3f698fffb997af61af3edff51be43d402b597ba7",
+    "0d12e239b757bc7ebb5da59b739c321c42d1bdb7ffa2a00acc4b6b8ef7ce8885",
+    "65ded62551bb6464c41b73ed98687ed86802164abd80ce6899d4976f3503d3fe",
+    "65f7692922466d720fecb8ac32c32c07dd1c820d8897040f96d38e62a4506579"
+  ],
+  "Feather/Views/Settings/Signing Options/ConfigurationView.swift": [
+    "3510ef649972df2d7a1ac1fc7903c0e6d56c0bf5624f337a09e7c618ffd7d9c7",
+    "69f888f09fe200648d413d53ad97a098055c15ad9677e0d8d8193b890f83c697"
+  ],
+  "Feather/Views/Settings/Signing Options/Dictionaries/ConfigurationDictView.swift": [
+    "fd57fa6107a20440960bd5107b35484d407f0854e7517267d2151a2f569ef0b5",
+    "ad3c3c4c4138854294f6d17570141f5446f537363c860655d034756cbf846720"
+  ],
+  "Feather/Views/Settings/XSignAppUpdateView.swift": [
+    null,
+    "e338264d5e8a3aafc0aed3ce7be60ffe02e9e357fcfc6f95efaeff7119ccea8a",
+    "ae0f5245a7da512a00a21bee2666bd28166ec1d774f852928fbe6705f94ed2e9",
+    "1176e654aca70649e3e3e7e264d233f26ae046b329e627ccab26aa50a1cbf979",
+    "1b8bf336fc6b91a4adcca932b4b5b801ff8fa4cec5f4f1a8ff6030c6ed872cb3"
+  ],
+  "Feather/Views/Signing/SigningPropertiesView.swift": [
+    "3150e334548b43c8e6d6beee2fbf510604fd790bacb1b9f81449dd99bde872b1",
+    "e94765a13ebc3533e3ec9e637fb8e5caaf7c496e86215cd03e06fc14a8282aaa",
+    "ea4b4095a195817d18882e18b4899450e3cc34ab2142fd7f5fafe519827219a8"
+  ],
+  "Feather/Views/Signing/SigningTweaksView.swift": [
+    "d75c74479ff80b3da7a91437cf252ba443afcb113c3ffcf83f2ce565f76004ef",
+    "6e496a5d74fab4d70adf37b7d52ad13ad3dc67f4a751cf8acacab3c21d19e005"
+  ],
+  "Feather/Views/Signing/SigningView.swift": [
+    "a76e29206d8491fb2a3249aa5b1069d71e0d8fbbe364ea5ca994fab49d20f89b",
+    "2e473bba415e572635f6eef2145ffed5e8a128dda4621e75873b9d691bb356dc",
+    "f20249eec49fa239a7efcb467ab1f6fd5d46018c5214ce6c3eb7b1f61938d3cb",
+    "c9291350fa3a431f096f7e488db2186ee9a73a5724678b96a7c261ade38e7003"
+  ],
+  "Feather/Views/Signing/XSignBulkSigningView.swift": [
+    "5e61a271de2149a838eea9430a35db1b11e3d23c09691f02d8a29f835d4da261",
+    "e364e15644d0efa75aea69487561efd49f8575683f881dc5d7e1a9296aff8e2c"
+  ],
+  "Feather/Views/Sources/Apps/Detail/ScreenshotPreviewView.swift": [
+    "7ecc16d8104c6ec8762aa1375b1874c00c703eb676b1a5bd32dd28bc496453d7",
+    "ee697dcec157fe7acef62c651c68279ae13effc83b7bee3311ff30c3c47d0436"
+  ],
+  "Feather/Views/Sources/Apps/Detail/SourceAppsDetailView.swift": [
+    "c220cd1e842fe4ded414d2c7cefd44953ff36f5d37744ae4466d990b60cb644b",
+    "8b7d5f17643354fba853eb26956165591211bdbfd70cfab698a3e8237462374b",
+    "196dc5023e695c1bdeb0cdc65837cc878cf06b8a4ea32a3f945b90e3a43c27b9"
+  ],
+  "Feather/Views/Sources/Apps/Detail/VersionHistoryView.swift": [
+    "9c2185f08d1222736f3991081d3fcd3434197432347b8e29732014f3458e1caf",
+    "d76ea04b85dd4a8694e02e0483601a2ccb688176a9a63cad85f04ec5fa3e738e"
+  ],
+  "Feather/Views/Sources/Apps/DownloadButtonView.swift": [
+    "f53190b1830546d5040c6f18dc7f258aedf61794c260755051714030ef89be21",
+    "aa9b49d050f44eac30067b33a0473d50d05453df77ec0f1d281d9b813b46b993",
+    "2730dcbde4de33bd1ee0003671622548272dd2365e7cc5d29bc6f0501a2bf8f3"
+  ],
+  "Feather/Views/Sources/Apps/News/SourceNewsCardInfoView.swift": [
+    "4d4d5ca2ae00c710349471161e4f3f21dbb3c2fe3deb212360679c8ddd1232e4",
+    "44c8e971d523bee65013e881f3e75b607b36d852c8d77f820efbe19ed7ea866b"
+  ],
+  "Feather/Views/Sources/Apps/SourceAppsView.swift": [
+    "64f5524232048027065285c6dc8437d70f98dca425a3451cb0e16fe7fce4a7a8",
+    "29fd0faa20acfb25a415a82c349dfa808f6d511a079f11769bed9f96a185e4c9",
+    "5b3a1970cef21980594645349ee106f77e4bea63f9d32ea34fb68a142cd24d18",
+    "e4f86fbd04979d7261cb358198f78022863a51bedd12ef3c9e64725e509c7a91"
+  ],
+  "Feather/Views/Sources/Apps/UIKit/SourceAppsTableRepresentableView.swift": [
+    "b9e5ac2d25a2d6b3ab18145538b747527f22cb1afad4111d52a6d297519300af",
+    "d372c1d0a93163fec92dc866c57a73a26142cdc1f0cb9cd05e5a6c8fb001dbe1",
+    "f152e096870bdec1834479687e9edb247513d9f9b01aa70cef0f8a796ca2f5f2"
+  ],
+  "Feather/Views/Sources/SourcesAddView.swift": [
+    "edb7cbaa3842d4d8167881d485611bccb7f6e8acd912746c391d545566715a4c",
+    "1b4ff8559c82be44f5a653c90fd1933d021fd544a37f4c297ef3820590c999ef",
+    "d923846e2e367cc2977c91763673187bb4dd7dde32e1234d4c292d2d9ba27319",
+    "378857115bc3e03e14356a7ebe4a494f601b3e0f00ca865c2f9850d34e4c7b3e",
+    "85b071ed1591548f2be7df26f994d68c6249da959f3e1b5c0a4325850ffe3d70"
+  ],
+  "Feather/Views/Sources/SourcesCellView.swift": [
+    "d91d3db9911809f00d0d831025f1a5c9bc78b3ce1e79c62f50a118573ebc50aa",
+    "dd337521aa289a07e52ec1c849556dcb76480fcb137ed0b99260c8b565e4ee65",
+    "61bd1c47891c364b119c67078aea8732d4742405144066405dbea63269bd02bd"
+  ],
+  "Feather/Views/Sources/SourcesView.swift": [
+    "f6e3e937fa53eec80cfe703e99cfd8de8af706059e9e796339d7f480eb4ac48f",
+    "44686c368187d4216f0f48054b17d91b345790def8e8171cfb21319c1320b9ab",
+    "0786607e24d4d937be3a903f541aa768bb1ab28a2c19bdee776fc00c227b341f",
+    "5f72108171137c0d43ccecb828af8a79401acca9d86948362ece577134eff684",
+    "7de4764f82b93691fb579b176c02f5cffe15efa8d04b996f5ef6f1442b2daa61",
+    "36ee306fa43329891fb89b2490f85d258a3d04b203e87d620d32b461ae875156",
+    "1a6bada8b2e60d0f99d142991c4f68d515e4b71fbae8813c54c6a88fe006e211",
+    "43fe6c6e8771dd6fcd8b0b34c5954909e12954d5bd89e26095064f773e243ce4",
+    "26612eca1b5be364f21997507b79547f9f7a0c84974065ab1c4630c996f62389"
+  ],
+  "Feather/Views/Sources/SourcesViewModel.swift": [
+    "f8ab1e3a67793ead11edd023b0932327189057971603a6e9ce64f0dbf13d558b",
+    "307037a91078237b5b20d94d84a805fe83318768da0a47eb309260132e50f616",
+    "caa472306b032449772d5c96abbad6c591aa5f980591c54f71be6284892f15fb",
+    "b55faccea350a7b96401394598b7370718b7fd7886fc7f7760403bd293f9fddb"
+  ],
+  "Feather/Views/Sources/XSignConfiguredStoreView.swift": [
+    null,
+    "8660d778603322090db30e5cdef4ec7ae5aa9b78b8a0abb9354d809ec79d0364",
+    "c336aafcd0eab5f220909167cb29c1ba577d023c901a67dc8f2b8f25d0f517ab"
+  ],
+  "Feather/Views/TabView/Bars/ExtendedTabbarView.swift": [
+    "9c3ba19982d4d68d8e8c9b2bbd41b09e6efe0298b59747b2814b495490ce32e7",
+    "3edf6baa928b04b62016e87a6e243bdce234a473b52ff5278299bede36b6a1da"
+  ],
+  "Feather/Views/TabView/Bars/TabbarView.swift": [
+    "261075edf5330ceabe7a6d0136aa267ac6448d56f7ee9bab6415c50c2fd8bbc0",
+    "f400efadb2e2b842ea8b9014890e8ab4f2be6e4240f87be8b76702a8c6b22a6b"
+  ],
+  "IDeviceKitten/Sources/IDeviceSwift/Heartbeat/Heartbeat.swift": [
+    "cfbb7681e245ea8114e02c0d276e47a39b7fe7d2829562275d6858a6212bd310",
+    "5d34f2044f39b09bdac0244c7a7f75753ee4bac49e677a0cebca033d0be24586"
+  ],
+  "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/IDeviceOwnedStaging.swift": [
+    null,
+    "38f9d54114ed7d0f54fed551037607d9361df447755ad615393bd7b26627f2a4"
+  ],
+  "IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift": [
+    "b94839458b81f54b4a02d9eb9f27f11da1aeae0af4eff00499ccf52b958e1dfb",
+    "c5f2cc5e744aaade5e87aae2c8906e57b592111dfdc7c953c98f9864eeed0da3",
+    "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
+    "e74c6e13950c643c0bd53cd214e8b6f5260e867cb8e4a8846696e366feedb83f"
+  ],
+  "Makefile": [
+    "7d65ed5b8f451fac285dc8df28d8779d818c8b9fa8233433b1ad6bc32b4dbf69",
+    "2d5389a778c43656a6a96bbf171ed18c829ab5523c73981ef016d20b80c933bb",
+    "12040ffdf2a26859b5bbaae7d95b25566bbaf811e4b2b46e4abd205f431cbfe9"
+  ],
+  "NimbleKit/Package.swift": [
+    "881cc7a36be5abb519f9cb062be80ce005a0f4780239d6fb7b61006f14901fbd",
+    "cb8ba7cbdc4320d1132bd8adaa2fec2c06a81bf467fb4df646e3eb0a50ea61fd"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBNavigationView.swift": [
+    "e592874eb855148798b8492e04e4db085915894b05e8eb5a528a39d735416ff8",
+    "6eff4d1129d4813e0b5405a794a8795a2c03fd1f5437a841c2241a46a250f48d"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBSection.swift": [
+    "8167f32cedd61904748b2d896ada7ca70782ea856f737178abb147c768806c2e",
+    "44eeb6997c71310df7b8c212af67b2fd1ce0f7825f508c97e6cca57719227701"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBToolbarButton.swift": [
+    "accd13f8bba2c69ef22dc6e4358b295d0be0a56e95d00672ddcebdd989fb17b3",
+    "4d9e79e4a52a131f8eeef7b196fa265ded55486118f5d7fd82cdaf65bb47d54c"
+  ],
+  "Tools/Bootstrap_Source_Repository.py": [
+    null,
+    "6ca59e531d045f8ceea3fd0169b39a6a879b2051ac9f06e742afb7817de6248c"
+  ],
+  "Tools/Delivery/Export_Source_Template.cjs": [
+    null,
+    "d30dab667dfe4316650d3787a35dc01e8f74ae0343dc08b4e73d1f1645aec42b"
+  ],
+  "Tools/Delivery/README_AR.md": [
+    null,
+    "f85b924a2b6b3299ada449411fc04b68557845d144577e6c839e2eb1f7be3c0b",
+    "18938eb82253af69184c472ffe26a7d588217551b1906fc4e11b9c92452a1206",
+    "372eebe0b6a3621455e9c16e89ab126f852aac82d4b9aca4c816661d6d15aba8",
+    "b7da85fbdf5864b38268a23c2b202f68f05092a243fa1fb52ad028ddec28f155"
+  ],
+  "Tools/Delivery/Request_Audit_AR.md": [
+    null,
+    "ed5a31b3798c19c9f094c7ae2705fedb40485f03b6500d37864de5696f1dce9c",
+    "1de0b920c54555d3ac00bae76a7c9f00fecec669aab59167854b494da0c6fc82",
+    "d8c44af163ffd2cd629e67517f4c697d4e4082e2f4857f1aee48089c9cccd531",
+    "54b546135210988edf354ae97f4a9e03815550ee9d158c408dcb505c7cf32542"
+  ],
+  "Tools/Delivery/XSign_Full_Link_AR.md": [
+    null,
+    "0e3ee3e5cb6dc39bc48b67cb50303ee05e3994754ccb10dddbedc3b804cbe7f5",
+    "12b5db4d3dfce2ad504117e0d8ff248b77f6bc56dfb2c464c32d98be606e9013"
+  ],
+  "Tools/Delivery/XSign_Unified_Guide_AR.md": [
+    null,
+    "865eb820c585309171a091b14f3e9ad5e72f8bb437fa3ca6e038c39ca51d3185",
+    "38583fbeeb25c087682e7e9dbb7b56783fcadc79d1dc3113ac115ebd1a6a4390",
+    "c23efcee25387125c54af785764cb8b2bfd9a0690da9c71f6448e47cf1057caf",
+    "fb9507d9e6af9cb45759b96e3a882b94de6ecf56eb007c6e57c77bc57512162f"
+  ],
+  "Tools/Delivery/build_unified_delivery.py": [
+    null,
+    "12eeaddaaac02c2a57f44cc924bdedbb66c5d2d6b8495d07919705ae91bb20d0",
+    "61d31587b0b11916dc5749d77d27759bff8482b6fa57449b08ecfea24894e720"
+  ],
+  "Tools/Delivery/full-source-paths.json": [
+    null,
+    "ba1248e1851dcbbf397ce413f80d8f56b4d5d28be59c86829a5c893ba0f6e992",
+    "b11b186aaaa41ae4edf0ca447c84e5911df14498c561ff3a0f6db6f5371a2eb1",
+    "4a107f7c9d0018e9519cdfe28833a246a4b12bb730ad7692be076c7e983bd71d"
+  ],
+  "Tools/Delivery/ipa_manager.yml": [
+    null,
+    "8484e7528fdf70563cb6a4e61bd892b9d5239f14468128c380cc8e7db8a80484",
+    "fb4d2e6b7e4eef80262df6f039326814e3c431dcf71e31e4c29b89e4c97a0171",
+    "7f599c79a3ed115181a823d957670f796a56715656b648b4276741b94c85ec46"
+  ],
+  "Tools/Delivery/ipa_publisher.py": [
+    null,
+    "5e4bfc099ed3523c573bd1bc4c2dfeba64b19d5a868fafc0df99ae5d597bc96d"
+  ],
+  "Tools/Delivery/legacy-workflows.json": [
+    null,
+    "e667bc6a24707891c4d5e605ec0d2c9fa3b13bfafb9f88c91c4bfe67cc504660"
+  ],
+  "Tools/Delivery/repo.example.json": [
+    null,
+    "44da03c1ea7cc84246a27613ed3cdd524fd446b93bd1acc35f1d4aa234b768b8",
+    "5df7f1566bd96eb9a355527777a122a980e88fa39c9acbac6647fda34a83f125",
+    "ac4916c2b4f7fe725d41013c52f8c37d06b36b487d4a11c3ec93202278ba5c2e",
+    "ea9d6a7f3f10ad3a8d0eba08d536dc3d5b7b9f63a9013b8fb05ab63de2dd8e3f",
+    "2510c8fc44b7452cd4e17f6b65a976c916672eeb80d173006c9282daddde5a01"
+  ],
+  "Tools/Delivery/reviewed-before-hashes.json": [
+    null,
+    "7c1102b308abc5ca4f85d1ffd51e7b4b20d532f98f2fbd2e8649aec0f3210671",
+    "d992c295bc4f6469a1c02019bb3811a8bf77141b53061b46170cf7667a1fefed",
+    "9015117f30b96fbc66311ab48d7a6ce6d5fe3d85ce0536bd220698b7db00d355",
+    "17a0ea51c60c5516a98fd6b072596bcd9048ecdc45397de3b47f3bde373940be"
+  ],
+  "Tools/Delivery/source-asset-hashes.json": [
+    null,
+    "2a9f7fc17cc4fa619b5ed54511ded7f190ed12a2f10f6a46b3caa6f130ad1b46",
+    "34a07717c0f3ab10a4299189373be4a398d41cf7e30a3f0dedf62e25b60fa4a4"
+  ],
+  "Tools/Delivery/workflow.template.json": [
+    null,
+    "a4be3b41a3c8306b20724ff4227012b870688c62cb21df1c765a75c0eb9817de",
+    "8f062cf95a9f63a6e95e090281f587776184cfc519798f54f9361c9836afdb83",
+    "89ebe372ac76f6576f3cc1b66fc9dc386500927556199a2608653bcfd58aa632",
+    "e874a992ffa614c71f9a4b7a152d9933ce0424d64ad64e70c5dca16341fda1fd"
+  ],
+  "Tools/Disable_Legacy_Workflows.py": [
+    null,
+    "5f7699a353e3c30c3a9d8f08f07b532dc0c9262a4853087450a895e17ea23f11"
+  ],
+  "Tools/Integration/Project_State.json": [
+    null,
+    "ba42aeefc1853c8b526718b7e662dbb6f7708e8a0090537ee1710fdb86ac3447",
+    "6c30221dc0997695934f48aa93b14f959467d7dfae01e644de242343f1dc0709"
+  ],
+  "Tools/Integration/contract.json": [
+    null,
+    "3c1fdf4e96956f79074c48fecc1a3aa350938da9cf3936cf5042bce0c6f7fc05",
+    "8816480760f16549bbd19aef95719269af8cc1f52c7b5fd207e64be479bcb1dc",
+    "3a3884ea6293616a05f7db6efd8be153e398f549dd0e7403fa3498da9d07d84a"
+  ],
+  "Tools/Integration/panel-roundtrip.json": [
+    null,
+    "22aa9887975767444c5390d1b8c3d70517bc6c69089590c5fc00204eb41f5f23"
+  ],
+  "Tools/Legacy/README_AR.md": [
+    null,
+    "32dabd28e016687daae7a27210658117e3c6156a50b01ffc3c047aa9b8751d94"
+  ],
+  "Tools/Legacy/xsign_catalog_checks.swift.disabled": [
+    null,
+    "61ebde4eca91dc4db8d85fbc6e810fd230ee2a1941cd717ff436ddb8326ddc64"
+  ],
+  "Tools/Legacy/xsign_make_tests.py.disabled": [
+    null,
+    "d042f881c03ec67fd1654dbfbf95f4ece0ec2a718c95413b424c8cf2f8417317"
+  ],
+  "Tools/Restore_Reviewed_Base.py": [
+    null,
+    "93dd985e264bd2c558598ea44dcd7d805dc9404bbdf83d7fbc44e8fbd01e8851"
+  ],
+  "Tools/StudioSource/package-lock.json": [
+    null,
+    "4a6d3e3c33fa72b8879c81fb91f44e441df1c007aef6a25408e6649eed8426b8"
+  ],
+  "Tools/StudioSource/package.json": [
+    null,
+    "f3aee4c283c10763eafe078c986458eab73fe67f49cdf326c257327ca456d911",
+    "604e4be14cf0e5db9afccc0282a6b5fcf88d37c3056cb7d91fb243fc79fb97c7"
+  ],
+  "Tools/StudioSource/scripts/build.py": [
+    null,
+    "e208758b8ffc66685fa9048848ed24ae29fc587ee0bfdf40b8ad2ef533b869c6",
+    "d4b1e023e34a7727646e60e14dd32fa016d9a12b61c2389e40b4e6ade547199a"
+  ],
+  "Tools/StudioSource/src/base.js": [
+    null,
+    "94891556218c3790c554e3cadc3d983654f0650e0eed22713aeba04c4b1ca6fb",
+    "cd27ae3f80dacaa163dfc608c33931a1e535a0bc970ded09e6bf9454b3f63fad",
+    "1557ffcd6a67e6a330c657a5401073d8264b2352e60828fced560663404ef7bb"
+  ],
+  "Tools/StudioSource/src/contract.js": [
+    null,
+    "a60396a0e0903f0d9953847d378c3661d46bbc4b9e7e7a3893541efc920b8e88"
+  ],
+  "Tools/StudioSource/src/integration.js": [
+    null,
+    "514a9aed4bc73f50696520d0c83b18d43e630a7a123fbf33c9507a935272ff0b",
+    "6fbab121f8ce53c475835a05a8bde7f2cb07c89110cdf4e3d1095d6f9a1d890c",
+    "85b4e350d32df049d9e91fa9efb6be34fb213cd714f81280c9bff8d05eefe114"
+  ],
+  "Tools/StudioSource/src/store.js": [
+    null,
+    "3760c43e95400aa417102693c44fbbf4e8a7c992c6b8a1fa35738e7e4d19bc52"
+  ],
+  "Tools/StudioSource/src/template.html": [
+    null,
+    "d5b45448c2ec38f85c2512b6ff55437689a620af157b6aaa3a380c5a4081baad",
+    "9dc8c9b6d2813ca2f438e179107026fabcec754c83e73d6a3e6d13e8da3c2439",
+    "da396b39c722bd36e9236922acf6bbe2f3b38559316fbb7d9907de464490f2a5"
+  ],
+  "Tools/StudioSource/tests/contracts.test.cjs": [
+    null,
+    "905f283b478a7c387460653d236322176103c6a14b99106718fe4e4981a8e37e"
+  ],
+  "Tools/StudioSource/tests/integration.test.cjs": [
+    null,
+    "ac9af61ff62be260b3312d166a2d3e96cbc7192a0f0dc7283dec7877f2ece0c0",
+    "b5c7dd7499d4bca1f37b7b77f449dc391d75b4765bf60d6f752c7711f055ec06",
+    "7b1c52d73ce3d518dcafd7dc1bf0e49a74f6b78e7b676a0482dbb919533daa41"
+  ],
+  "Tools/StudioSource/tests/publication.test.cjs": [
+    null,
+    "d64570939ccb9bf953c8ded10a2254f3187fad5332dc99f832578313ccbca8fc"
+  ],
+  "Tools/Tests/check_source_bootstrap.py": [
+    null,
+    "a02b59e6dcb73dab0d008b2e3bbc34ad0bd155670b39da2d6330f44c03dbc70f"
+  ],
+  "Tools/Tests/check_unified_contract.py": [
+    null,
+    "e20ae41ad401032f8f62c8c375acb056478fa25b917f64964f88019774c98bec",
+    "ad65a615073a529da04cec6200ca33b19f6367efa9ce0254d00996e06fa25c77"
+  ],
+  "Tools/Tests/check_workflow_consolidation.py": [
+    null,
+    "5c2e80f20a0b6d92f80f63f7639dc9f6d805e5b1ad8bd1dc373acdf02cb28a60"
+  ],
+  "Tools/Tests/make_ipa_security_fixtures.py": [
+    null,
+    "30f24c24d2b4d953886fb3d3a23d093eeee8345f9b8d7a00caff90829bcb9f89"
+  ],
+  "Tools/Tests/make_ota_tls_fixtures.py": [
+    null,
+    "00b69030e1c03a1b77ff98fca2fdace5f475c84cc0608f487c5c4b19fe6203e0",
+    "1559bfb22a4e7ccf054dd7997037e8ba8bf041cbbf0569a1a88112a0f5b6ae1c"
+  ],
+  "Tools/Tests/make_self_update_key_fixture.py": [
+    null,
+    "fbaf2f4cdf42cea61acde3ddd8386c22c8107d769779b7147e035866d67f822f"
+  ],
+  "Tools/Tests/prepare_local_signing_server_checks.py": [
+    null,
+    "a37b3d23c067f77c6ee10106e1942a2fddb5e3c9e8f1f4fc3dd3057bc363a7f2",
+    "44adafb69bc486f3ca0f96a3733be7482a6f5637798d5303e729c56be6ca425b",
+    "6dfc24b26d688fe9e633cb3aa2ef459fb2aa2427edb66eb97309bc9156a5ef26",
+    "3d7805d0f602fad7af7b0e45496a555e626bf6ad6bfc911bfe97aa66770db9bd"
+  ],
+  "Tools/Tests/prepare_source_selection_checks.py": [
+    null,
+    "0fd71bfd8860024620e63e6524210e705b56d3941c090be19e973f2f374ac1d4",
+    "ecc46ede938a8191dfc8087b75a1936ca05b55c0bdacf7798ec6e70b29ffdfd1"
+  ],
+  "Tools/Tests/xsign_catalog_checks.swift": [
+    "c0fd05aad6909b1afff27a075b43fce94746efd06e23f0b00fee689064b6e51f",
+    "38746a2cb24ed1ad5b34a0582525657f71fe295ba23708e93faeb45d279cb03e",
+    "61ebde4eca91dc4db8d85fbc6e810fd230ee2a1941cd717ff436ddb8326ddc64",
+    null
+  ],
+  "Tools/Tests/xsign_certificate_selection_checks.swift": [
+    null,
+    "16c5ea1431864051a455af1a64c161f8740003202da70e42fa98a1445f942b79"
+  ],
+  "Tools/Tests/xsign_feather_manifest_checks.swift": [
+    null,
+    "2e9190a8e4f05f494f5d75d75af33797cafa8785ae3a9857868e0c82014a8ad5"
+  ],
+  "Tools/Tests/xsign_ipa_checks.swift": [
+    "59877fffec77efd0d348b46a84202a7f029166c420a5a2cfde7ebae24a1b56b3",
+    "de64e2a2617a250bc208cd9b008948c45dc8419dac87f92274748ab8ba373c9a"
+  ],
+  "Tools/Tests/xsign_ipa_extraction_checks.swift": [
+    null,
+    "87aae72d1cc9894b0906b7946a50493eaaf95be950cbe11801e586af6c75015f"
+  ],
+  "Tools/Tests/xsign_local_signing_server_checks.swift": [
+    null,
+    "cb911e3ae17f088899ead135070f811bfc6ab3756f8ea67277329daaa83032fc",
+    "058d3d4b93acc5b039caa50d0b4c1a3a0ca93df720582c5c44790c8fccfbe562",
+    "66a5a03109ac4bc4a03227fd791b9a5f83c07f0121adc6a332441247faca7174",
+    "e4cabde0e030de9518c9e9bdf6c8b88089fbaa826ad5e56c9c5465e573088181"
+  ],
+  "Tools/Tests/xsign_make_tests.py": [
+    "b065187691432d22c06083f88bb22da3925a958ee45ac03caf08e92d4c3c9268",
+    "d042f881c03ec67fd1654dbfbf95f4ece0ec2a718c95413b424c8cf2f8417317",
+    "86d5ac37f260e03cb3d104f63fd2be0f4ea91d70aaad5a5a313ec7b040bb4e14",
+    null
+  ],
+  "Tools/Tests/xsign_ota_checks.swift": [
+    null,
+    "79fff44b8844c9f3a69fdd48e35adcfd3cfb70b5e03336ad87937064e759c7c5",
+    "9924cc5427a403a281da9a619cfcdd534baefe42627ecb27fbbab4cfdacdd41c",
+    "60c98e11b17efa6b71e30cd807e6649430927fd1d1f3c0c1af59fd6bb99b154b",
+    "36b15a30b513ec9bb4839b590856a7de3946937b855652da0831258e8866ede9"
+  ],
+  "Tools/Tests/xsign_owned_staging_checks.swift": [
+    null,
+    "f937115833c985fd76416e6f99aff00a2403c0bf411615a78297c458512357d5"
+  ],
+  "Tools/Tests/xsign_private_storage_checks.swift": [
+    null,
+    "b6df65dfbfd7339c95a3420609a864281225c5fcea24870ff03f7a819cc855c1",
+    "78c7f725085e66222aa85074a6e47f12bf2656dee3dc6882077b31faa3193c44"
+  ],
+  "Tools/Tests/xsign_self_update_key_checks.swift": [
+    null,
+    "a1af285c4eb89aa6ea11048a3f92f947b266d407d8b57e37bad0099c219c9e50"
+  ],
+  "Tools/Tests/xsign_self_update_policy_checks.swift": [
+    null,
+    "ea3787357272a3786b614c8e18b24a6d3bd07f0c36961e747e3345fb8d026819",
+    "e9124b4c732ae47a79936923767cbca778181c3cf515bc9a092e66120d6d8257"
+  ],
+  "Tools/Tests/xsign_source_selection_checks.swift": [
+    null,
+    "044bace99c3ee2993666e769a8f996576bb6b86dfe72e424cd5ede8e7a29fdab",
+    "2f719cac7e2e87bdca94d0295f7d1d6b092e6daa0ecc826da1a93c5a10bf7dd3",
+    "acf927238e943f2304f5a3cf7d6efcedbfdc4c9dbff6ea1ca070fdde336e8837",
+    "0c7a37ae6f19479de3f763c171b00cb45f616f0a5ec85752da479613b7767878",
+    "7fb96f56f6c07cbe4938e7160ad316ad894002bcf4e0811a963dceb1d6e8fa80"
+  ],
+  "Tools/Tests/xsign_studio_v2_checks.cjs": [
+    null,
+    "7c30c621644bad5e9c78b7275cfbea94ae3c85a91ec0501b05265d7f452bb017",
+    "0dd99244480957b86673a45d51c63cbd9d4ce8dea6968ebee11da2225474df9e",
+    "e461eac1d8907e30569491a0c0fb2962076a62be8d625cf0f60c4cca4f978cfc",
+    "217e4b25d58e424119f00e813c2733a78fc43e0f64ae2007b6436980c8164586"
+  ],
+  "Tools/Verify_Feather_Manifest.py": [
+    null,
+    "1994c73ad2a32d823684ab0296aa395976794ed9b2e24c5755ecc8f49d3c6121"
+  ],
+  "Tools/XSign_Direct_Signing_AR.md": [
+    null,
+    "9e3cb231f806a4865c347f0f66fa725e3431ada364a8e9ec349a607b10ae0177",
+    "3e7c49c88f183c35663f3bf8e592fda4be2ec060553215e01a53bdd84b09d09b",
+    "eaa326d91ab89bd17069c5949fdc9510121fc5962bf05318e0269971ab7cad55"
+  ],
+  "Tools/XSign_Signing_Security_AR.md": [
+    null,
+    "a51f8ace6cd136e389ee9f5bbcc70a661fbf18c051206897cb96e95d4da2eac6",
+    "7c37b80b8b7e700424f687420c904ad883dda43ed896d86e9028ee3460074c76"
+  ],
+  "Tools/XSign_Source_Selection_AR.md": [
+    null,
+    "55fdf607c4c2a61f0d2449ab8cb96a1faee97b23b2b8e726081ef7f13f6aa603"
+  ],
+  "Tools/XSign_Studio.html": [
+    "4ebec13be77e7773bf4a311be8c933b3226fb8422b73526abfe057b0a66eb6d5",
+    "dde1a4db0a21fbd2bfd386ed10f51256a3269ff9a2b97f6cf0ad57f136b00667",
+    "5848829d3c7f09af5b43b8c3505d29a4131746825710984280e07e85839aabaa",
+    "aef92ccdafbbdae8ea51fa2fdc06ad19c8aa0b0bfde3a8637c66e95e659164fe"
+  ],
+  "Tools/XSign_Studio_v2.html": [
+    null,
+    "d4f0b4015981897ce075512a326320ace23984b7359e9db4599a043b6396a51a",
+    "fd3bfbd260274ca7ef8b672f5833e651c5a4567eb46b8045a6b10b73751cd57a",
+    "8c7b92758a7a9a334ad7d0216c8cb420cf48af6be8213bd6a41a7c61a5375e49",
+    "7a8d1d881488c58a1e2986ce3c2e167a81208accde1925557d7cb3b142edce53",
+    "dde1a4db0a21fbd2bfd386ed10f51256a3269ff9a2b97f6cf0ad57f136b00667",
+    "5848829d3c7f09af5b43b8c3505d29a4131746825710984280e07e85839aabaa",
+    "aef92ccdafbbdae8ea51fa2fdc06ad19c8aa0b0bfde3a8637c66e95e659164fe"
+  ],
+  "Tools/repo.json": [
+    null,
+    "c2caf88d0187319fddfdb57462e081d50a0db9f8fff1fc03aa500cc8452785a7"
+  ],
+  "public/sources/ipaomtk.json": [
+    "b89550f382cfab1e1d6ed15276aaf05bb4385110afa4e9c96f076626a028b83d",
+    null
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBButton.swift": [
+    "2ee5403f5fea22b1ef60c46c9c9061392a23ed6fc9a9d039f6202806858f44fe",
+    "030cacdc5e671cc36845e94cc1efa771027627eab38119c41e4dfe9d3896a94a"
+  ],
+  "NimbleKit/Sources/NimbleExtensions/View/View+compatSearchScopes.swift": [
+    "006f11443cab1205e078470ad0bbafa368f3593efc70d9c5b40648ec6c21df7d",
+    "d2b46224c3f376a216d0f98e65c3da162275a362962627ba1aa1321225994da5"
+  ],
+  "NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift": [
+    "4a02eee86392d691696d82da4f03d83b1c87c8d0a3a7bd6512ae486944363f7b",
+    "5c3eece99ecf14df7824de675407b5c28a7cda28b10d31a7bcc5dffe501172e2"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBSheetButton.swift": [
+    "1767861d1c178aafa5bc16b337d22a18eb0ae57f7cb73c8a7ed087e78b41f4e9",
+    "af08b650cf69fa6680a82f447b721ce7471ec89ebc1666fed8b92143902d7875"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBPillView.swift": [
+    "3881ce494ebadedadfd75f590072da8fa4001947359a7d505e1cceaeb453a250",
+    "0530c5efa4e90868552aa47a70e5a394c4aa9a3318a3c38a9185fc712e184629"
+  ],
+  "NimbleKit/Sources/NimbleViews/Views/NBUnevenRoundedRectangle.swift": [
+    null,
+    "2b839489923e7d05cac6cd86327aaef585fae749f70c1cdd1f3264c8739261c9"
+  ],
+  "Tools/Select_Xcode.py": [
+    null,
+    "846eff0cf59be8cbef6c9f1fbf5c536052bb8695eee370ecc979d2b1176422fd"
+  ],
+  "Tools/Tests/check_build_environment.py": [
+    null,
+    "5b1ed74e90a5f1896bb7137fe184e7c6081df1a2f7b3a42fd9caae79d2570360"
+  ],
+  "Tools/Tests/check_ios_compatibility.py": [
+    null,
+    "89f19fb5150f9d570c5b061a251f077b4e9a9510f34312171107f22368ae87f0"
+  ],
+  "Tools/Delivery/Build_Run_Audit_AR.md": [
+    null,
+    "f3ca5f29b640457ae681ca28d5522e5bd743809747d35448f476e6fc61d96901"
+  ],
+  "Feather/Views/Settings/SettingsDonationCellView.swift": [
+    "c1d4e272c62547e018e7334dc54a3c6528bf3af7df404edd5b241fdabbbd4f30",
+    "1cb5d9351285441895bcf444de3b86b9ca253d1f6f42bf83d88ec0e1a2dfbd97"
+  ],
+  "Feather/Views/Settings/About/AboutView.swift": [
+    "77fe4679569cd8dd2595179dfeaa3543a76f713b216b0fa1a873901f4c41588d",
+    "d0ee6343a07c49b9c3c12186407e7ca1822a995a6a623202102e4abd5ebc880d",
+    "d0efbba5b6e90cc157edbb7e5a729f5de791caf900300225de061f551e17ff07"
+  ],
+  "Feather.xcodeproj/xcshareddata/xcschemes/Feather.xcscheme": [
+    "7deab2fe4ef141beebfe09d6b620a5ce04dbd4112f984e96ee9a86159829f27a",
+    "52681218cf13a2fb051c2d7c5e78987d71f32bf1d71aac0dd9f14dc67f19425f"
+  ],
+  "Feather/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json": [
+    "5fcc6bdc12c71d1d972b2624e2299180311d64a3505fa50eb2331e69059f0a27",
+    "6f9b3d4e3c342828ca0fad79c2c37841b22d2e8283cff1ca8c4a579776ed96e6"
+  ],
+  "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather.png": [
+    "57102c788b79b6f62e61bde0febc91026cb1c9d48ed1fe534530fc139e80ac5c",
+    null
+  ],
+  "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather_dark.png": [
+    "80859cc3dc40e3bccf646578721ddc14977f42364d10bd4419c32c626bed5279",
+    null
+  ],
+  "Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather_tint.png": [
+    "14e3bdc127757499dbccd949a622226400e72f81ea46de96c5ca8d04313b5eaf",
+    null
+  ],
+  "Feather/Resources/Assets.xcassets/AppIcon.appiconset/xsign.png": [
+    null,
+    "b441faca96a9a6d74757de654cb41225e114c0ab782137d3ed642c6383d89537"
+  ],
+  "Tools/Tests/check_identity.py": [
+    null,
+    "d548e022f776a4afb80ce0fe037f56cc3025a13294584e1e3bcd2b285d38613d"
+  ],
+  "Tools/Integration/panel-origin.json": [
+    null,
+    "e18fe8eef8f0c120446948bedae9a46a8c77641cb1cdc08cf95de3661f9f1d34"
+  ],
+  "Tools/Integration/branding.json": [
+    null,
+    "17fdc3a1c118952a3886a5cf49ed9ab44f4fd49ab29a5c2fff1c973fc6b4bece"
+  ],
+  "Tools/StudioSource/tests/build.test.cjs": [
+    null,
+    "0445dbf8289c68908e4ef546fc8e39c6211530e2898c13afe2d94832afb98e08"
+  ],
+  "Feather/Views/Signing/Shared/SigningAlternativeIconView.swift": [
+    "609a2eaaae448d0df599ba9374a0a9f233770024313862a8c317c3520f8022a9"
+  ],
+  "Feather/Views/Sources/Apps/Detail/ExpandableText.swift": [
+    "2e4e35adbeb88c3170ac9025672371d1b9801e84116a0ebdfb5c11c232a49202"
+  ]
+}

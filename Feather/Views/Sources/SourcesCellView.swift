@@ -47,15 +47,15 @@ struct SourcesCellView: View {
 extension SourcesCellView {
 	@ViewBuilder
 	private func _actions(for source: AltSource) -> some View {
-		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
+		Button(role: .destructive) {
 			Storage.shared.deleteSource(for: source)
+		} label: {
+			Label(.localized("Delete"), systemImage: "trash")
 		}
 	}
 	
 	@ViewBuilder
 	private func _contextActions(for source: AltSource) -> some View {
-		Button(.localized("Copy"), systemImage: "doc.on.clipboard") {
-			UIPasteboard.general.string = source.sourceURL?.absoluteString
-		}
+        EmptyView()
 	}
 }

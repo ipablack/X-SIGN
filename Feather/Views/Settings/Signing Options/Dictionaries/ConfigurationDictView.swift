@@ -11,10 +11,10 @@ import NimbleViews
 // MARK: - View
 struct ConfigurationDictView: View {
 	@State private var _isAddingPresenting = false
-	
+
 	var title: String
 	@Binding var dataDict: [String: String]
-	
+
 	// MARK: Body
 	var body: some View {
 		NBList(title, type: .list) {
@@ -30,12 +30,12 @@ struct ConfigurationDictView: View {
 			NBToolbarButton(
 				systemImage: "plus",
 				style: .icon,
-				placement: .topBarTrailing
+				placement: .navigationBarTrailing
 			) {
 				_isAddingPresenting = true
 			}
 		}
-		.navigationDestination(isPresented: $_isAddingPresenting) {
+		.sheet(isPresented: $_isAddingPresenting) {
 			ConfigurationDictAddView(dataDict: $dataDict)
 		}
 	}

@@ -1,0 +1,59 @@
+const fs=require('node:fs'),vm=require('node:vm'),test=require('node:test'),assert=require('node:assert/strict');
+const C=require('../src/contract.js');
+function runtime(){
+  const nodes=new Map();
+  class Element {constructor(){this.value='';this.checked=false;this.style={};this.dataset={};this.children=[];this.options=[];this.classList={toggle(){},add(){},remove(){}};}append(...nodes){this.children.push(...nodes);this.options.push(...nodes);}replaceChildren(...nodes){this.children=nodes;this.options=nodes;}setAttribute(){}removeAttribute(){}addEventListener(){}focus(){}}
+  const el=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);};
+  const ctx=vm.createContext({URL,TextEncoder,TextDecoder,AbortController,atob,btoa,crypto:require('node:crypto').webcrypto,
+    setTimeout:()=>1,clearTimeout(){},document:{getElementById:el,querySelectorAll:()=>[],createElement:()=>new Element(),createElementNS:()=>new Element(),createTextNode:s=>s},
+    localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}}});
+  const boot="loadLocal();bindEvents();bindStoreEvents();renderAll();openPage(location.hash.slice(1)||'overview',false);";
+  vm.runInContext(['contract.js','base.js','store.js','integration.js'].map(f=>fs.readFileSync(require.resolve('../src/'+f),'utf8').replace(boot,'')).join('\n'),ctx);
+  const run=s=>vm.runInContext(s,ctx);run('renderOverview=()=>{};updateStatus=()=>{};toast=()=>{};');
+  return {run,el,ctx};
+}
+test('defaults provide native dashboard v2 and validate without sample apps',()=>{const r=runtime();assert.equal(r.run('state.xsign_config.dashboard.schema_version'),2);assert.equal(r.run('validateState(state).length'),0);assert.equal(r.run('state.apps.length'),0);});
+test('uploaded Studio keeps an old draft while migrating its known previous app identity',()=>{const r=runtime();
+ const meta=r.run('META_KEY'),key=r.run('STORAGE_KEY');
+ const draft={apps:[{name:'Keep my app',bundleIdentifier:'com.example.keep',version:'1.0',downloadURL:'https://example.com/app.ipa'}],future:{keep:true},xsign_config:{theme:{app_tint_hex:'#112233'},dashboard:{sources:[]}}};
+ r.ctx.localStorage.getItem=name=>name===meta?JSON.stringify({connection:{appBundle:'thewonderofyou.Feather'}}):name===key?JSON.stringify(draft):null;
+ r.run('loadLocal()');assert.equal(r.run('connection.appBundle'),'com.ipablack.xsign');assert.equal(r.run('state.apps[0].name'),'Keep my app');
+ assert.equal(r.run('state.future.keep'),true);assert.equal(r.run('state.xsign_config.theme.app_tint_hex'),'#112233');assert.equal(r.run('state.xsign_config.dashboard.sources.length'),0);
+});
+test('self update adoption rejects an IPA from the previous bundle after the identity change',()=>{const r=runtime();
+ r.run("this.previous={bundleIdentifier:'thewonderofyou.Feather',version:'1.0',downloadURL:'https://example.com/old.ipa',sha256:'a'.repeat(64)}");
+ assert.throws(()=>r.run('ownerUpdateFromApp(previous,XSIGN_INTEGRATION.bundle)'),/Bundle ID/);
+ assert.equal(r.run('state.xsign_config.dashboard.update.enabled'),false);
+});
+test('managed source ordering matches native priority and preserves custom order',()=>{const r=runtime();
+ r.run("state.xsign_config.dashboard.sources=[{id:'b',name:'B',url:'https://example.com/b'},{id:'plus',name:'Plus',url:PRIMARY_SOURCE_URL},{id:'a',name:'A',url:'https://example.com/a'},{id:'owner',name:'Owner',url:'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json'}];state=normalizeState(state)");
+ assert.equal(r.run('state.xsign_config.dashboard.sources.map(s=>s.id).join(",")'),'owner,plus,b,a');
+ r.run('enforceCoreSources(state)');assert.equal(r.run('state.xsign_config.dashboard.sources.map(s=>s.id).join(",")'),'owner,plus,b,a');
+ r.run('state.xsign_config.dashboard.sources=[];state=normalizeState(state)');assert.equal(r.run('state.xsign_config.dashboard.sources.length'),0);
+});
+test('GitHub aliases cannot publish duplicate managed sources',()=>{const r=runtime();r.run("state.xsign_config.dashboard.sources.push({id:'alias',name:'Alias',url:'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json',enabled:true,format:'auto'})");assert(r.run('dashboardErrors(state)').some(e=>e.includes('مكرر')));});
+test('deleting either built-in source changes both published source lists and survives normalization',()=>{const r=runtime();
+ r.run("state.xsign_config.dashboard.sources=state.xsign_config.dashboard.sources.filter(s=>s.id!=='xsign.core.owned');state=normalizeState(state);enforceCoreSources(state)");
+ assert.equal(r.run('state.xsign_config.dashboard.sources.length'),1);assert.equal(r.run('state.xsign_config.app_control.core_sources.length'),1);
+ assert.equal(r.run('state.xsign_config.app_control.core_sources[0].url'),r.run('PRIMARY_SOURCE_URL'));
+ r.run('state.xsign_config.dashboard.sources=[];state=normalizeState(state);enforceCoreSources(state)');
+ assert.equal(r.run('state.xsign_config.app_control.core_sources.length'),0);assert.equal(r.run('dashboardErrors(state).length'),0);
+});
+test('non-AltStore source mapping survives export without changing owner configuration endpoint',()=>{const r=runtime();
+ r.run("state.xsign_config.dashboard.sources=[{id:'custom',name:'Custom JSON',url:'https://example.com/catalogue',enabled:true,format:'json',root_path:'data.items',icon_url:'https://example.com/logo.png',fields:{name:'title',bundleIdentifier:'bundle_id',downloadURL:'files.ipa',iconURL:'logo'}}];state=normalizeState(state)");
+ assert.equal(r.run('validateState(state).length'),0);assert.equal(r.run('state.xsign_config.app_control.core_sources[0].id'),'custom');
+ assert.equal(r.run('state.xsign_config.dashboard.sources[0].fields.downloadURL'),'files.ipa');assert.equal(r.run('XSIGN_INTEGRATION.source'),r.run('OWNED_CANONICAL_URL'));
+});
+test('source management form is in Sources and the old fixed-provider claim is gone',()=>{const html=fs.readFileSync(require.resolve('../src/template.html'),'utf8');const page=html.match(/<section data-panel="sources"[\s\S]*?<\/section>/)[0];assert(page.includes('id="managedSourceForm"'));assert(!html.includes('مصدران ثابتان'));});
+test('legacy source imports gain the contract and preserve unknown nested settings',()=>{const r=runtime();r.run("state=normalizeState({apps:[],xsign_config:{theme:{app_tint_hex:'#ABCDEF',unknown:7},security_locks:{lock_bundle_rename:true}},future:{keep:true}})");assert.equal(r.run('state.xsign_config.theme.unknown'),7);assert.equal(r.run('state.future.keep'),true);assert.equal(r.run('state.xsign_config.security_locks.allow_app_metadata_editing'),false);assert.equal(r.run('state.xsign_config.dashboard.schema_version'),2);});
+test('empty sources, sections and featured choices stay empty',()=>{const r=runtime();r.run('state.xsign_config.dashboard.sources=[];state.xsign_config.dashboard.sections=[];state.featuredApps=[];state=normalizeState(state)');assert.equal(r.run('state.xsign_config.dashboard.sources.length'),0);assert.equal(r.run('state.xsign_config.dashboard.sections.length'),0);assert.equal(r.run('dashboardErrors(state).length'),0);});
+test('optional native source and section fields receive defaults on import',()=>{const r=runtime();r.run("state=normalizeState({apps:[],xsign_config:{dashboard:{sources:[{id:'a',name:'Source',url:'https://example.com/repo.json'}],sections:[{id:'s',title:'A',kind:'apps',page:'apps'}]}}})");assert.equal(r.run('dashboardErrors(state).length'),0);});
+test('invalid sources, tabs and unsupported schema are rejected before publishing',()=>{const r=runtime();r.run("state.xsign_config.dashboard.sources[0].url='https://example.com/repo.json#fragment';state.xsign_config.dashboard.tab_order=[]");assert(r.run('dashboardErrors(state).length')>=2);r.run('state.xsign_config.dashboard.schema_version=99');assert(r.run('dashboardErrors(state)[0]').includes('v2'));});
+test('force update accepts same version newer build but rejects an unavailable build',()=>{const r=runtime();r.run("Object.assign(state.xsign_config.dashboard.update,{enabled:true,latest_version:'2.9',build_version:'2',ipa_url:'https://example.com/x.ipa',sha256:'a'.repeat(64)});Object.assign(state.xsign_config.force_update,{enabled:true,min_version:'2.9.0',min_build_version:'3'})");assert(r.run('dashboardErrors(state)').some(e=>e.includes('الحد الإجباري')));r.run("state.xsign_config.dashboard.update.build_version='3'");assert.equal(r.run('dashboardErrors(state).length'),0);});
+test('native version ordering rejects prerelease labels and oversize HTML',()=>{const r=runtime();r.run("state.xsign_config.dashboard.update.html='x'.repeat(100001)");assert(r.run('dashboardErrors(state)').some(e=>e.includes('HTML')));assert.equal(r.run("numericRelease('2.0-beta')"),false);assert.equal(r.run("compareRelease('2.9.0','2.9')"),0);});
+test('adopting publisher metadata checks real bundle and requires SHA256',()=>{const r=runtime();r.run("this.app={bundleIdentifier:'com.ipablack.xsign',version:'3.0',buildVersion:'4',downloadURL:'https://github.com/o/r/releases/download/a/app.ipa',sha256:'A'.repeat(64)}");const value=r.run("ownerUpdateFromApp(app,'com.ipablack.xsign')");assert.equal(value.latest_version,'3.0');assert.equal(value.sha256,'a'.repeat(64));assert.equal(value.manifest_url,'');assert.throws(()=>r.run("ownerUpdateFromApp(app,'com.fake.xsign')"),/Bundle ID/);r.run('delete app.sha256');assert.throws(()=>r.run("ownerUpdateFromApp(app,'com.ipablack.xsign')"),/الناشر/);});
+test('adopting an IPA does not silently enable forced or internal updates',()=>{const r=runtime();r.run("this.app={bundleIdentifier:XSIGN_INTEGRATION.bundle,version:'3.0',downloadURL:'https://example.com/a.ipa',sha256:'a'.repeat(64)};Object.assign(state.xsign_config.dashboard.update,ownerUpdateFromApp(app,XSIGN_INTEGRATION.bundle))");assert.equal(r.run('state.xsign_config.dashboard.update.enabled'),false);assert.equal(r.run('state.xsign_config.force_update.enabled'),false);});
+test('bundle rename switch and metadata permission remain consistent with Swift',()=>{const r=runtime();r.run("fieldInput({dataset:{path:'xsign_config.security_locks.lock_bundle_rename'},type:'checkbox',checked:true},true)");assert.equal(r.run('state.xsign_config.security_locks.allow_app_metadata_editing'),false);r.run("fieldInput({dataset:{path:'xsign_config.security_locks.allow_app_metadata_editing'},type:'checkbox',checked:true},true)");assert.equal(r.run('state.xsign_config.security_locks.lock_bundle_rename'),false);});
+test('different managed source edits merge by stable source ID',()=>{const base={xsign_config:{dashboard:{sources:[{id:'a',name:'A'},{id:'b',name:'B'}]}}},local=C.copy(base),remote=C.copy(base);local.xsign_config.dashboard.sources[0].name='Local';remote.xsign_config.dashboard.sources[1].name='Remote';const merged=C.merge(base,local,remote);assert.deepEqual(merged.xsign_config.dashboard.sources.map(s=>s.name),['Local','Remote']);});
+test('independent store section edits merge without replacing the whole layout',()=>{const base={xsign_config:{dashboard:{sections:[{id:'a',title:'A'},{id:'b',title:'B'}]}}},local=C.copy(base),remote=C.copy(base);local.xsign_config.dashboard.sections[0].title='Local';remote.xsign_config.dashboard.sections[1].enabled=false;const result=C.merge(base,local,remote);assert.equal(result.xsign_config.dashboard.sections[0].title,'Local');assert.equal(result.xsign_config.dashboard.sections[1].enabled,false);});
+test('HTML stays in a sandbox and no external script gains access to token',()=>{const html=fs.readFileSync(require.resolve('../src/template.html'),'utf8');assert(html.includes('id="ownerHTMLPreview" sandbox=""'));assert(html.includes('id="requireOnline" disabled'));assert(html.includes('id="antiVpn" disabled'));assert(!/<script\s+src=/i.test(html));});

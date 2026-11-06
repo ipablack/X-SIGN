@@ -75,19 +75,11 @@ final class UpdateManager: ObservableObject {
 		return repositories
 	}
 	
-	private func _fetchRepository(from url: URL) async -> ASRepository? {
-		await withCheckedContinuation { continuation in
-			_dataService.fetch(from: url) { (result: RepositoryDataHandler) in
-				switch result {
-				case .success(let repository):
-					continuation.resume(returning: repository)
-				case .failure:
-					continuation.resume(returning: nil)
-				}
-			}
-		}
-	}
-	
+    private func _fetchRepository(from url: URL) async -> ASRepository? {
+        guard !ProtectedSourcesVault.isRetiredSource(url) else { return nil }
+        return try? await XSignCatalogIO.shared.fetch(url).repository
+    }
+
 	private func _findUpdates(
 		repositories: [(AltSource, ASRepository)],
 		localApps: [AppInfoPresentable]
@@ -113,6 +105,8 @@ final class UpdateManager: ObservableObject {
 			
 			let sourceAppIdentifier: String
 			let sourceAppVersion: String?
+			let sourceDownloadURL: URL?
+            let sourceAppName: String?
 			let storedSourceURL: URL
 			if let directMetadata = metadataByUUID[localUUID] {
 				guard
@@ -124,6 +118,8 @@ final class UpdateManager: ObservableObject {
 				
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = directMetadata.sourceAppVersion
+				sourceDownloadURL = directMetadata.sourceAppDownloadURL
+                sourceAppName = directMetadata.sourceAppName
 				storedSourceURL = metadataSourceURL
 			} else if let fallback = _fallbackMetadataCandidate(
 				for: localApp,
@@ -139,6 +135,8 @@ final class UpdateManager: ObservableObject {
 				
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = fallback.metadata.sourceAppVersion
+				sourceDownloadURL = fallback.metadata.sourceAppDownloadURL
+                sourceAppName = fallback.metadata.sourceAppName
 				storedSourceURL = metadataSourceURL
 				Storage.shared.copySourceMetadata(
 					from: fallback.appUUID,
@@ -151,6 +149,8 @@ final class UpdateManager: ObservableObject {
 			{
 				sourceAppIdentifier = localIdentifier
 				sourceAppVersion = localApp.version
+				sourceDownloadURL = nil
+                sourceAppName = localApp.name
 				storedSourceURL = localSourceURL
 			} else {
 				continue
@@ -165,7 +165,9 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				guard let remoteApp = repository.apps.first(where: { $0.id == sourceAppIdentifier }) else {
+				let candidates = repository.apps.filter { $0.catalogID == sourceAppIdentifier || $0.id == sourceAppIdentifier }
+                let named = candidates.filter { $0.currentName == (sourceAppName ?? localApp.name ?? "") }
+                guard let remoteApp = candidates.count == 1 ? candidates.first : (named.count == 1 ? named.first : nil) else {
 					continue
 				}
 				
@@ -173,13 +175,11 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				guard remoteVersion != sourceAppVersion else {
-					continue
-				}
-				
 				guard let downloadURL = remoteApp.currentDownloadUrl else {
 					continue
 				}
+                guard XSignReleaseVersion.catalogNeedsUpdate(currentVersion:sourceAppVersion,targetVersion:remoteVersion,
+                    currentURL:sourceDownloadURL,targetURL:downloadURL) else { continue }
 				
 				guard let provenance = SourceAppProvenance(
 					sourceURL: sourceURL,
@@ -195,7 +195,7 @@ final class UpdateManager: ObservableObject {
 					localVersion: sourceAppVersion ?? localApp.version,
 					remoteVersion: remoteVersion,
 					appName: remoteApp.currentName,
-					bundleIdentifier: sourceAppIdentifier,
+					bundleIdentifier: remoteApp.id ?? localApp.identifier ?? sourceAppIdentifier,
 					downloadURL: downloadURL,
 					sourceURL: sourceURL,
 					sourceProvenance: provenance

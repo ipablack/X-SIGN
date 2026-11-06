@@ -49,7 +49,11 @@ extension FileManager {
 	}
 	
 	static public func forceWrite(content: String, to filename: String) throws {
-		let path = URL.documentsDirectory.appendingPathComponent(filename)
+		let directory = try FileManager.default.url(
+			for: .documentDirectory, in: .userDomainMask,
+			appropriateFor: nil, create: true
+		)
+		let path = directory.appendingPathComponent(filename)
 		try content.write(to: path, atomically: true, encoding: .utf8)
 	}
 	

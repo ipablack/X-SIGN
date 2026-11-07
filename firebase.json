@@ -60,6 +60,40 @@
           }
         ]
       }
+    ],
+    "rewrites": [
+      {
+        "source": "/native/prepare",
+        "function": {
+          "functionId": "xsignNativeOTA",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/native/manifest.plist",
+        "function": {
+          "functionId": "xsignNativeOTA",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/native/status",
+        "function": {
+          "functionId": "xsignNativeOTA",
+          "region": "us-central1"
+        }
+      }
     ]
-  }
+  },
+  "functions": [
+    {
+      "source": "DomainBackend/functions",
+      "codebase": "xsign-ota",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ]
+    }
+  ]
 }

@@ -11,6 +11,7 @@ SYMBOLS = {
     r'\bTab\s*\(\s*value\s*:': 18.0,
     r'\bURL\.documentsDirectory\b': 16.0,
     r'\.searchScopes\s*\(': 16.0,
+    r'\.scrollContentBackground\s*\(': 16.0,
     r'\bUnevenRoundedRectangle\s*\(': 17.0,
     r'\bUIHostingConfiguration\s*\{': 16.0,
     r'\.toolbarTitleMenu\s*(?:\(|\{)': 16.0,

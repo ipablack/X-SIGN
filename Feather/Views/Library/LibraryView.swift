@@ -17,7 +17,6 @@ struct LibraryView: View {
 
 	@State private var _selectedInfoAppPresenting: AnyApp?
 	@State private var _selectedSigningAppPresenting: AnyApp?
-	@State private var _selectedInstallAppPresenting: AnyApp?
 	@State private var _isImportingPresenting = false
 	@State private var _isDownloadingPresenting = false
     @State private var _isAppStoreLinkPresenting = false
@@ -142,7 +141,6 @@ struct LibraryView: View {
 									app: app,
 									selectedInfoAppPresenting: $_selectedInfoAppPresenting,
 									selectedSigningAppPresenting: $_selectedSigningAppPresenting,
-									selectedInstallAppPresenting: $_selectedInstallAppPresenting,
 									selectedAppUUIDs: $_selectedAppUUIDs
 								)
 								.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
@@ -203,7 +201,6 @@ struct LibraryView: View {
 								app: app,
 								selectedInfoAppPresenting: $_selectedInfoAppPresenting,
 								selectedSigningAppPresenting: $_selectedSigningAppPresenting,
-								selectedInstallAppPresenting: $_selectedInstallAppPresenting,
 								selectedAppUUIDs: $_selectedAppUUIDs
 							)
 							.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
@@ -211,6 +208,7 @@ struct LibraryView: View {
 					}
 				}
 			}
+			.xsignListBackground()
 			.searchable(text: $_searchText, placement: .platform(), prompt: "بحث في التوقيع (عربي / إنجليزي)...")
 			.xsignDismissKeyboardOnScroll()
 			.toolbar {
@@ -264,23 +262,18 @@ struct LibraryView: View {
                 let pending = _pendingCertificateApps
                 _pendingCertificateApps = []
                 if Storage.shared.activeSigningCertificate() != nil { _signImportedApps(pending) }
-                AutoSignPipelineManager.shared.presentNextReadyApp()
+                XSignInstallation.shared.resumeIfPossible()
             }) { CertificatesAddView() }
-            .sheet(isPresented: $_isBulkSigningPresenting, onDismiss: { _batchApps = []; AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+            .sheet(isPresented: $_isBulkSigningPresenting, onDismiss: { _batchApps = []; XSignInstallation.shared.resumeIfPossible() }) {
                 XSignBulkSigningView(apps: _batchApps)
             }
-            .sheet(isPresented: $_isAppStoreLinkPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+            .sheet(isPresented: $_isAppStoreLinkPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
                 XSignAppStoreLinkView()
             }
-			.sheet(item: $_selectedInfoAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
+			.sheet(item: $_selectedInfoAppPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) { app in
 				LibraryInfoView(app: app.base)
 			}
-			.sheet(item: $_selectedInstallAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
-				InstallPreviewView(app: app.base)
-					.xsignCompactSheet(height: 300)
-
-			}
-			.fullScreenCover(item: $_selectedSigningAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
+			.fullScreenCover(item: $_selectedSigningAppPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) { app in
 				SigningView(app: app.base)
 					.compatNavigationTransition(id: app.base.uuid ?? "", ns: _namespace)
 			}
@@ -291,7 +284,7 @@ struct LibraryView: View {
                     _pendingCertificateApps = []
                     _signImportedApps(pending)
                 }
-                AutoSignPipelineManager.shared.presentNextReadyApp()
+                XSignInstallation.shared.resumeIfPossible()
             }) {
 				FileImporterRepresentableView(
 					allowedContentTypes: [.ipa, .tipa],
@@ -304,7 +297,7 @@ struct LibraryView: View {
 				)
 				.ignoresSafeArea()
 			}
-			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
 				AppStore2026SettingsPopup(sources: _sources, viewModel: sourcesViewModel)
 			}
 			.alert("استيراد وتوقيع من رابط مباشر", isPresented: $_isDownloadingPresenting) {
@@ -317,11 +310,6 @@ struct LibraryView: View {
 					if let url = URL(string: _alertDownloadString) {
 						_ = downloadManager.startDownload(from: url, id: "FeatherManualDownload_\(UUID().uuidString)")
 					}
-				}
-			}
-			.onReceive(NotificationCenter.default.publisher(for: Notification.Name("Feather.installApp"))) { _ in
-				if let latest = _signedApps.first {
-					_selectedInstallAppPresenting = AnyApp(base: latest)
 				}
 			}
 			.onChange(of: _editMode) { mode in
@@ -407,7 +395,7 @@ struct LibraryView: View {
                 case .success(let uuid):
 					UINotificationFeedbackGenerator().notificationOccurred(.success)
 					if let newlySigned = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
-						_selectedInstallAppPresenting = AnyApp(base: newlySigned)
+						XSignInstallation.shared.install(newlySigned, afterDismissal: true)
 					}
 				}
 			}

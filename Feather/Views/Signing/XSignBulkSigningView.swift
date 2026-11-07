@@ -48,7 +48,6 @@ struct XSignBulkSigningView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: XSignBulkSigningModel
     @State private var certificateIndex: Int
-    @State private var installApp: AnyApp?
     @State private var showCertificateSetup = false
     @FetchRequest(entity: CertificatePair.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)])
     private var certificates: FetchedResults<CertificatePair>
@@ -106,7 +105,7 @@ struct XSignBulkSigningView: View {
                             if case .succeeded(let uuid) = entry.state {
                                 Button("تثبيت") {
                                     if let signed = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
-                                        installApp = AnyApp(base: signed)
+                                        XSignInstallation.shared.install(signed)
                                     } else { model.errorMessage = "لم تعد النسخة الموقعة موجودة في المكتبة." }
                                 }
                             }
@@ -122,7 +121,7 @@ struct XSignBulkSigningView: View {
             .sheet(isPresented: $showCertificateSetup, onDismiss: {
                 certificateIndex = UserDefaults.standard.integer(forKey: "feather.selectedCert")
             }) { CertificatesAddView() }
-            .sheet(item: $installApp) { app in InstallPreviewView(app: app.base) }
+            .safeAreaInset(edge: .top, spacing: 0) { XSignInstallationStatus().padding(.horizontal, 16) }
         }
         .navigationViewStyle(.stack)
         .interactiveDismissDisabled(model.queue.isRunning)

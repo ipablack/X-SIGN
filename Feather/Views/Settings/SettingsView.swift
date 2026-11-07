@@ -57,7 +57,7 @@ struct SettingsView: View {
 				} footer: {
 					Text(.localized("Reset certificates, apps, and general contents."))
 				}
-			}
+			}.xsignListBackground()
 		}
 	}
 }

@@ -45,6 +45,7 @@ enum XSignSourceAdapter {
                     if let found=value(row,path:path), !(found is NSNull) { result[field]=found;break }
                 }
             }
+            if knownNumericTypes { applyNumericType(to: &result) }
             return result
         }
         let normalized=try XSignRESTSource.normalize(mapped)
@@ -72,15 +73,20 @@ enum XSignSourceAdapter {
         }
         root["apps"] = apps.map { app in
             var item = cleanDownload(app)
-            if numericTypes, (item["category"] as? String)?.isEmpty != false,
-               item["type"] as? Int == 2 {
-                item["category"] = "games"
-                changed = true
-            }
+            if numericTypes, applyNumericType(to: &item) { changed = true }
             if let versions = item["versions"] as? [[String: Any]] { item["versions"] = versions.map(cleanDownload) }
             return item
         }
         return changed ? try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]) : fallback
+    }
+
+    @discardableResult
+    private static func applyNumericType(to item: inout [String: Any]) -> Bool {
+        guard item["isGame"] as? Bool == nil, item["is_game"] as? Bool == nil,
+              let type = item["type"] as? Int, type == 1 || type == 2 else { return false }
+        item["isGame"] = type == 2
+        if type == 2, (item["category"] as? String)?.isEmpty != false { item["category"] = "games" }
+        return true
     }
     private static func value(_ input: Any, path: String) -> Any? {
         guard path.utf8.count <= 300 else { return nil }

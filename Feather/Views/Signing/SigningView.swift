@@ -6,66 +6,15 @@
 //
 
 import SwiftUI
-import PhotosUI
+import UniformTypeIdentifiers
 import NimbleViews
-
-// MARK: - Custom X Logo Shape
-struct XSignLogoShape: Shape {
-	func path(in rect: CGRect) -> Path {
-		var path = Path()
-		let w = rect.width
-		let h = rect.height
-
-		// الجزء الأيسر العلوي الممتد للشوكة العلوية والسفلية
-		path.move(to: CGPoint(x: w * 0.67, y: h * 0.04))
-		path.addLine(to: CGPoint(x: w * 0.47, y: h * 0.36))
-		path.addLine(to: CGPoint(x: w * 0.38, y: h * 0.22))
-		path.addLine(to: CGPoint(x: w * 0.18, y: h * 0.22))
-		path.addLine(to: CGPoint(x: w * 0.38, y: h * 0.54))
-		path.addLine(to: CGPoint(x: w * 0.10, y: h * 0.96))
-		path.addLine(to: CGPoint(x: w * 0.44, y: h * 0.54))
-		path.addLine(to: CGPoint(x: w * 0.28, y: h * 0.28))
-		path.addLine(to: CGPoint(x: w * 0.35, y: h * 0.28))
-		path.addLine(to: CGPoint(x: w * 0.47, y: h * 0.46))
-		path.closeSubpath()
-
-		// الجزء الأيمن السفلي الممتد للشوكة العلوية والسفلية
-		path.move(to: CGPoint(x: w * 0.25, y: h * 0.96))
-		path.addLine(to: CGPoint(x: w * 0.49, y: h * 0.63))
-		path.addLine(to: CGPoint(x: w * 0.57, y: h * 0.76))
-		path.addLine(to: CGPoint(x: w * 0.77, y: h * 0.76))
-		path.addLine(to: CGPoint(x: w * 0.59, y: h * 0.47))
-		path.addLine(to: CGPoint(x: w * 0.86, y: h * 0.04))
-		path.addLine(to: CGPoint(x: w * 0.53, y: h * 0.47))
-		path.addLine(to: CGPoint(x: w * 0.68, y: h * 0.70))
-		path.addLine(to: CGPoint(x: w * 0.60, y: h * 0.70))
-		path.addLine(to: CGPoint(x: w * 0.49, y: h * 0.53))
-		path.closeSubpath()
-
-		return path
-	}
-}
-
-struct XSignHeaderLogo: View {
-	var body: some View {
-		XSignLogoShape()
-			.fill(
-				LinearGradient(
-					colors: [.primary, .accentColor],
-					startPoint: .topLeading,
-					endPoint: .bottomTrailing
-				)
-			)
-			.frame(width: 36, height: 36)
-			.shadow(color: Color.accentColor.opacity(0.25), radius: 4, x: 0, y: 2)
-	}
-}
 
 // MARK: - View
 struct SigningView: View {
 	@Environment(\.dismiss) var dismiss
 	@ObservedObject private var policy = XSignSecurityEnforcer.shared
     @StateObject private var _optionsManager = OptionsManager.shared
+    @AppStorage("Feather.userTintColor") private var userTintHex = "#005BBB"
 
 	@State private var _temporaryOptions: Options = OptionsManager.shared.options
 	@State private var _temporaryCertificate: Int
@@ -99,49 +48,22 @@ struct SigningView: View {
 
 	// MARK: Body
 	var body: some View {
-		NBNavigationView("", displayMode: .inline) {
-			Form {
-				_customizationOptions(for: app)
-				_cert()
-				_customizationProperties(for: app)
-                if let message = signingFailureMessage {
-                    Section {
-                        Label("تعذّر التوقيع", systemImage: "exclamationmark.circle").foregroundStyle(.red)
-                        Text(message).font(.footnote).foregroundStyle(.secondary)
-                    }
+        NBNavigationView("توقيع التطبيق", displayMode: .inline) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    appSummary
+                    _cert()
+                    _customizationOptions(for: app)
+                    _customizationProperties(for: app)
                 }
-
-				// horrible
-				Rectangle()
-					.foregroundStyle(.clear)
-					.frame(height: 30)
-					.listRowBackground(EmptyView())
-			}
-			.overlay {
-				VStack(spacing: 0) {
-					Spacer()
-					NBVariableBlurView()
-						.frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 60 : 80)
-						.rotationEffect(.degrees(180))
-						.overlay {
-							Button {
-								_start()
-							} label: {
-								NBSheetButton(title: .localized("Start Signing"), style: .prominent)
-									.padding()
-							}
-							.buttonStyle(.plain)
-							.offset(y: UIDevice.current.userInterfaceIdiom == .pad ? -20 : -40)
-						}
-				}
-				.ignoresSafeArea(edges: .bottom)
-			}
-
-			.toolbar {
-				NBToolbarButton(role: .dismiss)
-				ToolbarItem(placement: .principal) {
-					XSignHeaderLogo()
-				}
+                .frame(maxWidth: 620)
+                .padding(16)
+                .frame(maxWidth: .infinity)
+            }
+            .background(AppStoreTheme.background.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom, spacing: 0) { signingFooter }
+            .toolbar {
+                NBToolbarButton(role: .dismiss)
 				NBToolbarButton(
 					.localized("Reset"),
 					style: .text,
@@ -199,26 +121,88 @@ struct SigningView: View {
 				_temporaryOptions.appName = newName
 			}
 		}
+        .environment(\.layoutDirection, .rightToLeft)
 	}
 }
 
-// MARK: - Extension: View
 extension SigningView {
+    private var appSummary: some View {
+        HStack(spacing: 14) {
+            if let appIcon {
+                Image(uiImage: appIcon).resizable().scaledToFill()
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            } else {
+                FRAppIconView(app: app, size: 64)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text(_temporaryOptions.appName ?? app.name ?? "التطبيق")
+                    .font(.title3.bold()).lineLimit(2)
+                if let bundle = _temporaryOptions.appIdentifier ?? app.identifier {
+                    Text(bundle).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
+                }
+                if let version = _temporaryOptions.appVersion ?? app.version {
+                    Text("الإصدار \(version)").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .xsignSurface(radius: 22)
+    }
+
+    private var signingFooter: some View {
+        VStack(spacing: 10) {
+            if let message = signingFailureMessage {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .font(.footnote).foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12).xsignSurface(radius: 14)
+            }
+            Button(action: _start) {
+                HStack(spacing: 8) {
+                    if _isSigning { ProgressView().tint(AppStoreTheme.contrastingText(forHex: userTintHex)) }
+                    else { Image(systemName: "signature") }
+                    Text(_isSigning ? "جاري التوقيع…" : "ابدأ التوقيع").font(.headline)
+                }
+                .foregroundStyle(AppStoreTheme.contrastingText(forHex: userTintHex))
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .disabled(_isSigning)
+        }
+        .frame(maxWidth: 620)
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(AppStoreTheme.background.ignoresSafeArea(edges: .bottom))
+    }
+
+    private func signingSection<Content: View>(_ title: String, icon: String,
+                                               @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: icon).font(.headline).foregroundStyle(Color.accentColor)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .xsignSurface()
+    }
+
 	@ViewBuilder
 	private func _customizationOptions(for app: AppInfoPresentable) -> some View {
-		NBSection(.localized("Customization")) {
+		signingSection("معلومات التطبيق", icon: "square.and.pencil") {
 			Menu {
 				Button { _isAltPickerPresenting = true } label: { Label(.localized("Select Alternative Icon"), systemImage: "app.dashed") }
 				Button { _isFilePickerPresenting = true } label: { Label(.localized("Choose from Files"), systemImage: "folder") }
 				Button { _isImagePickerPresenting = true } label: { Label(.localized("Choose from Photos"), systemImage: "photo") }
-			} label: {
-				if let icon = appIcon {
-					Image(uiImage: icon)
-						.appIconStyle()
-				} else {
-					FRAppIconView(app: app, size: 56)
-				}
-            }.disabled(policy.locks.lock_icon_change ?? true)
+            } label: {
+                Label("تغيير الأيقونة", systemImage: "photo")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .disabled(policy.locks.lock_icon_change ?? true)
+            Divider()
 
             _infoCell(.localized("Name"), desc: _temporaryOptions.appName ?? app.name) {
 				SigningPropertiesView(
@@ -325,7 +309,7 @@ extension SigningView {
 
 	@ViewBuilder
 	private func _cert() -> some View {
-		NBSection(.localized("Signing")) {
+		signingSection("شهادة التوقيع", icon: "checkmark.seal") {
 			if let cert = _selectedCert() {
 				NavigationLink {
 					CertificatesView(selectedCert: $_temporaryCertificate)
@@ -335,14 +319,14 @@ extension SigningView {
 					)
 				}
 			} else {
-                Button("إعداد التوقيع مرة واحدة") { _showCertificateSetup = true }
+                Button("إضافة شهادة") { _showCertificateSetup = true }
 			}
 		}
 	}
 
 	@ViewBuilder
 	private func _customizationProperties(for app: AppInfoPresentable) -> some View {
-		NBSection(.localized("Advanced")) {
+		signingSection("إعدادات متقدمة", icon: "slider.horizontal.3") {
 			DisclosureGroup(.localized("Modify")) {
 				NavigationLink(.localized("Existing Dylibs")) {
 					SigningDylibView(
@@ -376,6 +360,7 @@ extension SigningView {
 					options: $_temporaryOptions,
 					temporaryOptions: _optionsManager.options
 				)}
+				.xsignListBackground()
 				.navigationTitle(.localized("Properties"))
 			}
 		}
@@ -386,9 +371,16 @@ extension SigningView {
 		NavigationLink {
 			destination()
 		} label: {
-			XSignLabeledContent(title) {
-				Text(desc ?? .localized("Unknown"))
-			}
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.caption).foregroundStyle(.secondary)
+                    Text(desc ?? .localized("Unknown")).font(.subheadline.weight(.medium)).lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.forward").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
 		}
 	}
 }
@@ -420,30 +412,21 @@ extension SigningView {
 		generator.impactOccurred()
 		_isSigning = true
 
-		FR.signPackageFile(
-			app,
-			using: _temporaryOptions,
-			icon: appIcon,
-			certificate: _selectedCert()
-		) { error in
-			_isSigning = false
-			if let error {
+        FR.signPackageFileWithResult(app, using: _temporaryOptions, icon: appIcon, certificate: _selectedCert()) { result in
+            _isSigning = false
+            switch result {
+            case .failure(let error):
                 signingFailureMessage = error.localizedDescription
-			} else {
-				if
-					_temporaryOptions.post_deleteAppAfterSigned,
-					!app.isSigned
-				{
-					Storage.shared.deleteApp(for: app)
-				}
-
-				if _temporaryOptions.post_installAppAfterSigned {
-					DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-						NotificationCenter.default.post(name: Notification.Name("Feather.installApp"), object: nil)
-					}
-				}
-				dismiss()
-			}
-		}
+            case .success(let uuid):
+                if _temporaryOptions.post_deleteAppAfterSigned, !app.isSigned {
+                    Storage.shared.deleteApp(for: app)
+                }
+                if _temporaryOptions.post_installAppAfterSigned,
+                   let signed = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
+                    XSignInstallation.shared.install(signed, afterDismissal: true)
+                }
+                dismiss()
+            }
+        }
 	}
 }

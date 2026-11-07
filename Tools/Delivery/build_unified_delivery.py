@@ -17,7 +17,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 ALLOWED = {'Feather', 'Feather.xcconfig', 'Feather.xcodeproj', 'Feather.xcworkspace', 'NimbleKit',
-           'AltSourceKit', 'IDeviceKitten', 'Zsign', 'Tools', 'DomainBackend', 'Makefile', 'public', '.gitignore'}
+           'AltSourceKit', 'IDeviceKitten', 'Zsign', 'Tools', 'DomainBackend', 'Makefile', 'public', '.gitignore', 'firebase.json'}
 
 
 def digest(data):
@@ -43,10 +43,11 @@ def build(output):
             row['encoding'] = 'base64'
         rows.append(row)
     raw = json.dumps(rows, ensure_ascii=False, separators=(',', ':')).encode()
-    encoded = base64.b64encode(lzma.compress(raw, preset=6)).decode()
+    # Base85 keeps the self-contained workflow inside the file-size budget.
+    encoded = base64.b85encode(lzma.compress(raw, preset=6)).decode('ascii')
     installer = (ROOT / 'Tools/Restore_Reviewed_Base.py').read_text() + '\n' + '''from pathlib import Path,PurePosixPath
 import base64,hashlib,json,os,subprocess,lzma
-raw=lzma.decompress(base64.b64decode("""PAYLOAD"""),memlimit=67108864)
+raw=lzma.decompress(base64.b85decode("""PAYLOAD"""),memlimit=67108864)
 if hashlib.sha256(raw).hexdigest()!='DIGEST':raise SystemExit('Payload integrity failure')
 rows=json.loads(raw);root=Path.cwd().resolve();ready=[];seen=set()
 baseline=prepare_reviewed_base(root);restored=[];row_paths={r['path'] for r in rows}

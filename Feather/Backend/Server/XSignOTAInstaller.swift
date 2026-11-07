@@ -16,17 +16,31 @@ actor XSignOTAInstaller {
         let properties = try package.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard properties.isRegularFile == true, properties.isSymbolicLink != true,
               let count = properties.fileSize, count > 0 else { throw XSignOTAError.invalidPackage }
-        let token=XSignOTACapability.token()
-        let tracking=XSignOTATransfers(size:Int64(count))
-        let deadline=ProcessInfo.processInfo.systemUptime+2700
-        // Feather Semi Local: loopback HTTP payload + their public HTTPS manifest.
-        // No pairing, public LAN listener, custom Firebase deployment or SSL pack needed.
-        let payloadURL=try startLocalServer(package:package,bytes:count,identity:nil,token:token,
-            deadline:deadline,tracking:tracking,update:update)
-        var health=URLComponents(url:payloadURL,resolvingAgainstBaseURL:false)!
-        health.path="/ota/\(token)/health"
-        let (probe,response)=try await XSignBoundedHTTP.fetch(URLRequest(url:health.url!),using:session,limit:128)
-        guard response.statusCode==200,probe==Data("XSign OTA".utf8) else { throw XSignOTAError.interrupted }
+        await update(.preparingTLS)
+        let token = XSignOTACapability.token()
+        let tracking = XSignOTATransfers(size: Int64(count))
+        let deadline = ProcessInfo.processInfo.systemUptime + 2700
+        var readyURL: URL?
+        for attempt in 0..<2 {
+            do {
+                let identity = try await XSignOTATLS.load(session: session, forceRefresh: attempt > 0)
+                try Task.checkCancellation()
+                let payloadURL = try startLocalServer(package: package, bytes: count, identity: identity, token: token,
+                    deadline: deadline, tracking: tracking, update: update)
+                var health = URLComponents(url: payloadURL, resolvingAgainstBaseURL: false)!
+                health.path = "/ota/\(token)/health"
+                // No custom trust bypass: stale cached certificates trigger one automatic refresh.
+                let (probe, response) = try await XSignBoundedHTTP.fetch(URLRequest(url: health.url!), using: session, limit: 128)
+                guard response.statusCode == 200, probe == Data("XSign OTA".utf8) else { throw XSignOTAError.sslUnavailable }
+                readyURL = payloadURL
+                break
+            } catch {
+                stopLocalServer()
+                if Task.isCancelled { throw CancellationError() }
+                if attempt == 1 { throw XSignOTAError.sslUnavailable }
+            }
+        }
+        guard let payloadURL = readyURL else { throw XSignOTAError.sslUnavailable }
         await update(.preparingDomain)
         let descriptor = XSignOTADescriptor(payloadURL: payloadURL, bundleIdentifier: bundleIdentifier,
             bundleVersion: version, title: title, expiresAt: Int(Date().timeIntervalSince1970) + 1800)

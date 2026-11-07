@@ -46,7 +46,7 @@ struct ScreenshotPreviewView: View {
 								.padding(.vertical, 6)
 								.background(
 									Capsule()
-										.fill(.ultraThinMaterial)
+									.fill(AppStoreTheme.controlSurface)
 								)
 						}
 					}
@@ -78,5 +78,6 @@ extension ScreenshotPreviewView {
 		}
 		.tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		.background(AppStoreTheme.background.ignoresSafeArea())
 	}
 }

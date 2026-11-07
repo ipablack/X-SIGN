@@ -466,6 +466,7 @@ struct AppStoreAppItem: Identifiable, Hashable, Sendable {
 	let app: ASRepository.App
 	let category: AppStore2026Category
 	let isGame: Bool
+    let declaredGame: Bool?
 	let arabicSubtitle: String
 	let searchIndexTokens: String
     let searchDocument: XSignSearchDocument
@@ -479,11 +480,12 @@ struct AppStoreAppItem: Identifiable, Hashable, Sendable {
 		self.app = app
 
 		let inferred = AppStore2026Category.strictlyClassify(app: app)
-        let declaredGame = repository.categories?.first(where: { $0.id == app.category })?.isGame
+        let declaredGame = app.isGame ?? repository.categories?.first(where: { $0.id == app.category })?.isGame
+        self.declaredGame = declaredGame
         let classified: AppStore2026Category = declaredGame == true && !inferred.isGameCategory ? .casualGames
             : declaredGame == false && inferred.isGameCategory ? .productivity : inferred
 		self.category = classified
-		self.isGame = repository.categories?.first(where: { $0.id == app.category })?.isGame ?? classified.isGameCategory
+		self.isGame = declaredGame ?? classified.isGameCategory
 		self.arabicSubtitle = AppStoreBilingualEngine.localizedSubtitle(for: app, category: classified)
         self.searchDocument = XSignSearchDocument(name: app.currentName, bundleID: app.id ?? "", aliasIndex: AppStoreBilingualEngine.preparedAliasIndex)
         self.searchIndexTokens = ([searchDocument.name, searchDocument.bundle] + searchDocument.aliases).joined(separator: " ")
@@ -568,7 +570,7 @@ final class XSignSearchResults: ObservableObject {
 
 struct TodayEditorialInstruction: Identifiable, Sendable {
 	let id: String
-	let badge: String
+	let badge: String?
 	let title: String
 	let caption: String
 	let imageURL: URL?
@@ -646,53 +648,21 @@ enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
 		}
 	}
 
-	var gradientColors: [Color] {
-		switch self {
-		case .topApps:
-			return [Color(red: 0.04, green: 0.45, blue: 0.85), Color(red: 0.02, green: 0.25, blue: 0.58)]
-		case .topGames:
-			return [Color(red: 0.96, green: 0.69, blue: 0.45), Color(red: 0.92, green: 0.53, blue: 0.31)]
-		case .bestSellingApps:
-			return [Color(red: 0.52, green: 0.85, blue: 0.49), Color(red: 0.35, green: 0.75, blue: 0.38)]
-		case .bestSellingGames:
-			return [Color(red: 0.69, green: 0.62, blue: 0.98), Color(red: 0.56, green: 0.47, blue: 0.94)]
-		case .puzzleGames:
-			return [Color(red: 0.53, green: 0.84, blue: 0.96), Color(red: 0.38, green: 0.72, blue: 0.88)]
-		case .simulationGames:
-			return [Color(red: 0.55, green: 0.84, blue: 0.68), Color(red: 0.40, green: 0.72, blue: 0.54)]
-		case .social:
-			return [Color(red: 0.08, green: 0.52, blue: 0.92), Color(red: 0.04, green: 0.32, blue: 0.68)]
-		case .casualGames:
-			return [Color(red: 0.55, green: 0.82, blue: 0.95), Color(red: 0.42, green: 0.72, blue: 0.89)]
-		case .timePass:
-			return [Color(red: 0.54, green: 0.84, blue: 0.96), Color(red: 0.42, green: 0.75, blue: 0.90)]
-		case .mediaReaders:
-			return [Color(red: 0.96, green: 0.71, blue: 0.42), Color(red: 0.91, green: 0.58, blue: 0.27)]
-		case .productivity:
-			return [Color(red: 0.12, green: 0.48, blue: 0.84), Color(red: 0.05, green: 0.28, blue: 0.56)]
-		case .strategyGames:
-			return [Color(red: 0.54, green: 0.82, blue: 0.48), Color(red: 0.42, green: 0.72, blue: 0.38)]
-		case .pvpGames:
-			return [Color(red: 0.79, green: 0.56, blue: 0.98), Color(red: 0.68, green: 0.40, blue: 0.93)]
-		case .devTools:
-			return [Color(red: 0.06, green: 0.42, blue: 0.78), Color(red: 0.02, green: 0.22, blue: 0.48)]
-		case .visualArts:
-			return [Color(red: 0.55, green: 0.85, blue: 0.96), Color(red: 0.42, green: 0.75, blue: 0.90)]
-		case .photoVideo:
-			return [Color(red: 0.94, green: 0.79, blue: 0.48), Color(red: 0.88, green: 0.68, blue: 0.34)]
-		}
-	}
-
 	nonisolated static func strictlyClassify(app: ASRepository.App) -> AppStore2026Category {
-		let catRaw = (app.category ?? "").lowercased()
-		if catRaw == "games" { return .casualGames }
+		let catRaw = (app.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if ["games", "game", "6014", "ألعاب", "العاب", "الألعاب"].contains(catRaw) || catRaw.hasPrefix("games.") {
+            return .casualGames
+        }
 		if catRaw == "social" { return .social }
 		if catRaw == "media" { return .photoVideo }
 		if catRaw == "tools" { return .devTools }
 
 		let nameAndBundle = "\(app.name ?? "") \(app.id ?? "") \(catRaw)".lowercased()
-		let desc = (app.localizedDescription ?? app.subtitle ?? "").lowercased()
-		let combined = "\(nameAndBundle) \(desc)"
+        let tokens = nameAndBundle.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        let normalizedName = " " + tokens.joined(separator: " ") + " "
+        func matches(_ keywords: [String]) -> Bool {
+            keywords.contains { normalizedName.contains(" " + $0 + " ") }
+        }
 
 		let socialApps = ["instagram", "whatsapp", "tiktok", "snapchat", "twitter", "telegram", "facebook", "discord", "messenger", "reddit", "threads", "watusi", "bhinsta", "uplus", "rocket", "swiftgram", "nicegram", "wicked", "انستقرام", "واتس", "تيك توك", "سناب", "تليجرام", "تويتر", "فيسبوك", "ديسكورد"]
 		if socialApps.contains(where: { nameAndBundle.contains($0) }) { return .social }
@@ -700,36 +670,36 @@ enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
 		let mediaApps = ["youtube", "uyou", "cercube", "spotify", "eevee", "soundcloud", "shahid", "netflix", "ostora", "iptv", "movie", "anime", "music", "podcast", "player", "infuse", "vlc", "يوتيوب", "سبوتيفاي", "شاهد", "نتفلكس", "افلام", "مسلسلات", "انمي", "موسيقى", "اسطورة"]
 		if mediaApps.contains(where: { nameAndBundle.contains($0) }) { return .mediaReaders }
 
-		let photoVideoApps = ["capcut", "lightroom", "picsart", "inshot", "videostar", "alight", "photoshop", "remini", "vn", "camera", "dazz", "lensa", "b612", "snow", "vsco", "snapseed", "كاب كات", "بيكس ارت", "لايت روم", "فيديو ستار", "مونتاج", "فوتوشوب"]
+		let photoVideoApps = ["capcut", "lightroom", "picsart", "inshot", "videostar", "alight", "photoshop", "remini", "camera", "dazz", "lensa", "b612", "snow", "vsco", "snapseed", "كاب كات", "بيكس ارت", "لايت روم", "فيديو ستار", "مونتاج", "فوتوشوب"]
 		if photoVideoApps.contains(where: { nameAndBundle.contains($0) }) { return .photoVideo }
 
 		let visualArtApps = ["canva", "procreate", "ibis", "sketch", "pixelmator", "vector", "font", "logo", "كانفا", "رسم", "خطوط"]
 		if visualArtApps.contains(where: { nameAndBundle.contains($0) }) { return .visualArts }
 
 		let devToolApps = ["filza", "esign", "feather", "scarlet", "troll", "gbox", "ksign", "x-sign", "vsign", "vpn", "adblock", "adguard", "dns", "flex", "igamegod", "dl", "terminal", "ssh", "cert", "ipa", "sideload", "altstore", "فيلزا", "توقيع", "شهادات", "ترول"]
-		if devToolApps.contains(where: { nameAndBundle.contains($0) }) { return .devTools }
+        if matches(devToolApps) { return .devTools }
 
-		let pvpKeywords = ["pubg", "8ball", "pool", "cod", "callofduty", "freefire", "brawl", "fortnite", "fifa", "efootball", "pes", "mobilelegends", "wildrift", "standoff", "bullet", "pvp", "multiplayer", "ark", "ببجي", "بلياردو", "فري فاير", "كود", "فيفا", "بيس"]
-		if pvpKeywords.contains(where: { combined.contains($0) }) { return .pvpGames }
+		let pvpKeywords = ["pubg", "8ball", "8 ball", "pool", "cod", "callofduty", "call of duty", "freefire", "free fire", "brawl", "fortnite", "fifa", "efootball", "pes", "mobilelegends", "mobile legends", "wildrift", "wild rift", "standoff", "bullet", "pvp", "multiplayer", "ark", "ببجي", "بلياردو", "فري فاير", "كود", "فيفا", "بيس"]
+		if matches(pvpKeywords) { return .pvpGames }
 
 		let strategyKeywords = ["clash", "royale", "clans", "strategy", "chess", "tower", "defense", "war", "stick war", "empire", "civilization", "boombeach", "plantsvs", "كلاش", "شطرنج", "حرب", "استراتيجيه"]
-		if strategyKeywords.contains(where: { combined.contains($0) }) { return .strategyGames }
+		if matches(strategyKeywords) { return .strategyGames }
 
-		let simulationKeywords = ["roblox", "minecraft", "sims", "simcity", "gta", "rockstar", "sanandreas", "parking", "simulator", "bus", "truck", "flight", "farm", "hayday", "township", "روبلوكس", "ماين كرافت", "قراند", "محاكاة", "مزرعه"]
-		if simulationKeywords.contains(where: { combined.contains($0) }) { return .simulationGames }
+		let simulationKeywords = ["roblox", "minecraft", "sims", "simcity", "gta", "grand theft auto", "gangstar", "rockstar", "sanandreas", "parking", "simulator", "bus", "truck", "flight", "farm", "hayday", "township", "روبلوكس", "ماين كرافت", "قراند", "محاكاة", "مزرعه"]
+		if matches(simulationKeywords) { return .simulationGames }
 
 		let puzzleKeywords = ["puzzle", "candy", "crush", "match", "brain", "sudoku", "word", "gardenscapes", "homescapes", "royalmatch", "angrybirds", "cuttherope", "2048", "trivia", "الغاز", "ألغاز", "ذكاء", "كلمات"]
-		if puzzleKeywords.contains(where: { combined.contains($0) }) { return .puzzleGames }
+		if matches(puzzleKeywords) { return .puzzleGames }
 
 		let casualGameKeywords = [
-			"game", "games", "gaming", "arcade", "subway", "surfers", "minion", "temple", "run", "sonic",
-			"talking", "tom", "flappy", "jump", "racing", "race", "asphalt", "carx", "drift", "hillclimb",
+			"game", "games", "gaming", "arcade", "subway", "surfers", "minion", "temple run", "sonic",
+			"talking tom", "flappy", "racing", "race", "asphalt", "carx", "drift", "hillclimb",
 			"ludo", "yalla", "uno", "monopoly", "fruitninja", "jetpack", "pacman", "mario", "pokemon",
-			"zelda", "ppsspp", "delta", "retroarch", "emulator", "hack", "playdead", "gameloft", "supercell",
+			"zelda", "playdead", "gameloft", "supercell",
 			"zynga", "rovio", "ketchapp", "voodoo", "miniclip", "ubisoft", "activision", "konami", "sega",
 			"لعبة", "لعبه", "العاب", "ألعاب"
 		]
-		if casualGameKeywords.contains(where: { combined.contains($0) }) { return .casualGames }
+		if matches(casualGameKeywords) { return .casualGames }
 
 		return .productivity
 	}
@@ -1108,7 +1078,9 @@ final class AppStoreCacheManager: ObservableObject {
         var games: [ASRepository.App] = []
         var apps: [ASRepository.App] = []
         for app in repo.apps {
-            if AppStore2026Category.strictlyClassify(app: app).isGameCategory {
+            let isGame = app.isGame ?? repo.categories?.first(where: { $0.id == app.category })?.isGame
+                ?? AppStore2026Category.strictlyClassify(app: app).isGameCategory
+            if isGame {
                 if games.count < 12 { games.append(app) }
             } else if apps.count < 12 { apps.append(app) }
             if apps.count == 12 && games.count == 12 { break }
@@ -1127,6 +1099,7 @@ final class AppStoreCacheManager: ObservableObject {
             item["version"] = app.currentVersion
             item["size"] = app.size
             item["category"] = app.category
+            item["isGame"] = app.isGame
             item["skipAppStoreLookup"] = app.skipAppStoreLookup
             item["developerName"] = app.developer
             item["subtitle"] = app.subtitle.map { String($0.prefix(200)) }
@@ -1138,6 +1111,9 @@ final class AppStoreCacheManager: ObservableObject {
         root["identifier"] = repo.id
         root["subtitle"] = repo.subtitle
         root["iconURL"] = repo.iconURL?.absoluteString
+        if let categories = repo.categories, let encoded = try? JSONEncoder().encode(categories) {
+            root["categories"] = try? JSONSerialization.jsonObject(with: encoded)
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: root), data.count <= 131_072 else { return nil }
         return data
     }
@@ -1230,7 +1206,7 @@ final class AppStoreCacheManager: ObservableObject {
 						todayNews.append(
 							TodayEditorialInstruction(
 								id: sourceURLString + "#" + newsItem.id,
-								badge: newsItem.notify ? "تنبيه" : "يحدث الآن",
+								badge: newsItem.notify ? "تنبيه" : nil,
 								title: newsItem.title,
 								caption: newsItem.caption,
 								imageURL: newsItem.imageURL,
@@ -1245,10 +1221,24 @@ final class AppStoreCacheManager: ObservableObject {
 			}
 		}
 
-		let onlyApps = allItems.filter { !$0.isGame }
-		let onlyGames = allItems.filter { $0.isGame }
+        // A conflicting copy from another source must not put the same bundle in both tabs.
+        // Prefer explicit type metadata, then the configured source order.
+        var bundleKinds: [String: (game: Bool, declared: Bool)] = [:]
+        for item in allItems {
+            guard let bundle = item.app.id?.lowercased(), !bundle.isEmpty else { continue }
+            let existing = bundleKinds[bundle]
+            if existing == nil || (existing?.declared == false && item.declaredGame != nil) {
+                bundleKinds[bundle] = (item.isGame, item.declaredGame != nil)
+            }
+        }
+        let categorized = allItems.filter { item in
+            guard let bundle = item.app.id?.lowercased(), let kind = bundleKinds[bundle] else { return true }
+            return item.isGame == kind.game
+        }
+        let onlyApps = categorized.filter { !$0.isGame }
+        let onlyGames = categorized.filter { $0.isGame }
 
-		let grouped = Dictionary(grouping: allItems, by: { $0.category })
+        let grouped = Dictionary(grouping: categorized, by: { $0.category })
 		var categoryDict: [AppStore2026Category: [AppStoreAppItem]] = [:]
 		for category in AppStore2026Category.allCases {
 			switch category {
@@ -1425,11 +1415,9 @@ final class AutoSignPipelineManager: ObservableObject {
 
 	@Published var activeStates: [String: Stage] = [:]
 	@Published var downloadProgress: [String: Int] = [:]
-	@Published var readyToInstallApp: AnyApp? = nil
     @Published var showCertificateSetup = false
     private var pendingCertificateDownloads: [ASRepository.App] = []
     private var packagePipeline = XSignBoundedPipeline<ASRepository.App, URL>()
-    private var pendingInstallApps: [AnyApp] = []
     private var activeNetworkTask: URLSessionDownloadTask?
     private var isCheckingDownloadPolicy = false
     private var downloadPreflightBlocked = false
@@ -1701,28 +1689,13 @@ final class AutoSignPipelineManager: ObservableObject {
                     return
                 }
                 self.activeStates[appKey] = .ready
-                self.enqueueInstallation(signed)
+                XSignInstallation.shared.install(signed, afterDismissal: true)
                 self.finishDownload(key: appKey, error: nil)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                     if self?.activeStates[appKey] == .ready { self?.activeStates[appKey] = nil }
                 }
             }
         }
-    }
-
-    private func enqueueInstallation(_ app: Signed) {
-        guard readyToInstallApp?.base.uuid != app.uuid,
-              !pendingInstallApps.contains(where: { $0.base.uuid == app.uuid }) else { return }
-        pendingInstallApps.append(AnyApp(base: app))
-        presentNextReadyApp()
-    }
-
-    func presentNextReadyApp() {
-        guard XSignRemoteManager.shared.blockingReason == nil,
-              case nil = readyToInstallApp, !pendingInstallApps.isEmpty else { return }
-        if let root = UIApplication.topViewController()?.view.window?.rootViewController,
-           root.presentedViewController != nil { return }
-        readyToInstallApp = pendingInstallApps.removeFirst()
     }
 
 	nonisolated static func fetchImportedApps() -> [Imported] {
@@ -1828,7 +1801,7 @@ struct AppStoreTodayView: View {
             .background(AppStoreTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
             .refreshable { await cache.forceRefresh(sources: sources, viewModel: viewModel) }
-            .sheet(isPresented: $showSettingsSheet, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+            .sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
                 AppStore2026SettingsPopup(sources: sources, viewModel: viewModel)
             }
         }
@@ -1908,7 +1881,6 @@ struct SourcesView: View {
 	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
 	@State private var _isSettingsPresenting = false
 	@State private var _selectedAppCategory: AppStore2026Category? = nil
-    @State private var visibleAppCount = 60
 
 	@FetchRequest(
 		entity: AltSource.entity(),
@@ -2002,11 +1974,10 @@ struct SourcesView: View {
 			.refreshable {
 				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
 			}
-			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
 				AppStore2026SettingsPopup(sources: _sources, viewModel: viewModel)
 			}
 		}
-        .onChange(of: _selectedAppCategory) { _ in visibleAppCount = 60 }
 		.environment(\.layoutDirection, .rightToLeft)
         .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
             await cache.ensureFetched(sources: _sources, viewModel: viewModel)
@@ -2021,7 +1992,6 @@ struct AppStoreGamesView: View {
 	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
 	@State private var showSettingsSheet = false
 	@State private var selectedGameCategory: AppStore2026Category? = nil
-    @State private var visibleGameCount = 60
 
 	@FetchRequest(
 		entity: AltSource.entity(),
@@ -2114,11 +2084,10 @@ struct AppStoreGamesView: View {
 			.refreshable {
 				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
 			}
-			.sheet(isPresented: $showSettingsSheet, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+			.sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
 				AppStore2026SettingsPopup(sources: _sources, viewModel: viewModel)
 			}
 		}
-        .onChange(of: selectedGameCategory) { _ in visibleGameCount = 60 }
 		.environment(\.layoutDirection, .rightToLeft)
         .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
             await cache.ensureFetched(sources: _sources, viewModel: viewModel)
@@ -2159,7 +2128,7 @@ struct AppStoreSearchView: View {
                                 Button { localSearchText = "" } label: { Image(systemName: "xmark.circle.fill") }
                                     .accessibilityLabel("مسح البحث")
                             }
-                        }.padding(12).background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        }.padding(12).background(AppStoreTheme.cardSurface, in: RoundedRectangle(cornerRadius: 14))
                             .padding(.horizontal, 18)
                     }
 					if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -2221,11 +2190,13 @@ struct AppStoreSearchView: View {
 								.padding(.top, 60)
 							} else {
 								ForEach(results.visible) { item in
-                                    XSignSearchResultRow(item: item)
+                                    AppStore2026AppRow(item: item)
 								}
 							}
                             if results.visible.count < results.total && !results.isSearching {
-                                Button("عرض المزيد") { results.showMore() }.padding(.vertical, 12)
+                                Color.clear.frame(height: 1).accessibilityHidden(true)
+                                    .id(results.visible.count)
+                                    .onAppear { results.showMore() }
                             }
 						}
 						.padding(.horizontal, 18)
@@ -2240,7 +2211,7 @@ struct AppStoreSearchView: View {
 			}
             .onChange(of: cache.catalogRevision) { _ in triggerBackgroundSearch(query: searchText) }
             .onDisappear { results.cancel() }
-			.sheet(isPresented: $showSettingsSheet, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+			.sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
 				AppStore2026SettingsPopup(sources: _sources, viewModel: viewModel)
 			}
 		}
@@ -2255,25 +2226,6 @@ struct AppStoreSearchView: View {
         results.update(query: query, items: cache.allCombinedItems)
     }
 
-}
-
-struct XSignSearchResultRow: View {
-    let item: AppStoreAppItem
-    var body: some View {
-        HStack(spacing: 12) {
-            NavigationLink { AppStore2026DetailView(item: item) } label: {
-                HStack(spacing: 12) {
-                    AppStoreIconView(url: item.app.iconURL, size: 58)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.app.currentName).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                        Text(item.arabicSubtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.contentShape(Rectangle())
-            }.buttonStyle(.plain)
-            AppStore2026DownloadButton(app: item.app)
-        }.padding(.vertical, 6)
-    }
 }
 
 // MARK: - Top Header
@@ -2644,12 +2596,7 @@ struct TodayFourAppsListCard: View {
 
 				VStack(spacing: 14) {
 					ForEach(Array(items.prefix(4).enumerated()), id: \.element.id) { index, item in
-						NavigationLink {
-							AppStore2026DetailView(item: item)
-						} label: {
-							AppStore2026AppRow(item: item)
-						}
-						.buttonStyle(.plain)
+                        AppStore2026AppRow(item: item)
 
 						if index < min(items.count, 4) - 1 {
 							Divider()
@@ -2866,7 +2813,7 @@ struct AppStore2026SettingsPopup: View {
 				}
 				.padding(.horizontal, 18)
 				.padding(.vertical, 12)
-				.background(Color(uiColor: .secondarySystemGroupedBackground))
+				.background(AppStoreTheme.cardSurface)
 
 				if selectedSection == 0 {
 					SettingsView()
@@ -3021,8 +2968,8 @@ struct AppStore2026DownloadButton: View {
 				HStack(spacing: 4) {
 					Image(systemName: "checkmark")
 						.font(.system(size: 11, weight: .bold))
-					Text("تثبيت")
-						.font(.system(size: 13, weight: .bold))
+					Text("تم التوقيع")
+						.font(.system(size: 11, weight: .bold))
 				}
 				.foregroundStyle(.white)
 				.frame(width: 78, height: 32)
@@ -3049,38 +2996,40 @@ struct AppStore2026DownloadButton: View {
 			}
 		}
 		.buttonStyle(.plain)
-		.disabled(currentStage == nil && !canDownload)
+		.disabled(currentStage == .ready || (currentStage == nil && !canDownload))
 	}
 }
 
 struct AppStore2026AppRow: View {
-	let item: AppStoreAppItem
+    let item: AppStoreAppItem
 
-	var body: some View {
-		HStack(spacing: 12) {
-			AppStoreIconView(
-				url: item.app.iconURL,
-				bundleID: item.app.id,
-				appName: item.app.currentName,
-				size: 58
-			)
+    var body: some View {
+        HStack(spacing: 12) {
+            NavigationLink {
+                AppStore2026DetailView(item: item)
+            } label: {
+                HStack(spacing: 12) {
+                    AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id,
+                                     appName: item.app.currentName, size: 50)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.app.currentName).font(.subheadline.bold()).lineLimit(1)
+                        if let version = item.app.currentVersion, !version.isEmpty {
+                            Text("الإصدار \(version)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        } else {
+                            Text(item.arabicSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .foregroundStyle(.primary)
+                .contentShape(Rectangle())
+            }.buttonStyle(.plain)
 
-			VStack(alignment: .leading, spacing: 3) {
-				Text(item.app.currentName)
-					.font(.system(size: 16, weight: .bold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-				Text(item.arabicSubtitle)
-					.font(.system(size: 13))
-					.foregroundStyle(.secondary)
-					.lineLimit(2)
-			}
-
-			Spacer(minLength: 8)
-
-			AppStore2026DownloadButton(app: item.app)
-		}
-	}
+            AppStore2026DownloadButton(app: item.app, showsFootnote: false)
+        }
+        .padding(10)
+        .xsignSurface(radius: 16)
+    }
 }
 
 struct AppStore2026BrowseCategoryTile: View {
@@ -3089,11 +3038,7 @@ struct AppStore2026BrowseCategoryTile: View {
 
 	var body: some View {
 		ZStack {
-			LinearGradient(
-				colors: category.gradientColors,
-				startPoint: .topTrailing,
-				endPoint: .bottomLeading
-			)
+            AppStoreTheme.cardSurface
 
 			Group {
 				if previewApps.count >= 2 {
@@ -3119,7 +3064,7 @@ struct AppStore2026BrowseCategoryTile: View {
 				} else {
 					Image(systemName: category.sfSymbol)
 						.font(.system(size: 38, weight: .bold))
-						.foregroundStyle(.white.opacity(0.75))
+						.foregroundStyle(Color.accentColor)
 				}
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -3128,7 +3073,7 @@ struct AppStore2026BrowseCategoryTile: View {
 
 			Text(category.rawValue)
 				.font(.system(size: 16, weight: .bold))
-				.foregroundStyle(.white)
+				.foregroundStyle(.primary)
 				.multilineTextAlignment(.leading)
 				.lineLimit(2)
 				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -3139,206 +3084,19 @@ struct AppStore2026BrowseCategoryTile: View {
 	}
 }
 
-struct AppStore2026ThreeRowSection: View {
-	let title: String
-	let subtitle: String
-	let items: [AppStoreAppItem]
-
-	private let rows = [
-		GridItem(.fixed(72), spacing: 12),
-		GridItem(.fixed(72), spacing: 12),
-		GridItem(.fixed(72), spacing: 12)
-	]
-
-	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			HStack {
-				VStack(alignment: .leading, spacing: 2) {
-					Text(title)
-						.font(.system(size: 21, weight: .bold))
-						.foregroundStyle(.primary)
-					Text(subtitle)
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
-				Spacer()
-				Image(systemName: "chevron.left")
-					.font(.caption.weight(.bold))
-					.foregroundStyle(.secondary)
-			}
-			.padding(.horizontal, 18)
-
-			ScrollView(.horizontal, showsIndicators: false) {
-				LazyHGrid(rows: rows, spacing: 16) {
-					ForEach(items) { item in
-						NavigationLink {
-							AppStore2026DetailView(item: item)
-						} label: {
-							AppStore2026AppRow(item: item)
-								.frame(width: min(UIScreen.main.bounds.width - 48, 320))
-						}
-						.buttonStyle(.plain)
-					}
-				}
-				.padding(.horizontal, 18)
-			}
-		}
-	}
-}
-
-struct AppStore2026FeaturedBanner: View {
-	let item: AppStoreAppItem
-	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
-
-	private var bannerColor: Color {
-		item.app.tintColor ?? Color(hex: userTintHex)
-	}
-
-	var body: some View {
-		VStack(alignment: .leading, spacing: 6) {
-			Text(item.category.rawValue)
-				.font(.caption2.weight(.bold))
-				.foregroundStyle(Color(hex: userTintHex))
-			Text(item.app.currentName)
-				.font(.title3.weight(.bold))
-				.foregroundStyle(.primary)
-				.lineLimit(1)
-			Text(item.arabicSubtitle)
-				.font(.subheadline)
-				.foregroundStyle(.secondary)
-				.lineLimit(1)
-
-			ZStack(alignment: .bottom) {
-				LinearGradient(
-					colors: [bannerColor.opacity(0.88), AppStoreTheme.deepOcean],
-					startPoint: .topTrailing,
-					endPoint: .bottomLeading
-				)
-
-				HStack(spacing: 12) {
-					AppStoreIconView(
-						url: item.app.iconURL,
-						bundleID: item.app.id,
-						appName: item.app.currentName,
-						size: 50
-					)
-
-					VStack(alignment: .leading, spacing: 2) {
-						Text(item.app.currentName)
-							.font(.subheadline.weight(.bold))
-							.foregroundStyle(.white)
-							.lineLimit(1)
-						Text(item.arabicSubtitle)
-							.font(.caption)
-							.foregroundStyle(.white.opacity(0.75))
-							.lineLimit(1)
-					}
-
-					Spacer()
-
-					AppStore2026DownloadButton(app: item.app, isLightPill: true)
-				}
-				.padding(14)
-				.background(Color.black.opacity(0.55))
-			}
-			.frame(height: 175)
-			.clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-		}
-		.frame(width: min(UIScreen.main.bounds.width - 44, 336))
-	}
-}
-
-struct AppStore2026SearchResultCard: View {
-	let item: AppStoreAppItem
-	@State private var liveScreenshots: [URL] = []
-
-	var body: some View {
-		VStack(alignment: .leading, spacing: 14) {
-			AppStore2026AppRow(item: item)
-
-			let displayScreenshots = liveScreenshots.isEmpty ? item.screenshots : liveScreenshots
-			if !displayScreenshots.isEmpty {
-				ScrollView(.horizontal, showsIndicators: false) {
-					HStack(spacing: 10) {
-						ForEach(Array(displayScreenshots.prefix(3)), id: \.self) { url in
-							LazyImage(url: url) { state in
-								if let image = state.image {
-									image
-										.resizable()
-										.scaledToFill()
-								} else {
-									RoundedRectangle(cornerRadius: 12, style: .continuous)
-										.fill(AppStoreTheme.controlSurface)
-								}
-							}
-							.processors([.resize(size: CGSize(width: 220, height: 380))])
-							.frame(width: 106, height: 188)
-							.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-						}
-					}
-				}
-			}
-		}
-		.padding(16)
-		.background(
-			RoundedRectangle(cornerRadius: 22, style: .continuous)
-				.fill(AppStoreTheme.cardSurface)
-		)
-		.task {
-			guard item.screenshots.isEmpty,
-				  liveScreenshots.isEmpty,
-				  !AppStoreLiveMetadataBridge.hasExtractedGitHubIcon(item.app.iconURL) else { return }
-
-			try? await Task.sleep(nanoseconds: 250_000_000)
-			guard !Task.isCancelled else { return }
-
-			if let meta = await AppStoreLiveMetadataBridge.shared.fetchMetadata(
-				bundleID: item.app.id,
-				appName: item.app.currentName,
-				iconURL: item.app.iconURL,
-                skipLookup: item.app.skipAppStoreLookup == true
-			) {
-				liveScreenshots = meta.screenshots
-			}
-		}
-	}
-}
-
 struct AppStore2026CategoryListView: View {
-	let category: AppStore2026Category
-	let items: [AppStoreAppItem]
+    let category: AppStore2026Category
+    let items: [AppStoreAppItem]
     var customTitle: String? = nil
 
-	@State private var visibleCategoryCount = 60
-
-	var body: some View {
-		ScrollView(.vertical, showsIndicators: false) {
-			LazyVStack(spacing: 12) {
-				ForEach(Array(items.prefix(visibleCategoryCount).enumerated()), id: \.element.id) { index, item in
-					NavigationLink {
-						AppStore2026DetailView(item: item)
-					} label: {
-						AppStore2026AppRow(item: item)
-							.padding(14)
-							.background(
-								RoundedRectangle(cornerRadius: 20, style: .continuous)
-									.fill(AppStoreTheme.cardSurface)
-							)
-					}
-					.buttonStyle(.plain)
-                .onAppear {
-                    if index >= visibleCategoryCount - 12 && visibleCategoryCount < items.count {
-                        visibleCategoryCount = min(visibleCategoryCount + 60, items.count)
-                    }
-                }
-				}
-			}
-			.padding(18)
-		}
-		.background(AppStoreTheme.background.ignoresSafeArea())
-		.navigationTitle(customTitle ?? category.rawValue)
-		.environment(\.layoutDirection, .rightToLeft)
-	}
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            XSignCatalogueFeed(items: items).padding(18)
+        }
+        .background(AppStoreTheme.background.ignoresSafeArea())
+        .navigationTitle(customTitle ?? category.rawValue)
+        .environment(\.layoutDirection, .rightToLeft)
+    }
 }
 
 struct AppStoreIconView: View {
@@ -3671,7 +3429,7 @@ struct XSignAnnouncementCard: View {
     let instruction: TodayEditorialInstruction
     @ViewBuilder private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(instruction.badge).font(.caption.bold()).foregroundStyle(Color.accentColor)
+            if let badge = instruction.badge { Text(badge).font(.caption.bold()).foregroundStyle(Color.accentColor) }
             Text(instruction.title).font(.title3.bold())
             Text(instruction.caption).font(.subheadline).foregroundStyle(.secondary)
             if instruction.targetURL != nil { Image(systemName: "arrow.up.left.square").foregroundStyle(Color.accentColor) }

@@ -10,7 +10,7 @@ enum XSignOTAError: LocalizedError {
         case .invalidPackage: return "ملف التثبيت أو معلومات التطبيق غير صالحة."
         case .sslUnavailable: return "تعذّر تجهيز HTTPS المحلي. تحقق من الاتصال وإتاحة نطاق backloop.dev."
         case .unsafeAddress: return "دومين HTTPS المحلي لا يشير إلى الجهاز؛ أوقف التثبيت لحماية الملف."
-        case .domainNotReady: return "تعذّر الوصول إلى خدمة ملف التثبيت المستخدمة في Feather. تحقق من الاتصال ثم أعد المحاولة."
+        case .domainNotReady: return "تعذّر تجهيز ملف التثبيت من x-sign.web.app. تحقق من اتصالك وجاهزية الخدمة."
         case .invalidManifest: return "ملف التثبيت الذي أعاده الدومين غير صالح."
         case .timedOut: return "انتهت مهلة طلب التثبيت. النسخة الموقعة باقية في المكتبة."
         case .interrupted: return "توقف السيرفر المحلي قبل اكتمال نقل التطبيق."
@@ -31,7 +31,9 @@ struct XSignOTABundleMetadata: Sendable {
         self.identifier = identifier
         self.version = version
         self.shortVersion = (info["CFBundleShortVersionString"] as? String) ?? version
-        self.title = (info["CFBundleDisplayName"] as? String) ?? (info["CFBundleName"] as? String) ?? identifier
+        self.title = [info["CFBundleDisplayName"], info["CFBundleName"]]
+            .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? identifier
     }
     static func read(from app: URL) throws -> Self {
         let file = app.appendingPathComponent("Info.plist")
@@ -142,45 +144,50 @@ actor XSignOTATransfers {
     func stop() { stopped = true }
 }
 
-// Feather's documented Semi Local manifest service. Signing keys and IPA bytes
-// stay on the device; only the short-lived loopback URL and app metadata are sent.
+// Only metadata and the short-lived loopback URL are sent to the manifest service.
 struct XSignManifestBridge {
-    static let origin=URL(string:"https://api.palera.in")!
-    static let manifestTitle="XSign"
-    static func manifestURL(for descriptor:XSignOTADescriptor) throws -> URL {
+    static let origin = URL(string: "https://x-sign.web.app")!
+    private static let prepareURL = origin.appendingPathComponent("native").appendingPathComponent("prepare")
+    private static let manifestPath = "/native/manifest.plist"
+    private struct Prepared: Decodable { let manifestURL: URL }
+
+    static func prepare(_ descriptor: XSignOTADescriptor, session: URLSession) async throws -> URL {
         try descriptor.validate()
-        var components=URLComponents(url:origin.appendingPathComponent("genPlist"),resolvingAgainstBaseURL:false)!
-        let parameters=[("bundleid",descriptor.bundleIdentifier),("name",manifestTitle),
-                        ("version",descriptor.bundleVersion),("fetchurl",descriptor.payloadURL.absoluteString)]
-        let unreserved=CharacterSet(charactersIn:"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
-        components.percentEncodedQuery=parameters.map { name,value in
-            name+"="+(value.addingPercentEncoding(withAllowedCharacters:unreserved) ?? "")
-        }.joined(separator:"&")
-        guard let url=components.url else { throw XSignOTAError.invalidManifest }
-        return url
+        guard descriptor.payloadURL.scheme == "https" else { throw XSignOTAError.invalidPackage }
+
+        var request = URLRequest(url: prepareURL)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONEncoder().encode(descriptor)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        let (body, response) = try await XSignBoundedHTTP.fetch(request, using: session, limit: 16_384)
+        guard response.statusCode == 200, response.url == prepareURL,
+              response.mimeType?.lowercased() == "application/json",
+              let prepared = try? JSONDecoder().decode(Prepared.self, from: body),
+              let url = URLComponents(url: prepared.manifestURL, resolvingAgainstBaseURL: false),
+              url.scheme == "https", url.host == origin.host, url.path == manifestPath,
+              url.user == nil, url.password == nil, url.port == nil, url.fragment == nil,
+              let query = url.queryItems, query.count == 1, query[0].name == "ticket",
+              let ticket = query[0].value, !ticket.isEmpty, ticket.utf8.count <= 8192,
+              ticket.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) ||
+                  (97...122).contains($0) || $0 == 45 || $0 == 95 }) else {
+            throw XSignOTAError.domainNotReady
+        }
+
+        let (manifest, result) = try await XSignBoundedHTTP.fetch(URLRequest(url: prepared.manifestURL), using: session, limit: 32_768)
+        guard result.statusCode == 200, result.url == prepared.manifestURL else { throw XSignOTAError.domainNotReady }
+        try validate(manifest, expected: descriptor)
+
+        var link = URLComponents()
+        link.scheme = "itms-services"
+        link.host = ""
+        link.queryItems = [URLQueryItem(name: "action", value: "download-manifest"),
+                           URLQueryItem(name: "url", value: prepared.manifestURL.absoluteString)]
+        guard let installURL = link.url else { throw XSignOTAError.invalidManifest }
+        return installURL
     }
-    static func checkService() async throws {
-        let session=XSignBoundedHTTP.session();defer { session.invalidateAndCancel() }
-        let descriptor=XSignOTADescriptor(payloadURL:URL(string:"http://127.0.0.1:52345/ota/"+String(repeating:"a",count:64)+"/payload.ipa")!,
-            bundleIdentifier:"com.xsign.verification",bundleVersion:"1",title:manifestTitle,expiresAt:Int(Date().timeIntervalSince1970)+600)
-        _=try await prepare(descriptor,session:session)
-    }
-    static func prepare(_ descriptor:XSignOTADescriptor,session:URLSession) async throws -> URL {
-        let manifestURL=try manifestURL(for:descriptor)
-        var request=URLRequest(url:manifestURL);request.timeoutInterval=20
-        request.setValue("application/x-plist, application/xml, text/xml, application/octet-stream",forHTTPHeaderField:"Accept")
-        request.setValue("XSign/1.0",forHTTPHeaderField:"User-Agent")
-        request.setValue("no-store",forHTTPHeaderField:"Cache-Control")
-        let (manifest,response)=try await XSignBoundedHTTP.fetch(request,using:session,limit:32768)
-        guard response.statusCode==200,response.url?.scheme=="https",response.url?.host==origin.host,
-              response.url?.path=="/genPlist" else { throw XSignOTAError.domainNotReady }
-        try validate(manifest,expected:descriptor)
-        var link=URLComponents();link.scheme="itms-services";link.host=""
-        link.queryItems=[URLQueryItem(name:"action",value:"download-manifest"),URLQueryItem(name:"url",value:manifestURL.absoluteString)]
-        link.percentEncodedQuery=link.percentEncodedQuery?.replacingOccurrences(of:"+",with:"%2B")
-        guard let url=link.url else { throw XSignOTAError.invalidManifest }
-        return url
-    }
+
     static func validate(_ data: Data, expected: XSignOTADescriptor) throws {
         guard data.count <= 32_768,
               let root = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
@@ -188,7 +195,7 @@ struct XSignManifestBridge {
               let metadata = items[0]["metadata"] as? [String: Any],
               metadata["bundle-identifier"] as? String == expected.bundleIdentifier,
               metadata["bundle-version"] as? String == expected.bundleVersion,
-              metadata["title"] as? String == manifestTitle,
+              metadata["title"] as? String == expected.title,
               metadata["kind"] as? String == "software",
               let assets = items[0]["assets"] as? [[String: Any]], assets.count == 1,
               assets[0]["kind"] as? String == "software-package",

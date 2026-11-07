@@ -561,6 +561,7 @@ struct FeatherApp: App {
 
 					DownloadHeaderView(downloadManager: downloadManager)
 						.transition(.move(edge: .top).combined(with: .opacity))
+					XSignInstallationStatus().padding(.horizontal, 16)
 					VariedTabbarView()
 						.environment(\.managedObjectContext, storage.context)
 						.onOpenURL(perform: _handleURL)
@@ -571,12 +572,9 @@ struct FeatherApp: App {
 				.animation(.easeInOut(duration: 0.25), value: downloadManager.manualDownloads.description)
 				.sheet(isPresented: $autoSign.showCertificateSetup, onDismiss: {
                     autoSign.resumeAfterCertificateSetup()
+                    XSignInstallation.shared.resumeIfPossible()
                 }) { CertificatesAddView() }
-                .sheet(item: $autoSign.readyToInstallApp, onDismiss: {
-                    autoSign.presentNextReadyApp()
-                }) { signedApp in
-                    InstallPreviewView(app: signedApp.base).xsignCompactSheet(height: 340)
-                }
+
 				}
 
 
@@ -628,13 +626,16 @@ struct FeatherApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: .xsignPolicyChanged)) { _ in
                 autoSign.applyRemotePolicy()
+                XSignInstallation.shared.applyPolicy()
                 if remoteManager.blockingReason != nil {
                     for download in downloadManager.downloads where download.task != nil { downloadManager.cancelDownload(download) }
                 }
                 if gateIsVisible {
                     autoSign.showCertificateSetup = false
-                    autoSign.readyToInstallApp = nil
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                XSignInstallation.shared.resumeIfPossible()
             }
             .onChange(of: userTintHex) { _ in
                 applyAppearanceToWindows()

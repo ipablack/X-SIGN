@@ -70,7 +70,7 @@ struct XSignAppStoreProductPage: View {
         }
         .coordinateSpace(name: "xsignProduct")
         .onPreferenceChange(XSignProductHeaderOffset.self) { compactHeader = $0 < -125 }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background(AppStoreTheme.background.ignoresSafeArea())
         .navigationTitle("").navigationBarTitleDisplayMode(.inline).navigationBarHidden(false)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -178,7 +178,7 @@ struct XSignAppStoreProductPage: View {
                         Button { screenshot = XSignProductScreenshot(url: url) } label: {
                             XSignProductScreenshotImage(url: url)
                                 .frame(width: min(UIScreen.main.bounds.width * 0.68, 300), height: 440)
-                                .background(Color(uiColor: .secondarySystemBackground))
+                                .background(AppStoreTheme.cardSurface)
                                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }.buttonStyle(.plain).accessibilityLabel("فتح لقطة الشاشة")
                     }
@@ -267,9 +267,9 @@ private struct XSignProductScreenshots: View {
         XSignNavigationView {
             TabView(selection: $selected) {
                 ForEach(urls, id: \.self) { url in XSignProductScreenshotImage(url: url).tag(url) }
-            }.tabViewStyle(.page(indexDisplayMode: .always)).background(Color.black)
+            }.tabViewStyle(.page(indexDisplayMode: .always)).background(AppStoreTheme.background)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("تم") { dismiss() } } }
-        }.preferredColorScheme(.dark)
+        }
     }
 }
 

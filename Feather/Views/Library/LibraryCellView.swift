@@ -28,7 +28,6 @@ struct LibraryCellView: View {
 	var app: AppInfoPresentable
 	@Binding var selectedInfoAppPresenting: AnyApp?
 	@Binding var selectedSigningAppPresenting: AnyApp?
-	@Binding var selectedInstallAppPresenting: AnyApp?
 	@Binding var selectedAppUUIDs: Set<String>
 	
 	// MARK: Selections
@@ -108,7 +107,7 @@ struct LibraryCellView: View {
 			titleVisibility: .visible
 		) {
 			Button {
-				selectedInstallAppPresenting = AnyApp(base: app)
+				XSignInstallation.shared.install(app)
 			} label: {
 				Label(.localized("Install Current Version"), systemImage: "square.and.arrow.down")
 			}
@@ -200,7 +199,7 @@ extension LibraryCellView {
 				}
 			}
 			Button {
-				selectedInstallAppPresenting = AnyApp(base: app)
+				XSignInstallation.shared.install(app)
 			} label: {
 				Label(.localized("Install"), systemImage: "square.and.arrow.down")
 			}
@@ -211,7 +210,7 @@ extension LibraryCellView {
 			}
 		} else {
 			Button {
-				selectedInstallAppPresenting = AnyApp(base: app)
+				XSignInstallation.shared.install(app)
 			} label: {
 				Label(.localized("Install"), systemImage: "square.and.arrow.down")
 			}
@@ -251,7 +250,7 @@ extension LibraryCellView {
 				}
 			} else if app.isSigned {
 				Button {
-					selectedInstallAppPresenting = AnyApp(base: app)
+					XSignInstallation.shared.install(app)
 				} label: {
 					FRExpirationPillView(
 						title: .localized("Install"),

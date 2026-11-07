@@ -98,7 +98,17 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 			)
 		}
 		
-		self.categories = try container.decodeIfPresent([CatalogCategory].self, forKey: .categories)
+        var categories = try container.decodeIfPresent([CatalogCategory].self, forKey: .categories) ?? []
+        let games = try container.decodeIfPresent([CatalogCategory].self, forKey: .gameCategories) ?? []
+        for var game in games {
+            game.isGame = true
+            if let index = categories.firstIndex(where: { $0.id == game.id }) {
+                categories[index] = game
+            } else {
+                categories.append(game)
+            }
+        }
+        self.categories = categories.isEmpty ? nil : categories
         self.apps = apps
 		self.featuredApps =
 			try container.decodeIfPresent([App.ID].self, forKey: .featuredApps) ?? []
@@ -107,7 +117,7 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 
 	public enum CodingKeys: String, CodingKey {
 		case id = "identifier"
-		case categories
+		case categories, gameCategories
         case name,
 		     subtitle,
 		     description,
@@ -167,6 +177,7 @@ extension ASRepository {
 		public var size: Int64?
 
 		public var category: String?
+        public var isGame: Bool?
         public var skipAppStoreLookup: Bool?
 
 		public var beta: Bool?
@@ -313,6 +324,9 @@ extension ASRepository {
 				forKey: .category
 			)
 
+            self.isGame = (try? container.decodeIfPresent(Bool.self, forKey: .isGame))
+                ?? (try? container.decodeIfPresent(Bool.self, forKey: .isGameSnakeCase))
+
 			self.beta =
 				(try? container.decodeIfPresent(Bool.self, forKey: .beta)) ?? false
 
@@ -354,6 +368,8 @@ extension ASRepository {
 			case developer = "developerName"
 			case versions, version, versionDate, date, versionDescription, downloadURL,
 			     localizedDescription, iconURL, tintColor, size, category, beta, skipAppStoreLookup
+			case isGame
+			case isGameSnakeCase = "is_game"
 			case permissions, appPermissions
 			case screenshots, screenshotURLs
 			case marketplaceID

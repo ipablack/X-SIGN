@@ -95,15 +95,16 @@ enum XSignRESTSource {
             if let size = text(row, ["size", "file_size", "size_bytes"]), let bytes = Int64(size), bytes >= 0 { app["size"] = bytes }
             if let skipped = row["skipAppStoreLookup"] as? Bool { app["skipAppStoreLookup"] = skipped }
             else if bundle == nil { app["skipAppStoreLookup"] = true }
+            app["isGame"] = row["is_game"] as? Bool ?? row["isGame"] as? Bool
             if let category = text(row, ["category", "category_id", "category_name", "genre"]) {
                 app["category"] = category
-                let isGame = row["is_game"] as? Bool ?? row["isGame"] as? Bool ??
-                    ["game", "games", "ألعاب", "العاب", "الألعاب"].contains(category.lowercased())
-                if let i = categoryIndices[category] {
-                    if isGame { categories[i]["isGame"] = true }
-                } else {
+                if categoryIndices[category] == nil {
                     categoryIndices[category] = categories.count
-                    categories.append(["id": category, "name": text(row, ["category_name"]) ?? category, "isGame": isGame])
+                    var entry: [String: Any] = ["id": category, "name": text(row, ["category_name"]) ?? category]
+                    if ["game", "games", "ألعاب", "العاب", "الألعاب"].contains(category.lowercased()) {
+                        entry["isGame"] = true
+                    }
+                    categories.append(entry)
                 }
             }
             if let shots = row["screenshots"] as? [String] ?? row["screenshot_urls"] as? [String] {

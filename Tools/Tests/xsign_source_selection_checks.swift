@@ -74,6 +74,19 @@ struct ApprovedSourceChecks {
         precondition(plusApps[0]["bundleIdentifier"] as? String == "com.example.public")
         precondition(plusRoot["name"] as? String == "متجر بلس")
         precondition((plusRoot["categories"] as! [[String: Any]])[0]["isGame"] as? Bool == true)
+        // A shared category does not erase explicit per-app types or invent a type for unlabelled rows.
+        let mixedRows: [[String: Any]] = [
+            ["name": "Tool", "id": "tool", "category": "Mixed", "is_game": false, "ipa_url": "https://example.test/tool.ipa"],
+            ["name": "Game", "id": "game", "category": "Mixed", "isGame": true, "ipa_url": "https://example.test/game.ipa"],
+            ["name": "Unknown type", "id": "other", "category": "Mixed", "ipa_url": "https://example.test/other.ipa"]
+        ]
+        let mixedData = try XSignRESTSource.normalize(mixedRows)
+        let mixed = try JSONSerialization.jsonObject(with: mixedData) as! [String: Any]
+        let mixedApps = mixed["apps"] as! [[String: Any]]
+        precondition(mixedApps.count == 3)
+        precondition(mixedApps[0]["isGame"] as? Bool == false && mixedApps[1]["isGame"] as? Bool == true)
+        precondition(mixedApps[2]["isGame"] == nil)
+        precondition((mixed["categories"] as! [[String: Any]])[0]["isGame"] == nil)
         let metadataOnly = try XSignRESTSource.normalize([publicRows[1]], allowPublishedFreeLinks: true)
         let metadataRoot = try JSONSerialization.jsonObject(with: metadataOnly) as! [String: Any]
         precondition((metadataRoot["apps"] as! [[String: Any]]).isEmpty)

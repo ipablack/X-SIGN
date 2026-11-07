@@ -21,7 +21,10 @@ def verify():
     assert url.scheme=='https' and url.netloc=='x-sign.web.app' and url.path=='/native/manifest.plist'
     record=plistlib.loads(read(reply['manifestURL']))
     assert record['items'][0]['assets']==[{'kind':'software-package','url':payload}]
-    assert record['items'][0]['metadata']['bundle-identifier']==descriptor['bundleIdentifier']
+    metadata=record['items'][0]['metadata']
+    assert metadata['bundle-identifier']==descriptor['bundleIdentifier']
+    assert metadata['bundle-version']==descriptor['bundleVersion']
+    assert metadata['title']==descriptor['title']
     print('PASS: x-sign.web.app serves the correct private manifest protocol. No IPA or signing credential was uploaded.')
 
 if __name__=='__main__':

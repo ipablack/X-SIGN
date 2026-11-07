@@ -75,3 +75,20 @@ struct XSignPhotoPicker: UIViewControllerRepresentable {
         }
     }
 }
+
+extension View {
+    func xsignSurface(radius: CGFloat = 18) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return background(AppStoreTheme.cardSurface, in: shape)
+            .overlay { shape.strokeBorder(Color.primary.opacity(0.08)).allowsHitTesting(false) }
+    }
+
+    @ViewBuilder func xsignListBackground() -> some View {
+        if #available(iOS 16.0, *) {
+            scrollContentBackground(.hidden)
+                .background(AppStoreTheme.background.ignoresSafeArea())
+        } else {
+            background(AppStoreTheme.background.ignoresSafeArea())
+        }
+    }
+}

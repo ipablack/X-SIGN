@@ -178,16 +178,19 @@ actor XSignCatalogIO {
                         let id = rawID.trimmingCharacters(in: .whitespacesAndNewlines)
                         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !id.isEmpty, !name.isEmpty else { continue }
-                        let isGame = key == "gameCategories" || row["isGame"] as? Bool == true
+                        let isGame = key == "gameCategories" ? true : row["isGame"] as? Bool
                         if let index = indices[id] {
-                            if isGame { categories[index]["isGame"] = true }
+                            if isGame == true { categories[index]["isGame"] = true }
                         } else {
                             indices[id] = categories.count
-                            categories.append(["id": id, "name": name, "isGame": isGame])
+                            var category: [String: Any] = ["id": id, "name": name]
+                            if let isGame { category["isGame"] = isGame }
+                            categories.append(category)
                         }
                     }
                 }
                 normalized["categories"] = categories
+                normalized.removeValue(forKey: "gameCategories")
             }
             guard let sanitized = try? JSONSerialization.data(withJSONObject: clean(normalized)),
                   let parsed = try? JSONDecoder().decode(ASRepository.self, from: sanitized) else {

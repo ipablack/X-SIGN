@@ -97,10 +97,10 @@
           }
         },
         {
-          "name": "Diagnose Feather public service (availability is not a build result)",
+          "name": "Diagnose x-sign.web.app (availability is not a build result)",
           "continue-on-error": true,
           "shell": "bash",
-          "run": "set -euo pipefail\npython3 Tools/Verify_Feather_Manifest.py 2>&1 | tee \"$RUNNER_TEMP/xsign-local-feather-service.log\"\n"
+          "run": "set -euo pipefail\npython3 DomainBackend/verify.py 2>&1 | tee \"$RUNNER_TEMP/xsign-local-domain.log\"\n"
         },
         {
           "name": "Keep check logs",
@@ -181,7 +181,7 @@
         {
           "name": "Record actual verification scope",
           "shell": "bash",
-          "run": "set -euo pipefail\npython3 - <<'XSIGN_SCOPE'\nfrom pathlib import Path\nPath('packages/BUILD_MODE.txt').write_text('XSign 1.0: native signing + Feather Semi Local manifest service.\\nThe app, Studio and publisher share the same reviewed source contract.\\nXcode build and automated checks do not confirm physical-device installation.\\n')\nXSIGN_SCOPE\n"
+          "run": "set -euo pipefail\npython3 - <<'XSIGN_SCOPE'\nfrom pathlib import Path\nPath('packages/BUILD_MODE.txt').write_text('XSign 1.0: native Zsign signing + x-sign.web.app manifest handoff.\\nThe app, Studio and publisher share the same reviewed source contract.\\nXcode build and automated checks do not confirm physical-device installation.\\n')\nXSIGN_SCOPE\n"
         },
         {
           "name": "Upload the checked application",

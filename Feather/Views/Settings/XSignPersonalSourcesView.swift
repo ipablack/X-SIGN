@@ -42,6 +42,7 @@ struct XSignPersonalSourcesView: View {
                 }
             }
         }
+        .xsignListBackground()
         .navigationTitle("المصادر")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $adding) { CustomSafeAddSourceSheet() }

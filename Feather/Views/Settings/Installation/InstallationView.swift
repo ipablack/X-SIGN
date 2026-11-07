@@ -16,5 +16,6 @@ struct InstallationView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
+        .xsignListBackground()
     }
 }

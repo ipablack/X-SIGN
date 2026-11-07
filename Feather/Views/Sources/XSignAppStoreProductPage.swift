@@ -45,7 +45,8 @@ struct XSignAppStoreProductPage: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                header.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 22)
+                header.padding(16).xsignSurface(radius: 22)
+                    .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 22)
                     .background(GeometryReader { proxy in
                         Color.clear.preference(key: XSignProductHeaderOffset.self, value: proxy.frame(in: .named("xsignProduct")).minY)
                     })
@@ -70,7 +71,7 @@ struct XSignAppStoreProductPage: View {
         }
         .coordinateSpace(name: "xsignProduct")
         .onPreferenceChange(XSignProductHeaderOffset.self) { compactHeader = $0 < -125 }
-        .background(AppStoreTheme.background.ignoresSafeArea())
+        .xsignPageBackground()
         .navigationTitle("").navigationBarTitleDisplayMode(.inline).navigationBarHidden(false)
         .toolbar {
             ToolbarItem(placement: .principal) {

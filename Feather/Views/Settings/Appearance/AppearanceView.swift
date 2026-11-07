@@ -14,6 +14,21 @@ struct AppearanceView: View {
     var body: some View {
         NBList("المظهر") {
             Section {
+                HStack(spacing: 12) {
+                    FRAppIconView(size: 42)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("XSign").font(.headline)
+                        Text("معاينة المظهر واللون").font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "paintbrush.pointed.fill").foregroundStyle(Color.accentColor)
+                }
+                .padding(12)
+                .xsignSurface()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+            Section {
                 Picker("المظهر", selection: $userInterfaceStyle) {
                     Text("النظام").tag(UIUserInterfaceStyle.unspecified.rawValue)
                     Text("فاتح").tag(UIUserInterfaceStyle.light.rawValue)
@@ -26,5 +41,6 @@ struct AppearanceView: View {
                 AppearanceTintColorView()
             }
         }
+        .xsignListBackground()
     }
 }

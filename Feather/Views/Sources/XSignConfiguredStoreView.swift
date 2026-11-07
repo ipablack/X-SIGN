@@ -19,7 +19,10 @@ struct XSignClassicStoreContent: View {
     private var sections: [XSignStoreSection] {
         (remote.config?.dashboard?.sections(for: page)
             ?? XSignDashboardConfig.defaultSections.filter { $0.page == page })
-            .filter { $0.kind != "sources" }
+            .filter {
+                $0.kind != "sources" && (page != "today" ||
+                    $0.title.trimmingCharacters(in: .whitespacesAndNewlines) != "يحدث الآن")
+            }
     }
     var body: some View {
         ForEach(sections) { section in
@@ -98,22 +101,42 @@ private struct XSignClassicStoreSection: View {
 
 struct XSignCatalogueFeed: View {
     let items: [AppStoreAppItem]
-    @State private var limit = 60
+    private static let pageSize = 40
+    @State private var limit = XSignCatalogueFeed.pageSize
 
     var body: some View {
-        LazyVStack(spacing: 8) {
-            ForEach(items.prefix(limit)) { item in
-                AppStore2026AppRow(item: item)
+        let end = min(limit, items.count)
+        XSignCatalogueRows(items: items.prefix(end), hasMore: end < items.count) {
+            guard limit == end else { return }
+            limit = min(end + Self.pageSize, items.count)
+        }
+    }
+}
+
+struct XSignCatalogueRows: View {
+    let items: ArraySlice<AppStoreAppItem>
+    let hasMore: Bool
+    let loadMore: () -> Void
+
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(items) { item in
+                VStack(spacing: 0) {
+                    AppStore2026AppRow(item: item)
+                    if item.id != items.last?.id {
+                        Divider().padding(.leading, 62).accessibilityHidden(true)
+                    }
+                }
             }
-            if limit < items.count {
+            if hasMore {
                 Color.clear.frame(height: 1)
                     .accessibilityHidden(true)
-                    .id(limit)
-                    .onAppear {
-                        limit = min(limit + 60, items.count)
-                    }
+                    .id(items.endIndex)
+                    .onAppear(perform: loadMore)
             }
         }
+        .padding(.horizontal, 12)
+        .xsignSurface(radius: 20, glass: false)
     }
 }
 
@@ -126,6 +149,6 @@ private struct XSignClassicCatalogueList: View {
             XSignCatalogueFeed(items: items).padding(18)
         }
         .navigationTitle(title)
-        .background(AppStoreTheme.background.ignoresSafeArea())
+        .xsignPageBackground()
     }
 }

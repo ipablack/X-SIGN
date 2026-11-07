@@ -43,6 +43,7 @@ struct SigningPropertiesView: View {
                 }.font(.footnote)
             }
 		}
+        .xsignListBackground()
 		.toolbar {
 			NBToolbarButton(
 				.localized("Save"),

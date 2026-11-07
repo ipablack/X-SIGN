@@ -26,6 +26,7 @@ enum AppStoreTheme {
     nonisolated static let pureBlack = background
     nonisolated static let cardSurface = Color(uiColor: .secondarySystemGroupedBackground)
     nonisolated static let controlSurface = Color(uiColor: .tertiarySystemFill)
+    nonisolated static let outline = Color.primary.opacity(0.08)
 
     nonisolated static var dynamicAccent: Color { Color.accentColor }
 
@@ -560,7 +561,10 @@ final class XSignSearchResults: ObservableObject {
         }
     }
 
-    func showMore() { visible = Array(ranked.prefix(visible.count + 40)) }
+    func showMore(after count: Int) {
+        guard !isSearching, visible.count == count else { return }
+        visible = Array(ranked.prefix(count + 40))
+    }
     func cancel() {
         generation &+= 1
         task?.cancel(); worker?.cancel(); task = nil; worker = nil
@@ -1788,7 +1792,10 @@ struct AppStoreTodayView: View {
                         }
                         Spacer()
                         AppStoreAccountAppIconButton { showSettingsSheet = true }
-                    }.padding(.top, 12)
+                    }
+                    .padding(14)
+                    .xsignSurface(radius: 22)
+                    .padding(.top, 12)
 
                     XSignClassicStoreContent(page: "today")
                     if todayApps.isEmpty {
@@ -1798,7 +1805,7 @@ struct AppStoreTodayView: View {
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 110)
             }
-            .background(AppStoreTheme.background.ignoresSafeArea())
+            .xsignPageBackground()
             .navigationBarHidden(true)
             .refreshable { await cache.forceRefresh(sources: sources, viewModel: viewModel) }
             .sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
@@ -1819,7 +1826,8 @@ struct XSignTodayFeatureCard: View {
         VStack(spacing: 0) {
             NavigationLink { AppStore2026DetailView(item: item) } label: {
                 ZStack(alignment: .bottomLeading) {
-                    LinearGradient(colors: [.init(red: 0.01, green: 0.10, blue: 0.25), .init(red: 0.02, green: 0.28, blue: 0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    LinearGradient(colors: [AppStoreTheme.dynamicAccent, AppStoreTheme.deepOcean],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
                     if let artwork = item.screenshots.first {
                         LazyImage(url: artwork) { state in
                             if let image = state.image { image.resizable().scaledToFill().opacity(0.5) }
@@ -1851,9 +1859,10 @@ struct XSignTodayFeatureCard: View {
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }.buttonStyle(.plain)
                 AppStore2026DownloadButton(app: item.app)
-            }.padding(16).background(AppStoreTheme.cardSurface)
+            }.padding(16)
         }
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .xsignSurface(radius: 28)
         .shadow(color: .black.opacity(0.12), radius: 16, y: 7)
     }
 }
@@ -1969,7 +1978,7 @@ struct SourcesView: View {
 				}
 				.padding(.bottom, 100)
 			}
-			.background(AppStoreTheme.background.ignoresSafeArea())
+			.xsignPageBackground()
 			.navigationBarHidden(true)
 			.refreshable {
 				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
@@ -2079,7 +2088,7 @@ struct AppStoreGamesView: View {
 				}
 				.padding(.bottom, 100)
 			}
-			.background(AppStoreTheme.background.ignoresSafeArea())
+			.xsignPageBackground()
 			.navigationBarHidden(true)
 			.refreshable {
 				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
@@ -2128,7 +2137,7 @@ struct AppStoreSearchView: View {
                                 Button { localSearchText = "" } label: { Image(systemName: "xmark.circle.fill") }
                                     .accessibilityLabel("مسح البحث")
                             }
-                        }.padding(12).background(AppStoreTheme.cardSurface, in: RoundedRectangle(cornerRadius: 14))
+                        }.padding(12).xsignSurface(radius: 14)
                             .padding(.horizontal, 18)
                     }
 					if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -2176,35 +2185,29 @@ struct AppStoreSearchView: View {
                             else { Text("\(results.total) نتيجة") }
                             Spacer()
                         }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 18)
-						LazyVStack(spacing: 14) {
-							if results.visible.isEmpty && !results.isSearching {
-								VStack(spacing: 12) {
-									Image(systemName: "magnifyingglass")
-										.font(.system(size: 42))
-										.foregroundStyle(.secondary)
-									Text("لا توجد نتائج لـ \"\(searchText)\"")
-										.font(.headline)
-										.foregroundStyle(.primary)
-								}
-								.frame(maxWidth: .infinity)
-								.padding(.top, 60)
-							} else {
-								ForEach(results.visible) { item in
-                                    AppStore2026AppRow(item: item)
-								}
-							}
-                            if results.visible.count < results.total && !results.isSearching {
-                                Color.clear.frame(height: 1).accessibilityHidden(true)
-                                    .id(results.visible.count)
-                                    .onAppear { results.showMore() }
+                        if results.visible.isEmpty && !results.isSearching {
+                            VStack(spacing: 12) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 42))
+                                    .foregroundStyle(.secondary)
+                                Text("لا توجد نتائج لـ \"\(searchText)\"")
+                                    .font(.headline)
                             }
-						}
-						.padding(.horizontal, 18)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                        } else if !results.visible.isEmpty {
+                            let count = results.visible.count
+                            XSignCatalogueRows(items: results.visible.prefix(count),
+                                               hasMore: count < results.total && !results.isSearching) {
+                                results.showMore(after: count)
+                            }
+                            .padding(.horizontal, 18)
+                        }
 					}
 				}
 				.padding(.bottom, 110)
 			}
-			.background(AppStoreTheme.background.ignoresSafeArea())
+			.xsignPageBackground()
 			.navigationBarHidden(true)
 			.onChange(of: searchText) { newQuery in
 				triggerBackgroundSearch(query: newQuery)
@@ -2243,6 +2246,8 @@ struct AppStore2026TopHeader: View {
 
 			AppStoreAccountAppIconButton(action: onSettingsTap)
 		}
+		.padding(14)
+		.xsignSurface(radius: 22)
 		.padding(.horizontal, 18)
 		.padding(.top, 10)
 	}
@@ -2813,7 +2818,9 @@ struct AppStore2026SettingsPopup: View {
 				}
 				.padding(.horizontal, 18)
 				.padding(.vertical, 12)
-				.background(AppStoreTheme.cardSurface)
+				.xsignSurface(radius: 22)
+				.padding(.horizontal, 16)
+				.padding(.vertical, 8)
 
 				if selectedSection == 0 {
 					SettingsView()
@@ -2821,6 +2828,7 @@ struct AppStore2026SettingsPopup: View {
 					CertificatesView()
 				}
 			}
+			.xsignPageBackground()
 			.navigationBarHidden(true)
 		}
 		.environment(\.layoutDirection, .rightToLeft)
@@ -2862,6 +2870,7 @@ struct CustomSafeAddSourceSheet: View {
 				}
                 if let errorMessage { Section { Text(errorMessage).font(.footnote).foregroundStyle(.red) } }
 			}
+			.xsignListBackground()
 			.navigationTitle("إضافة مصدر")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
@@ -3012,12 +3021,8 @@ struct AppStore2026AppRow: View {
                     AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id,
                                      appName: item.app.currentName, size: 50)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(item.app.currentName).font(.subheadline.bold()).lineLimit(1)
-                        if let version = item.app.currentVersion, !version.isEmpty {
-                            Text("الإصدار \(version)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        } else {
-                            Text(item.arabicSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
+                        Text(item.app.currentName).font(.body.weight(.semibold)).lineLimit(2)
+                        Text(item.arabicSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -3027,8 +3032,7 @@ struct AppStore2026AppRow: View {
 
             AppStore2026DownloadButton(app: item.app, showsFootnote: false)
         }
-        .padding(10)
-        .xsignSurface(radius: 16)
+        .padding(.vertical, 10)
     }
 }
 
@@ -3093,7 +3097,7 @@ struct AppStore2026CategoryListView: View {
         ScrollView(showsIndicators: false) {
             XSignCatalogueFeed(items: items).padding(18)
         }
-        .background(AppStoreTheme.background.ignoresSafeArea())
+        .xsignPageBackground()
         .navigationTitle(customTitle ?? category.rawValue)
         .environment(\.layoutDirection, .rightToLeft)
     }
@@ -3434,7 +3438,7 @@ struct XSignAnnouncementCard: View {
             Text(instruction.caption).font(.subheadline).foregroundStyle(.secondary)
             if instruction.targetURL != nil { Image(systemName: "arrow.up.left.square").foregroundStyle(Color.accentColor) }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(18)
-            .background(AppStoreTheme.cardSurface, in: RoundedRectangle(cornerRadius: 18))
+            .xsignSurface()
     }
     var body: some View {
         if let url = instruction.targetURL { Link(destination: url) { content }.buttonStyle(.plain) }

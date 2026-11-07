@@ -53,6 +53,7 @@ struct CertificatesAddView: View {
 					TextField(.localized("Nickname (Optional)"), text: $_certificateName)
 				}
 			}
+            .xsignListBackground()
             .disabled(_isSaving)
             .interactiveDismissDisabled(_isSaving)
 			.toolbar {

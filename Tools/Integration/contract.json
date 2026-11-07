@@ -90,6 +90,6 @@
   "live_config_url": "https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json",
   "foreground_config_refresh_seconds": 5,
   "release_gate": "Exact version, optional build, and release URL fingerprint in the signed bundle",
-  "installation_page": "Feather/Resources/XSignInstall.html",
+  "installation_page": "Tools/StudioSource/src/XSignInstall.html",
   "studio_theme": "Black and XSign blue #003173"
 }

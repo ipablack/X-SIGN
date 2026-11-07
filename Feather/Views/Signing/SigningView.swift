@@ -22,6 +22,7 @@ struct SigningView: View {
 	@State private var _isFilePickerPresenting = false
 	@State private var _isImagePickerPresenting = false
 	@State private var _isSigning = false
+    @State private var didLoadAppDefaults = false
     @State private var signingFailureMessage: String?
     @State private var _showCertificateSetup = false
     @State private var _resumeAfterCertificateSetup = false
@@ -52,22 +53,27 @@ struct SigningView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     appSummary
-                    _cert()
+                    if _temporaryOptions.signingOption == .default {
+                        _cert()
+                        installPreference
+                    }
                     _customizationOptions(for: app)
                     _customizationProperties(for: app)
+                    xsignAppearanceLink
                 }
                 .frame(maxWidth: 620)
                 .padding(16)
                 .frame(maxWidth: .infinity)
             }
-            .background(AppStoreTheme.background.ignoresSafeArea())
+            .xsignPageBackground()
             .safeAreaInset(edge: .bottom, spacing: 0) { signingFooter }
             .toolbar {
                 NBToolbarButton(role: .dismiss)
 				NBToolbarButton(
 					.localized("Reset"),
 					style: .text,
-					placement: .navigationBarTrailing
+					placement: .navigationBarTrailing,
+                    isDisabled: _isSigning
 				) {
 					_temporaryOptions = OptionsManager.shared.options
 					appIcon = nil
@@ -97,6 +103,8 @@ struct SigningView: View {
 			.animation(.easeInOut(duration: 0.25), value: _isSigning)
 		}
 		.onAppear {
+            guard !didLoadAppDefaults else { return }
+            didLoadAppDefaults = true
 			// ppq protection
 			if
 				_optionsManager.options.ppqProtection,
@@ -126,6 +134,18 @@ struct SigningView: View {
 }
 
 extension SigningView {
+    private var installsAfterSigning: Bool {
+        _temporaryOptions.signingOption == .default && _temporaryOptions.post_installAppAfterSigned
+    }
+
+    private var actionTitle: String {
+        if _temporaryOptions.signingOption == .onlyModify {
+            return _isSigning ? "جاري الحفظ…" : "حفظ التعديلات"
+        }
+        if _isSigning { return "جاري التوقيع…" }
+        return installsAfterSigning ? "توقيع وتثبيت" : "توقيع وحفظ"
+    }
+
     private var appSummary: some View {
         HStack(spacing: 14) {
             if let appIcon {
@@ -142,13 +162,48 @@ extension SigningView {
                     Text(bundle).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
                 }
                 if let version = _temporaryOptions.appVersion ?? app.version {
-                    Text("الإصدار \(version)").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                    Text("الإصدار \(version)")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .background(AppStoreTheme.controlSurface, in: Capsule())
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(16)
         .xsignSurface(radius: 22)
+    }
+
+    private var installPreference: some View {
+        signingSection("بعد التوقيع", icon: "arrow.down.app") {
+            Toggle(isOn: $_temporaryOptions.post_installAppAfterSigned) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("التثبيت على هذا الجهاز").font(.subheadline.weight(.semibold))
+                    Text("يفتح طلب التثبيت من iOS بعد نجاح التوقيع.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var xsignAppearanceLink: some View {
+        NavigationLink {
+            AppearanceView()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "paintbrush.pointed").foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("مظهر XSign").font(.subheadline.weight(.semibold))
+                    Text("لون الواجهة والمظهر الفاتح أو الداكن")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.forward").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .padding(16)
+            .xsignSurface()
+        }
+        .buttonStyle(.plain)
     }
 
     private var signingFooter: some View {
@@ -163,7 +218,7 @@ extension SigningView {
                 HStack(spacing: 8) {
                     if _isSigning { ProgressView().tint(AppStoreTheme.contrastingText(forHex: userTintHex)) }
                     else { Image(systemName: "signature") }
-                    Text(_isSigning ? "جاري التوقيع…" : "ابدأ التوقيع").font(.headline)
+                    Text(actionTitle).font(.headline)
                 }
                 .foregroundStyle(AppStoreTheme.contrastingText(forHex: userTintHex))
                 .frame(maxWidth: .infinity, minHeight: 48)
@@ -172,10 +227,12 @@ extension SigningView {
             .buttonStyle(.plain)
             .disabled(_isSigning)
         }
+        .padding(12)
+        .xsignSurface(radius: 22)
         .frame(maxWidth: 620)
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
-        .background(AppStoreTheme.background.ignoresSafeArea(edges: .bottom))
     }
 
     private func signingSection<Content: View>(_ title: String, icon: String,
@@ -192,7 +249,7 @@ extension SigningView {
 
 	@ViewBuilder
 	private func _customizationOptions(for app: AppInfoPresentable) -> some View {
-		signingSection("معلومات التطبيق", icon: "square.and.pencil") {
+		signingSection("تخصيص النسخة", icon: "square.and.pencil") {
 			Menu {
 				Button { _isAltPickerPresenting = true } label: { Label(.localized("Select Alternative Icon"), systemImage: "app.dashed") }
 				Button { _isFilePickerPresenting = true } label: { Label(.localized("Choose from Files"), systemImage: "folder") }
@@ -297,11 +354,11 @@ extension SigningView {
 			}
 			.background(
 				RoundedRectangle(cornerRadius: 9, style: .continuous)
-					.fill(Color(UIColor.secondarySystemFill))
+					.fill(AppStoreTheme.controlSurface)
 			)
 			.overlay(
 				RoundedRectangle(cornerRadius: 9, style: .continuous)
-					.strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+					.strokeBorder(AppStoreTheme.outline, lineWidth: 1)
 			)
 		}
 		.padding(.vertical, 2)
@@ -319,8 +376,10 @@ extension SigningView {
 					)
 				}
 			} else {
-                Button("إضافة شهادة") { _showCertificateSetup = true }
+                Button("إضافة شهادة") { _showCertificateSetup = true }.buttonStyle(.bordered)
 			}
+            Text("يستخدم Zsign الشهادة وملف التعريف المحفوظين على هذا الجهاز.")
+                .font(.footnote).foregroundStyle(.secondary)
 		}
 	}
 
@@ -411,17 +470,19 @@ extension SigningView {
 		let generator = UIImpactFeedbackGenerator(style: .light)
 		generator.impactOccurred()
 		_isSigning = true
+        let options = _temporaryOptions
+        let installWhenReady = installsAfterSigning
 
-        FR.signPackageFileWithResult(app, using: _temporaryOptions, icon: appIcon, certificate: _selectedCert()) { result in
+        FR.signPackageFileWithResult(app, using: options, icon: appIcon, certificate: _selectedCert()) { result in
             _isSigning = false
             switch result {
             case .failure(let error):
                 signingFailureMessage = error.localizedDescription
             case .success(let uuid):
-                if _temporaryOptions.post_deleteAppAfterSigned, !app.isSigned {
+                if options.post_deleteAppAfterSigned, !app.isSigned {
                     Storage.shared.deleteApp(for: app)
                 }
-                if _temporaryOptions.post_installAppAfterSigned,
+                if installWhenReady,
                    let signed = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {
                     XSignInstallation.shared.install(signed, afterDismissal: true)
                 }

@@ -13,9 +13,7 @@ boot = "loadLocal();bindEvents();bindStoreEvents();renderAll();openPage(location
 parts = [vendor.read_text()]
 for name in ['contract.js', 'base.js', 'store.js', 'integration.js']:
     parts.append((root / ('src/' + name)).read_text().replace(boot, ''))
-install_page = root.parents[1] / 'Feather/Resources/XSignInstall.html'
-if not install_page.is_file():
-    install_page = root / 'src/XSignInstall.html'  # standalone Studio source export
+install_page = root / 'src/XSignInstall.html'
 parts.append('const XSIGN_INSTALL_TEMPLATE = ' + json.dumps(install_page.read_text(), ensure_ascii=False) + ';')
 parts.append(boot)
 script = '\n'.join(parts)

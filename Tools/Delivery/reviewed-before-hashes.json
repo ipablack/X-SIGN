@@ -194,7 +194,8 @@
     null
   ],
   "Feather/Resources/XSignInstall.html": [
-    null
+    null,
+    "d8f887db8d38c6f4e8dbd692b70da19608775a15f58a5224bba519a5cf0919e0"
   ],
   "Feather/Resources/XSignLaunchIPABlack.json": [
     "5865e9e746650ccd1d3201b0d65d9d76b6e7aa48830ce7cf182c4f3db1869790",
@@ -318,7 +319,8 @@
   "Feather/Views/Common/XSignLegacyCompatibility.swift": [
     null,
     "346aef710973cdcfa9f5eccf506f8b81ebd483a5ffd2480c62f7106042fa9998",
-    "35541b694c4e10ce343c125bc6b0675e120bb55eab1f5fcac7c72bc9f0706242"
+    "35541b694c4e10ce343c125bc6b0675e120bb55eab1f5fcac7c72bc9f0706242",
+    "ccff88dfae617de1090760470fa2510acfac6cf8e0134ccb0451dad75db3bbbc"
   ],
   "Feather/Views/Download/DownloadHeaderView.swift": [
     "4b180ec409187c52e2ff6cb1785003a117d369028f06f2a289091195e60bb64f",
@@ -361,7 +363,8 @@
     "72d97579bfc50cf1c8bf8a9b17734456230f2742f3c0a320571872ef4a570b01",
     "badeafe17de0362e8692bdc7d681b194c29d478377efa45b9a4ce6c22a934d75",
     "d39b001161145db994aa7940575d3daaf78e447e5309c269c70a9e287d3df3fa",
-    "b3dad9b22df558ef2ec688fd06c7e314a24153faa428a40d86818aa112c6ca12"
+    "b3dad9b22df558ef2ec688fd06c7e314a24153faa428a40d86818aa112c6ca12",
+    "a9776bb48f3e03ae99d0453045b1a825f95185cffa6e8864e371590178142d3f"
   ],
   "Feather/Views/Library/XSignAppStoreLinkView.swift": [
     null,
@@ -377,6 +380,9 @@
     "106fb1b096bce4a297cfe38fb500a9101647e6a0a5fca100582eeceef049509f",
     "b9b41a9eaa1a62fc978bfbb46ff3aefc6614d7a3451383288621ca6d2ce49cb9",
     "8878dbb3189c71eb0a3ef33de67ec918d21778c38f9523a0ef39ef53840677a9"
+  ],
+  "Feather/Views/Settings/Appearance/AppearanceView.swift": [
+    "c371313441802f1d00837eaa2afd82a795e44b449475d079fd02f4742c7dea91"
   ],
   "Feather/Views/Settings/Archive & Compression/ArchiveView.swift": [
     "46c51399eb94140c40be232ba816eb3af76e37b9b5d5309ea44c2838c7f99de4",
@@ -484,7 +490,8 @@
     "f20249eec49fa239a7efcb467ab1f6fd5d46018c5214ce6c3eb7b1f61938d3cb",
     "c9291350fa3a431f096f7e488db2186ee9a73a5724678b96a7c261ade38e7003",
     "7d3f8d2cee45604db464433de92e36076fe7540969f3d938ebb0d6cac1264619",
-    "13fa14133d2dd6969c5f2c1b792c434d65a88a5f8241f52f946fd7d5ee93354b"
+    "13fa14133d2dd6969c5f2c1b792c434d65a88a5f8241f52f946fd7d5ee93354b",
+    "178131e6c1e05cac3c1a92caf0022f35d1b7a2d56847c95b0522185608e9d9ab"
   ],
   "Feather/Views/Signing/XSignBulkSigningView.swift": [
     "5e61a271de2149a838eea9430a35db1b11e3d23c09691f02d8a29f835d4da261",
@@ -554,7 +561,8 @@
     "b2b6431e3829791fdf74a950faab8b88202465ab02ee1d1f69856d2770e1b38f",
     "a9a67078ada5a645eba6be878209c8b6d6e2d71ed702a26e8e7fde0e70037b63",
     "b383f1a0ab4afa5553451088cf6c340c0799cfed9202e8d772c79b46ad44cc36",
-    "adcf8f3daf422c19cf7496a67d8e9f99e459a3878db90c7de50411349b2718b0"
+    "adcf8f3daf422c19cf7496a67d8e9f99e459a3878db90c7de50411349b2718b0",
+    "1330608056265355bc2846b0c71ec365cec8c01b7d35e6b316f896f4f8ecafda"
   ],
   "Feather/Views/Sources/SourcesViewModel.swift": [
     "f8ab1e3a67793ead11edd023b0932327189057971603a6e9ce64f0dbf13d558b",
@@ -567,14 +575,16 @@
   ],
   "Feather/Views/Sources/XSignAppStoreProductPage.swift": [
     null,
-    "3e92e4601d2a38edc2cf4b127d6999dd6e3e35e0bf0f90bf62dd47882f560561"
+    "3e92e4601d2a38edc2cf4b127d6999dd6e3e35e0bf0f90bf62dd47882f560561",
+    "a5a14ccf8046e935218bf148253eb7a96d6436e4775211e3d00ddc005dc9a3aa"
   ],
   "Feather/Views/Sources/XSignConfiguredStoreView.swift": [
     null,
     "8660d778603322090db30e5cdef4ec7ae5aa9b78b8a0abb9354d809ec79d0364",
     "c336aafcd0eab5f220909167cb29c1ba577d023c901a67dc8f2b8f25d0f517ab",
     "d695dde1784487e7f3b7dccfed0431a6806d2945d055fab22c0805bd5548b72d",
-    "64fd72af008e43e05a23a20cf72e974886a38ba5f44c4088719d836b7bbceea2"
+    "64fd72af008e43e05a23a20cf72e974886a38ba5f44c4088719d836b7bbceea2",
+    "3f70edae90af801fc62b52b2654b7b60c53ecf83433150998a406b821e991ea9"
   ],
   "Feather/Views/TabView/Bars/ExtendedTabbarView.swift": [
     "9c3ba19982d4d68d8e8c9b2bbd41b09e6efe0298b59747b2814b495490ce32e7",
@@ -692,7 +702,8 @@
     "5ca1b34a7348ee6cf42c70575edad18bcdea68dfd978c69cbeb7b58e4bf9ce03",
     "dce0f3e0403fce39800ceac436fc6ead28493e12bbb2ee51557c73340e4b0ef1",
     "9a6e11c4cd904ba8b17986d5a7e00487401a902ad55e5cb574d6998f084d7932",
-    "8b109c210e87231b30c27e1cf879b13751c498ee8378b410e001c398b8f4c20a"
+    "8b109c210e87231b30c27e1cf879b13751c498ee8378b410e001c398b8f4c20a",
+    "c963939a4450358fda6c75674d6df8b8091ccc0b261cfb5408951cac3bf3bc81"
   ],
   "Tools/Delivery/build_ipa_manager.py": [
     null
@@ -701,7 +712,8 @@
     null,
     "12eeaddaaac02c2a57f44cc924bdedbb66c5d2d6b8495d07919705ae91bb20d0",
     "61d31587b0b11916dc5749d77d27759bff8482b6fa57449b08ecfea24894e720",
-    "9f5e5e177b7c9448a9ace3949123f74834c9e1c336a37e313be02eaef51f2d7e"
+    "9f5e5e177b7c9448a9ace3949123f74834c9e1c336a37e313be02eaef51f2d7e",
+    "ed46c6c473a0cff3b50e8dd259485f6d476fc1af139a4c5200113ec5b8e977a8"
   ],
   "Tools/Delivery/full-source-paths.json": [
     null,
@@ -711,7 +723,8 @@
     "f6a11cbc44575c452cc5fb1923fd1c1045a467f3177a8cc028e8e37a31e6d66b",
     "60f5e292f24b902c242bd83e0d88029e034330f447bfcb04b24178429fbfea13",
     "31ee683363454436d23bc5e6de3b4c6193cce5354520cd4c481efbfa91463b95",
-    "8b3f4cbc84d5aad26ce37e32c3ac40117114b57001ff0f92b96c1b09c1390b5d"
+    "8b3f4cbc84d5aad26ce37e32c3ac40117114b57001ff0f92b96c1b09c1390b5d",
+    "88dfc96161dfe4c4d22c827d1644712c346b38860b0d7eff5ad7e335852d8eba"
   ],
   "Tools/Delivery/ipa_manager.yml": [
     null,
@@ -748,7 +761,8 @@
     "de67a3a74a9fc820bf6d97eca52c5724cb3049f3eb520a8ea7aa41770933eb96",
     "64308fe62fb24884ef35fcdb8c99d50c75de92c043fa7128b7e5a981722a091d",
     "2d747d3e375238da4c9b2d5671eb30d817ee48395b66cb3850fe207674a0492d",
-    "685a4d64fbf1c4bf213646f513fc4fa1187bad307203a0aaff3eee3d9db3c833"
+    "685a4d64fbf1c4bf213646f513fc4fa1187bad307203a0aaff3eee3d9db3c833",
+    "05444b68bdd849e66a39d477787ad4612008e535553442ae5ec6090ee90c86b4"
   ],
   "Tools/Delivery/source-asset-hashes.json": [
     null,
@@ -766,7 +780,8 @@
     "e874a992ffa614c71f9a4b7a152d9933ce0424d64ad64e70c5dca16341fda1fd",
     "3b9ef8b3195fcefb6119b11bf3c2a0fde30aca01748c51c950ed1d9c1df05ab8",
     "504ef50cb6abe1e3ef22084b05ed47f5774fa0ac790534a67713486513e955b7",
-    "c80502b1418a70f61a4b05899f0dc67bb4775bf225e6d0b890b4aeca2889c345"
+    "c80502b1418a70f61a4b05899f0dc67bb4775bf225e6d0b890b4aeca2889c345",
+    "5c026830a8b0ded2f40466ad4b6abb65cdbd7d0dab763eee0f4a32f53c0c0482"
   ],
   "Tools/Disable_Legacy_Workflows.py": [
     null,
@@ -788,7 +803,8 @@
     "3a3884ea6293616a05f7db6efd8be153e398f549dd0e7403fa3498da9d07d84a",
     "1e37a6c6cc641c5afe87d2dd0acf9866cbe261dc6fccb5c256ff49c2d2386181",
     "7b300b40de6efc94fab16f816967970558952a456eed1df1dfae04af8789ba9a",
-    "3e3c25f36ece66f9a6d6b0e1ad69e29717ecbaf53715668784c5226b0e1db170"
+    "3e3c25f36ece66f9a6d6b0e1ad69e29717ecbaf53715668784c5226b0e1db170",
+    "d1923d30240221143d181a0c39d72c45fe14d8ec552f74ae1b36b5a53f7f4687"
   ],
   "Tools/Integration/iosboom-public-sources.json": [
     null,
@@ -837,7 +853,11 @@
   "Tools/StudioSource/scripts/build.py": [
     null,
     "e208758b8ffc66685fa9048848ed24ae29fc587ee0bfdf40b8ad2ef533b869c6",
-    "d4b1e023e34a7727646e60e14dd32fa016d9a12b61c2389e40b4e6ade547199a"
+    "d4b1e023e34a7727646e60e14dd32fa016d9a12b61c2389e40b4e6ade547199a",
+    "5af80d4a1a578b7b6ba1a91a099481655273ffad7b3cf7074ac29e1b501d6999"
+  ],
+  "Tools/StudioSource/src/XSignInstall.html": [
+    null
   ],
   "Tools/StudioSource/src/base.js": [
     null,

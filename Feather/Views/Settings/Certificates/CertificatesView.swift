@@ -42,6 +42,7 @@ struct CertificatesView: View {
 				_cellButton(for: cert, at: index)
 			}
 		}
+		.xsignPageBackground()
 		.navigationTitle(.localized("Certificates"))
 		.overlay {
 			if _certificates.isEmpty {

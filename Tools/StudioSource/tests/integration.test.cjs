@@ -34,10 +34,17 @@ test('managed source ordering matches native priority and preserves custom order
 test('GitHub aliases cannot publish duplicate managed sources',()=>{const r=runtime();r.run("state.xsign_config.dashboard.sources.push({id:'alias',name:'Alias',url:'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json',enabled:true,format:'auto'})");assert(r.run('dashboardErrors(state)').some(e=>e.includes('مكرر')));});
 test('deleting either built-in source changes both published source lists and survives normalization',()=>{const r=runtime();
  r.run("state.xsign_config.dashboard.sources=state.xsign_config.dashboard.sources.filter(s=>s.id!=='xsign.core.owned');state=normalizeState(state);enforceCoreSources(state)");
- assert.equal(r.run('state.xsign_config.dashboard.sources.length'),1);assert.equal(r.run('state.xsign_config.app_control.core_sources.length'),1);
+ assert.equal(r.run('state.xsign_config.dashboard.sources.length'),2);assert.equal(r.run('state.xsign_config.app_control.core_sources.length'),2);
  assert.equal(r.run('state.xsign_config.app_control.core_sources[0].url'),r.run('PRIMARY_SOURCE_URL'));
  r.run('state.xsign_config.dashboard.sources=[];state=normalizeState(state);enforceCoreSources(state)');
  assert.equal(r.run('state.xsign_config.app_control.core_sources.length'),0);assert.equal(r.run('dashboardErrors(state).length'),0);
+});
+test('legacy Plus defaults migrate to the two observed Zsign feeds without restoring deleted sources',()=>{const r=runtime();
+ r.run("state=normalizeState({apps:[],xsign_config:{dashboard:{schema_version:2,sources:[{id:'xsign.core.primary',name:'Plus',url:'https://supapi.trystore.net/rest/v1/plus_library_apps',enabled:true,format:'auto'}],sections:[],tab_order:['today','apps','games','search','library']}}})");
+ assert.equal(r.run('state.xsign_config.dashboard.sources.map(s=>s.url).join("|")'),r.run("[PRIMARY_SOURCE_URL,SECONDARY_SOURCE_URL].join('|')"));
+ assert.equal(r.run('state.xsign_config.dashboard.catalog_profile'),'zsign-public-v1');
+ assert.equal(r.run('state.xsign_config.dashboard.allow_user_sources'),false);
+ r.run('state.xsign_config.dashboard.sources=[];state=normalizeState(state)');assert.equal(r.run('state.xsign_config.dashboard.sources.length'),0);
 });
 test('non-AltStore source mapping survives export without changing owner configuration endpoint',()=>{const r=runtime();
  r.run("state.xsign_config.dashboard.sources=[{id:'custom',name:'Custom JSON',url:'https://example.com/catalogue',enabled:true,format:'json',root_path:'data.items',icon_url:'https://example.com/logo.png',fields:{name:'title',bundleIdentifier:'bundle_id',downloadURL:'files.ipa',iconURL:'logo'}}];state=normalizeState(state)");

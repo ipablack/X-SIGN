@@ -86,14 +86,19 @@
       "purge_sources_id": 1,
       "core_sources": [
         {
-          "name": "المكتبة الأساسية",
-          "id": "xsign.core.primary",
-          "url": "https://supapi.trystore.net/rest/v1/plus_library_apps"
-        },
-        {
           "name": "IPA BLACK",
           "id": "xsign.core.owned",
           "url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
+        },
+        {
+          "name": "ipasoon",
+          "id": "xsign.core.primary",
+          "url": "https://appiraq.com/source.php?action=getAll"
+        },
+        {
+          "name": "متجر Zsign الرسمي",
+          "id": "xsign.core.zsign",
+          "url": "https://appiraq.com/han.json"
         }
       ]
     },
@@ -102,11 +107,53 @@
       "allow_user_sources": false,
       "signing_enabled": false,
       "tab_order": [
+        "today",
+        "games",
         "apps",
-        "library"
+        "library",
+        "search"
       ],
-      "sources": [],
-      "sections": [],
+      "sources": [
+        {
+          "id": "xsign.core.owned",
+          "name": "IPA BLACK",
+          "url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+          "enabled": true,
+          "format": "auto"
+        },
+        {
+          "id": "xsign.core.primary",
+          "name": "ipasoon",
+          "url": "https://appiraq.com/source.php?action=getAll",
+          "enabled": true,
+          "format": "auto"
+        },
+        {
+          "id": "xsign.core.zsign",
+          "name": "متجر Zsign الرسمي",
+          "url": "https://appiraq.com/han.json",
+          "enabled": true,
+          "format": "auto"
+        }
+      ],
+      "sections": [
+        {
+          "id": "apps-featured",
+          "title": "مختارات التطبيقات",
+          "page": "apps",
+          "kind": "featured",
+          "enabled": true,
+          "limit": 12
+        },
+        {
+          "id": "games-featured",
+          "title": "مختارات الألعاب",
+          "page": "games",
+          "kind": "featured",
+          "enabled": true,
+          "limit": 12
+        }
+      ],
       "update": {
         "enabled": true,
         "latest_version": "3.0",
@@ -116,7 +163,8 @@
         "manifest_url": "",
         "notes": "",
         "html": "<a href=\"xsign-update://install\">Install</a>"
-      }
+      },
+      "catalog_profile": "zsign-public-v1"
     }
   }
 }

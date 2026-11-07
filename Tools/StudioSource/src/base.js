@@ -1,7 +1,8 @@
 
     'use strict';
     // All application behavior is contained in this file. No external JavaScript.
-    const PRIMARY_SOURCE_URL = 'https://supapi.trystore.net/rest/v1/plus_library_apps';
+    const PRIMARY_SOURCE_URL = 'https://appiraq.com/source.php?action=getAll';
+    const SECONDARY_SOURCE_URL = 'https://appiraq.com/han.json';
     const OWNED_CANONICAL_URL = 'https://raw.githubusercontent.com/ipablack/repo/main/repo.json';
     const STORAGE_KEY = 'xsign.studio.state.v3';
     const LEGACY_STORAGE_KEY = 'xsign.studio.state.v2';
@@ -58,7 +59,8 @@
       const configured=target.xsign_config.dashboard?.sources;
       const sources=Array.isArray(configured)?configured.filter(s=>isObject(s)&&s.enabled!==false):[
         {name:'IPA BLACK',id:'xsign.core.owned',url:OWNED_CANONICAL_URL},
-        {name:'متجر بلس',id:'xsign.core.primary',url:PRIMARY_SOURCE_URL}
+        {name:'ipasoon',id:'xsign.core.primary',url:PRIMARY_SOURCE_URL},
+        {name:'متجر Zsign الرسمي',id:'xsign.core.zsign',url:SECONDARY_SOURCE_URL}
       ];
       target.xsign_config.app_control.core_sources=sources.map(s=>({name:s.name,id:s.id,url:s.url}));
       return target;

@@ -49,7 +49,8 @@ enum AppStoreTheme {
 
 // MARK: - Protected Sources Vault (IPA BLACK and live providers)
 enum ProtectedSourcesVault {
-    nonisolated static let primaryURLString = "https://supapi.trystore.net/rest/v1/plus_library_apps"
+    nonisolated static let primaryURLString = "https://appiraq.com/source.php?action=getAll"
+    nonisolated static let secondaryURLString = "https://appiraq.com/han.json"
     nonisolated static let defaultOwnedURLString = "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
     nonisolated static let defaultOwnedGitHubRawURLString = "https://github.com/ipablack/repo/raw/refs/heads/main/repo.json"
     nonisolated static let ownedIdentifier = "xsign.core.owned"
@@ -58,7 +59,7 @@ enum ProtectedSourcesVault {
         "https://raw.githubusercontent.com/ipa-black/IPABLACK/main/repo.json",
         "https://raw.githubusercontent.com/ipa-black/store-api/main/public/repo.json",
         "https://raw.githubusercontent.com/ipa-black/X-SIGN/main/Feather/Resources/XSignCatalogReference.json",
-        "https://appiraq.com/source.php?action=getAll",
+        "https://supapi.trystore.net/rest/v1/plus_library_apps",
         "https://raw.githubusercontent.com/ipa-black/X-SIGN/main/public/sources/ipaomtk.json"
     ]
 
@@ -72,7 +73,7 @@ enum ProtectedSourcesVault {
     }
 
     nonisolated static var ownedURL: URL? { validOwnedURL(defaultOwnedURLString) }
-    nonisolated static var coreURLs: [String] { (ownedURL.map { [$0.absoluteString] } ?? []) + [primaryURLString] }
+    nonisolated static var coreURLs: [String] { (ownedURL.map { [$0.absoluteString] } ?? []) + [primaryURLString, secondaryURLString] }
 
     nonisolated static func isRetiredSource(_ sourceURL: URL?, identifier: String? = nil) -> Bool {
         guard let sourceURL else { return true }
@@ -797,7 +798,8 @@ final class AppStoreCacheManager: ObservableObject {
     private var indexTask: Task<XSignCatalogSnapshot?, Never>?
 
     private nonisolated static let defaultCoreTargets: [(urlStr: String, id: String, file: String, seed: String)] = [
-        (ProtectedSourcesVault.primaryURLString, "xsign.core.primary", "primary_cache.json", "")
+        (ProtectedSourcesVault.primaryURLString, "xsign.core.primary", "zsign_soon_cache.json", ""),
+        (ProtectedSourcesVault.secondaryURLString, "xsign.core.zsign", "zsign_official_cache.json", "")
     ]
 
     nonisolated static func resolvedManagedSources(_ configured: [XSignCoreSourceItem]?) -> [XSignCoreSourceItem] {
@@ -805,7 +807,8 @@ final class AppStoreCacheManager: ObservableObject {
             return configured.map { XSignCoreSourceItem(name:$0.name,id:$0.id,url:$0.url) }
         }
         var result=[XSignCoreSourceItem(name:"IPA BLACK",id:ProtectedSourcesVault.ownedIdentifier,url:ProtectedSourcesVault.defaultOwnedURLString)]
-        result.append(XSignCoreSourceItem(name:"متجر بلس",id:"xsign.core.primary",url:ProtectedSourcesVault.primaryURLString))
+        result.append(XSignCoreSourceItem(name:"ipasoon",id:"xsign.core.primary",url:ProtectedSourcesVault.primaryURLString))
+        result.append(XSignCoreSourceItem(name:"متجر Zsign الرسمي",id:"xsign.core.zsign",url:ProtectedSourcesVault.secondaryURLString))
         return result
     }
 
@@ -911,13 +914,9 @@ final class AppStoreCacheManager: ObservableObject {
     }
 
     private func customSources(_ sources: [AltSource]) -> [AltSource] {
-        let managed = Set(Self.coreTargets.compactMap { URL(string: $0.urlStr) }.map { XSignCatalogIO.canonicalURL($0).absoluteString })
-        // User-added sources remain separate from the authoritative dashboard list.
-        return sources.filter { source in
-            guard let url = source.sourceURL else { return false }
-            guard !ProtectedSourcesVault.isRetiredSource(url, identifier: source.identifier) else { return false }
-            return !managed.contains(XSignCatalogIO.canonicalURL(url).absoluteString) && XSignDashboardSources.isUserSource(url)
-        }
+        // This edition exposes the managed catalogue only. Historical personal
+        // sources remain stored, but cannot silently reappear in the storefront.
+        []
     }
 
     func ensureFetched<S: Collection>(sources: S, viewModel: SourcesViewModel) async where S.Element == AltSource {
@@ -1737,7 +1736,7 @@ struct AppStore2026DetailView: View {
 		if let dev = item.app.developer, !dev.isEmpty {
 			return dev
 		}
-		return item.sourceName
+		return "—"
 	}
 
 	private var formattedSize: String {
@@ -1910,7 +1909,7 @@ struct AppStore2026DetailView: View {
 						.font(.title2.bold())
 						.foregroundStyle(.primary)
 
-					AppStoreInfoRow(label: "المصدر", value: item.sourceName)
+
 					AppStoreInfoRow(label: "المطور", value: displayDeveloper)
 					AppStoreInfoRow(label: "الحجم", value: formattedSize)
 					AppStoreInfoRow(label: "الفئة", value: item.category.rawValue)
@@ -1984,7 +1983,48 @@ struct AppStoreInfoRow: View {
 
 // MARK: - 1. TODAY VIEW (Exclusively from IPA BLACK Source)
 struct AppStoreTodayView: View {
-    var body: some View { XSignConfiguredStorePage(page:"today",title:"اليوم") }
+    @StateObject private var viewModel = SourcesViewModel.shared
+    @StateObject private var cache = AppStoreCacheManager.shared
+    @State private var showSettingsSheet = false
+    @FetchRequest(entity: AltSource.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)])
+    private var sources: FetchedResults<AltSource>
+
+    private var todayApps: [AppStoreAppItem] { cache.ipablackItems.isEmpty ? cache.allCombinedItems : cache.ipablackItems }
+
+    var body: some View {
+        XSignNavigationView {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    HStack(alignment: .bottom) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(Date(), format: .dateTime.weekday(.wide).day().month(.wide))
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                            Text("اليوم").font(.largeTitle.bold())
+                        }
+                        Spacer()
+                        AppStoreAccountAppIconButton { showSettingsSheet = true }
+                    }.padding(.top, 12)
+
+                    XSignClassicStoreContent(page: "today")
+                    if cache.allCombinedItems.isEmpty {
+                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
+                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
+                            retry: { Task { await cache.forceRefresh(sources: sources, viewModel: viewModel) } })
+                    }
+                }.padding(.horizontal, 20).padding(.bottom, 110)
+            }
+            .background(AppStoreTheme.background.ignoresSafeArea())
+            .navigationBarHidden(true)
+            .refreshable { await cache.forceRefresh(sources: sources, viewModel: viewModel) }
+            .sheet(isPresented: $showSettingsSheet, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+                AppStore2026SettingsPopup(sources: sources, viewModel: viewModel)
+            }
+        }
+        .environment(\.layoutDirection, .rightToLeft)
+        .task(id: sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
+            await cache.ensureFetched(sources: sources, viewModel: viewModel)
+        }
+    }
 }
 
 struct XSignTodayFeatureCard: View {
@@ -2021,7 +2061,7 @@ struct XSignTodayFeatureCard: View {
                         AppStoreIconView(url: item.app.iconURL, size: 46)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.app.currentName).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
-                            Text(sourceName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text("توقيع عبر XSign").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }.buttonStyle(.plain)
@@ -2051,13 +2091,230 @@ struct XSignTodaySmallCard: View {
 
 // MARK: - 2. APPS VIEW
 struct SourcesView: View {
-    var body: some View { XSignConfiguredStorePage(page:"apps",title:"التطبيقات") }
+	@StateObject var viewModel = SourcesViewModel.shared
+	@StateObject private var cache = AppStoreCacheManager.shared
+	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
+	@State private var _isSettingsPresenting = false
+	@State private var _selectedAppCategory: AppStore2026Category? = nil
+    @State private var visibleAppCount = 60
+
+	@FetchRequest(
+		entity: AltSource.entity(),
+		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
+	) private var _sources: FetchedResults<AltSource>
+
+	private let appOnlyCategories: [AppStore2026Category] = [
+		.social,
+		.photoVideo,
+		.mediaReaders,
+		.devTools,
+		.visualArts,
+		.productivity
+	]
+
+	private var filteredPureApps: [AppStoreAppItem] {
+		guard let selected = _selectedAppCategory else {
+			return cache.pureAppsOnly
+		}
+		return cache.itemsByCategory[selected] ?? []
+	}
+
+	private var accentColor: Color {
+		Color(hex: userTintHex)
+	}
+
+	var body: some View {
+		XSignNavigationView {
+			ScrollView(.vertical, showsIndicators: false) {
+				LazyVStack(alignment: .leading, spacing: 24) {
+					AppStore2026TopHeader(
+						title: "التطبيقات",
+						onSettingsTap: { _isSettingsPresenting = true }
+					)
+
+					if cache.pureAppsOnly.isEmpty {
+                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
+                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
+                            retry: { Task { await cache.forceRefresh(sources: _sources, viewModel: viewModel) } })
+							.padding(.horizontal, 18)
+							.padding(.top, 30)
+					} else {
+						ScrollView(.horizontal, showsIndicators: false) {
+							HStack(spacing: 10) {
+								Button {
+									_selectedAppCategory = nil
+								} label: {
+									Text("الكل")
+										.font(.subheadline.weight(.bold))
+										.foregroundStyle(_selectedAppCategory == nil ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
+										.padding(.horizontal, 18)
+										.padding(.vertical, 9)
+										.background(
+											Capsule(style: .continuous)
+												.fill(_selectedAppCategory == nil ? accentColor : AppStoreTheme.controlSurface)
+										)
+								}
+								.buttonStyle(.plain)
+
+								ForEach(appOnlyCategories.filter { !(cache.itemsByCategory[$0] ?? []).isEmpty }) { cat in
+									Button {
+										_selectedAppCategory = cat
+									} label: {
+										HStack(spacing: 6) {
+											Image(systemName: cat.sfSymbol)
+												.font(.caption)
+											Text(cat.rawValue)
+												.font(.subheadline.weight(.bold))
+										}
+										.foregroundStyle(_selectedAppCategory == cat ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
+										.padding(.horizontal, 16)
+										.padding(.vertical, 9)
+										.background(
+											Capsule(style: .continuous)
+												.fill(_selectedAppCategory == cat ? accentColor : AppStoreTheme.controlSurface)
+										)
+									}
+									.buttonStyle(.plain)
+								}
+							}
+							.padding(.horizontal, 18)
+						}
+
+                        XSignClassicStoreContent(page: "apps", category: _selectedAppCategory).padding(.horizontal, 18)
+					}
+				}
+				.padding(.bottom, 100)
+			}
+			.background(AppStoreTheme.background.ignoresSafeArea())
+			.navigationBarHidden(true)
+			.refreshable {
+				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
+			}
+			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+				AppStore2026SettingsPopup(sources: _sources, viewModel: viewModel)
+			}
+		}
+        .onChange(of: _selectedAppCategory) { _ in visibleAppCount = 60 }
+		.environment(\.layoutDirection, .rightToLeft)
+        .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
+            await cache.ensureFetched(sources: _sources, viewModel: viewModel)
+        }
+	}
 }
 
+// MARK: - 3. GAMES VIEW
 struct AppStoreGamesView: View {
-    var body: some View { XSignConfiguredStorePage(page:"games",title:"الألعاب") }
+	@StateObject private var viewModel = SourcesViewModel.shared
+	@StateObject private var cache = AppStoreCacheManager.shared
+	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
+	@State private var showSettingsSheet = false
+	@State private var selectedGameCategory: AppStore2026Category? = nil
+    @State private var visibleGameCount = 60
+
+	@FetchRequest(
+		entity: AltSource.entity(),
+		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
+	) private var _sources: FetchedResults<AltSource>
+
+	private let gameOnlyCategories: [AppStore2026Category] = [
+		.pvpGames,
+		.simulationGames,
+		.strategyGames,
+		.puzzleGames,
+		.casualGames
+	]
+
+	private var displayedGames: [AppStoreAppItem] {
+		guard let selected = selectedGameCategory else {
+			return cache.pureGamesOnly
+		}
+		return cache.itemsByCategory[selected] ?? []
+	}
+
+	private var accentColor: Color {
+		Color(hex: userTintHex)
+	}
+
+	var body: some View {
+		XSignNavigationView {
+			ScrollView(.vertical, showsIndicators: false) {
+				LazyVStack(alignment: .leading, spacing: 24) {
+					AppStore2026TopHeader(
+						title: "الألعاب",
+						onSettingsTap: { showSettingsSheet = true }
+					)
+
+					if cache.pureGamesOnly.isEmpty {
+                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
+                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
+                            retry: { Task { await cache.forceRefresh(sources: _sources, viewModel: viewModel) } })
+							.padding(.horizontal, 18)
+							.padding(.top, 20)
+					} else {
+						ScrollView(.horizontal, showsIndicators: false) {
+							HStack(spacing: 10) {
+								Button {
+									selectedGameCategory = nil
+								} label: {
+									Text("كل الألعاب")
+										.font(.subheadline.weight(.bold))
+										.foregroundStyle(selectedGameCategory == nil ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
+										.padding(.horizontal, 18)
+										.padding(.vertical, 9)
+										.background(
+											Capsule(style: .continuous)
+												.fill(selectedGameCategory == nil ? accentColor : AppStoreTheme.controlSurface)
+										)
+								}
+								.buttonStyle(.plain)
+
+								ForEach(gameOnlyCategories.filter { !(cache.itemsByCategory[$0] ?? []).isEmpty }) { cat in
+									Button {
+										selectedGameCategory = cat
+									} label: {
+										HStack(spacing: 6) {
+											Image(systemName: cat.sfSymbol)
+												.font(.caption)
+											Text(cat.rawValue)
+												.font(.subheadline.weight(.bold))
+										}
+										.foregroundStyle(selectedGameCategory == cat ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
+										.padding(.horizontal, 16)
+										.padding(.vertical, 9)
+										.background(
+											Capsule(style: .continuous)
+												.fill(selectedGameCategory == cat ? accentColor : AppStoreTheme.controlSurface)
+										)
+									}
+									.buttonStyle(.plain)
+								}
+							}
+							.padding(.horizontal, 18)
+						}
+
+                        XSignClassicStoreContent(page: "games", category: selectedGameCategory).padding(.horizontal, 18)
+					}
+				}
+				.padding(.bottom, 100)
+			}
+			.background(AppStoreTheme.background.ignoresSafeArea())
+			.navigationBarHidden(true)
+			.refreshable {
+				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
+			}
+			.sheet(isPresented: $showSettingsSheet, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+				AppStore2026SettingsPopup(sources: _sources, viewModel: viewModel)
+			}
+		}
+        .onChange(of: selectedGameCategory) { _ in visibleGameCount = 60 }
+		.environment(\.layoutDirection, .rightToLeft)
+        .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
+            await cache.ensureFetched(sources: _sources, viewModel: viewModel)
+        }
+	}
 }
 
+// MARK: - 4. SEARCH VIEW (Background Debounced 120fps Zero-Lag Search)
 struct AppStoreSearchView: View {
 	@StateObject private var viewModel = SourcesViewModel.shared
 	@StateObject private var cache = AppStoreCacheManager.shared
@@ -2188,7 +2445,7 @@ struct XSignSearchResultRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.app.currentName).font(.headline).foregroundStyle(.primary).lineLimit(1)
                         Text(item.arabicSubtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                        Text(item.sourceName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain)
@@ -2739,45 +2996,66 @@ struct TodayFullArtworkDockCard: View {
 
 // MARK: - Settings Popup
 struct AppStore2026SettingsPopup: View {
-    @Environment(\.dismiss) private var dismiss
-    let sources: FetchedResults<AltSource>
-    @ObservedObject var viewModel: SourcesViewModel
-    @ObservedObject private var cache=AppStoreCacheManager.shared
-    @ObservedObject private var remote=XSignRemoteManager.shared
-    @State private var selectedSection=0
-    @State private var adding=false
-    private var userSources: [AltSource] {
-        sources.filter { source in source.sourceURL.map { XSignDashboardSources.isUserSource($0) && !ProtectedSourcesVault.isRetiredSource($0) } ?? false }
-    }
-    var body: some View {
-        XSignNavigationView {
-            VStack {
-                HStack { Text("XSign").font(.title2.bold());Spacer();Button("تم") { dismiss() } }.padding()
-                Picker("القسم",selection:$selectedSection) {
-                    Text("الإعدادات").tag(0);Text("الشهادات").tag(1);Text("المصادر").tag(2)
-                }.pickerStyle(.segmented).padding(.horizontal)
-                if selectedSection == 0 { SettingsView() }
-                else if selectedSection == 1 { CertificatesView() }
-                else {
-                    List {
-                        if remote.config?.dashboard?.allow_user_sources != false {
-                            Button { adding=true } label: { Label("إضافة مصدر", systemImage: "plus.circle.fill") }
-                        }
-                        Section("مصادر المتجر") {
-                            ForEach(cache.storeSources) { source in XSignStoreSourceRow(source:source) }
-                        }
-                        Section("مصادرك الشخصية") {
-                            ForEach(userSources,id:\.objectID) { source in SourcesCellView(source:source) }
-                        }
-                        ForEach(userSources,id:\.objectID) { source in
-                            if let error=viewModel.errors[source] { Text(error).font(.caption).foregroundStyle(.red) }
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented:$adding) { CustomSafeAddSourceSheet() }
-        }.environment(\.layoutDirection,.rightToLeft)
-    }
+	@Environment(\.dismiss) private var dismiss
+	let sources: FetchedResults<AltSource>
+	@ObservedObject var viewModel: SourcesViewModel
+	@State private var selectedSection = 0
+	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
+
+	var body: some View {
+		XSignNavigationView {
+			VStack(spacing: 0) {
+				VStack(spacing: 12) {
+					HStack(spacing: 12) {
+						ZStack {
+							RoundedRectangle(cornerRadius: 12, style: .continuous)
+								.fill(
+									LinearGradient(
+										colors: [Color(hex: userTintHex), AppStoreTheme.deepOcean],
+										startPoint: .topLeading,
+										endPoint: .bottomTrailing
+									)
+								)
+							FRAppIconView(size: 48)
+						}
+						.frame(width: 48, height: 48)
+
+						VStack(alignment: .leading, spacing: 2) {
+							Text("X-SIGN")
+								.font(.headline.weight(.bold))
+							Text("الإعدادات والشهادات")
+								.font(.caption)
+								.foregroundStyle(.secondary)
+						}
+
+						Spacer()
+
+						Button("تم") {
+							dismiss()
+						}
+						.font(.body.weight(.bold))
+					}
+
+					Picker("", selection: $selectedSection) {
+						Text("الإعدادات").tag(0)
+						Text("الشهادات").tag(1)
+					}
+					.pickerStyle(.segmented)
+				}
+				.padding(.horizontal, 18)
+				.padding(.vertical, 12)
+				.background(Color(uiColor: .secondarySystemGroupedBackground))
+
+				if selectedSection == 0 {
+					SettingsView()
+				} else {
+					CertificatesView()
+				}
+			}
+			.navigationBarHidden(true)
+		}
+		.environment(\.layoutDirection, .rightToLeft)
+	}
 }
 
 struct CustomSafeAddSourceSheet: View {

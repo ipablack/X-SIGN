@@ -51,6 +51,7 @@ struct XSignOwnerUpdate: Codable, Equatable, Sendable {
 }
 
 struct XSignDashboardConfig: Codable, Equatable, Sendable {
+    var catalog_profile: String? = nil
     let schema_version: Int?
     let sources: [XSignManagedSource]?
     let sections: [XSignStoreSection]?
@@ -61,7 +62,15 @@ struct XSignDashboardConfig: Codable, Equatable, Sendable {
 
     func sections(for page: String) -> [XSignStoreSection] {
         var seen = Set<String>()
-        return (sections ?? Self.defaultSections).filter {
+        var layout = sections ?? Self.defaultSections
+        if catalog_profile == nil, layout.contains(where: { $0.id == "apps-sources" && $0.kind == "sources" }) {
+            layout = layout.flatMap { item -> [XSignStoreSection] in
+                if item.id == "apps-sources" { return [.init(id:"apps-featured",title:"مختارات التطبيقات",page:"apps",kind:"featured")] }
+                if item.id == "games-list" { return [.init(id:"games-featured",title:"مختارات الألعاب",page:"games",kind:"featured"), item] }
+                return [item]
+            }
+        }
+        return layout.filter {
             $0.page == page && $0.enabled != false && !$0.id.isEmpty && seen.insert($0.id).inserted &&
             ["news", "featured", "apps", "sources", "categories"].contains($0.kind)
         }.prefix(40).map { $0 }
@@ -70,11 +79,11 @@ struct XSignDashboardConfig: Codable, Equatable, Sendable {
         .init(id:"today-news", title:"آخر الأخبار", page:"today", kind:"news"),
         .init(id:"today-featured", title:"مختارات IPA BLACK", page:"today", kind:"featured"),
         .init(id:"today-apps", title:"جديد المتجر", page:"today", kind:"apps"),
-        .init(id:"apps-sources", title:"مصادرك", page:"apps", kind:"sources"),
         .init(id:"apps-categories", title:"الأقسام", page:"apps", kind:"categories"),
         .init(id:"apps-featured", title:"مختارات التطبيقات", page:"apps", kind:"featured"),
         .init(id:"apps-list", title:"جميع التطبيقات", page:"apps", kind:"apps", limit:60),
         .init(id:"games-categories", title:"أقسام الألعاب", page:"games", kind:"categories"),
+        .init(id:"games-featured", title:"مختارات الألعاب", page:"games", kind:"featured"),
         .init(id:"games-list", title:"الألعاب", page:"games", kind:"apps", limit:60)
     ]
 }
@@ -86,19 +95,36 @@ enum XSignVersion {
 }
 
 enum XSignDashboardSources {
+    static let profile = "zsign-public-v1"
+    static let profileKey = "xsign.catalogProfile.v1"
+    static let priorPlusURL = "https://supapi.trystore.net/rest/v1/plus_library_apps"
     static let key = "xsign.dashboardSources.v2"
     static let historyKey = "xsign.managedSourceHistory.v2"
     static let userKey = "xsign.explicitUserSources.v2"
     static var configured: [XSignManagedSource]? {
-        UserDefaults.standard.data(forKey:key).flatMap { try? JSONDecoder().decode([XSignManagedSource].self,from:$0) }.map(ordered)
+        UserDefaults.standard.data(forKey:key).flatMap { try? JSONDecoder().decode([XSignManagedSource].self,from:$0) }
+            .map { migrated($0, profile: UserDefaults.standard.string(forKey:profileKey)) }.map(ordered)
+    }
+    static func migrated(_ sources: [XSignManagedSource], profile: String?) -> [XSignManagedSource] {
+        // Upgrade the previous built-in provider only. Explicit deletions and
+        // unrelated custom configuration survive. No empty-list reset.
+        guard profile != Self.profile else { return sources }
+        return sources.flatMap { item -> [XSignManagedSource] in
+            guard item.id == "xsign.core.primary", item.url == priorPlusURL else { return [item] }
+            return [
+                .init(id:"xsign.core.primary",name:"ipasoon",url:ProtectedSourcesVault.primaryURLString,enabled:item.enabled),
+                .init(id:"xsign.core.zsign",name:"متجر Zsign الرسمي",url:ProtectedSourcesVault.secondaryURLString,enabled:item.enabled)
+            ]
+        }
     }
     static func ordered(_ sources:[XSignManagedSource])->[XSignManagedSource] {
         func priority(_ source:XSignManagedSource)->Int {
-            guard let url=source.safeURL else { return 2 }
+            guard let url=source.safeURL else { return 3 }
             let value=XSignCatalogIO.canonicalURL(url).absoluteString
             if value==ProtectedSourcesVault.defaultOwnedURLString { return 0 }
             if value==ProtectedSourcesVault.primaryURLString { return 1 }
-            return 2
+            if value==ProtectedSourcesVault.secondaryURLString { return 2 }
+            return 3
         }
         return sources.enumerated().sorted {
             let lhs=priority($0.element),rhs=priority($1.element)
@@ -125,7 +151,7 @@ enum XSignDashboardSources {
     @discardableResult static func apply(_ config: XSignDashboardConfig?) -> Bool {
         guard config?.schema_version == 2, let sources=config?.sources else { return false }
         var seen=Set<String>(), seenURLs=Set<String>()
-        let valid=ordered(sources.prefix(50).compactMap { item -> XSignManagedSource? in
+        let valid=ordered(migrated(sources, profile: config?.catalog_profile).prefix(50).compactMap { item -> XSignManagedSource? in
             guard !item.id.isEmpty, !item.name.isEmpty, item.enabled != false, let url=item.safeURL,
                   seen.insert(item.id).inserted, seenURLs.insert(XSignCatalogIO.canonicalURL(url).absoluteString).inserted else { return nil }
             var value=item
@@ -138,6 +164,7 @@ enum XSignDashboardSources {
         configured?.forEach { history.insert($0.url) };valid.forEach { history.insert($0.url) }
         UserDefaults.standard.set(Array(history),forKey:historyKey)
         if let data=try? JSONEncoder().encode(valid) { UserDefaults.standard.set(data,forKey:key) }
+        UserDefaults.standard.set(profile,forKey:profileKey)
         return changed
     }
 }

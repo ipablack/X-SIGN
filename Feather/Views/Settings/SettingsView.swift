@@ -14,9 +14,6 @@ import IDeviceSwift
 // MARK: - View
 struct SettingsView: View {
 
-	@ObservedObject private var ownerRemote = XSignRemoteManager.shared
-    @State private var syncingOwner = false
-
 	// MARK: Body
 	var body: some View {
 		NBNavigationView(.localized("Settings")) {
@@ -33,40 +30,27 @@ struct SettingsView: View {
 					NavigationLink(destination: ConfigurationView()) {
 						Label(.localized("Signing Options"), systemImage: "signature")
 					}
+					NavigationLink(destination: ArchiveView()) {
+						Label(.localized("Archive & Compression"), systemImage: "archivebox")
+					}
 					NavigationLink(destination: InstallationView()) {
 						Label(.localized("Installation"), systemImage: "arrow.down.circle")
 					}
 				} footer: {
-					Text("إعداد التثبيت المحلي وخيارات تعديل التطبيقات.")
+					Text(.localized("Configure the apps way of installing, its zip compression levels, and custom modifications to apps."))
 				}
-                Section {
-                    NavigationLink(destination:XSignAppUpdateView()) { Label("تحديث XSign",systemImage:"arrow.down.circle.fill") }
-                }
-                Section {
-                    HStack { Text("مراجعة لوحة التحكم"); Spacer(); Text(String(ownerRemote.currentRevisionID)).foregroundStyle(.secondary) }
-                    Text(ownerRemote.remoteSyncStatus).font(.footnote).foregroundStyle(.secondary)
-                    if let date = ownerRemote.lastRemoteSync {
-                        Text(date, style: .time).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Button {
-                        guard !syncingOwner else { return }
-                        syncingOwner = true
-                        Task {
-                            await ownerRemote.fetchRemoteConfig()
-                            syncingOwner = false
-                        }
-                    } label: { Label(syncingOwner ? "جارٍ المزامنة…" : "مزامنة إعدادات IPA BLACK", systemImage: "arrow.triangle.2.circlepath") }
-                    .disabled(syncingOwner)
-                } footer: {
-                    Text("تصل إعدادات المظهر والمصادر والتحديثات من IPA BLACK. قارن رقم المراجعة مع المنشور في اللوحة.")
-                }
 
+				Section {
+                    NavigationLink(destination: XSignAppUpdateView()) {
+                        Label("تحديث XSign", systemImage: "arrow.down.circle.fill")
+                    }
+                }
 				Section {
 					NavigationLink(destination: ResetView()) {
 						Label(.localized("Reset"), systemImage: "trash")
 					}
 				} footer: {
-					Text(.localized("Reset the applications sources, certificates, apps, and general contents."))
+					Text(.localized("Reset certificates, apps, and general contents."))
 				}
 			}
 		}

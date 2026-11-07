@@ -16,6 +16,16 @@ PRIORITY = json.loads((ROOT / 'Tools/Integration/contract.json').read_text())['s
 
 
 class SourceBootstrapChecks(unittest.TestCase):
+    def test_previous_plus_default_migrates_without_resurrecting_an_empty_list(self):
+        current = copy.deepcopy(DEFAULTS)
+        dashboard = current['xsign_config']['dashboard']
+        dashboard.pop('catalog_profile')
+        dashboard['sources'] = [{'id': 'xsign.core.primary', 'name': 'Plus', 'url': 'https://supapi.trystore.net/rest/v1/plus_library_apps'}]
+        result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
+        self.assertEqual([source['url'] for source in result['xsign_config']['dashboard']['sources']], PRIORITY[1:])
+        dashboard['sources'] = []
+        self.assertEqual(module.normalize_catalogue(current, DEFAULTS, PRIORITY)['xsign_config']['dashboard']['sources'], [])
+
     def test_old_catalogue_gains_contract_without_losing_apps_or_unknown_fields(self):
         current = {'apps': [{'bundleIdentifier': 'com.fixture.app', 'versions': [{'version': '1'}], 'future': 7}],
             'repo_revision_id': 2, 'future_root': {'keep': True}, 'xsign_config': {'theme': {'app_tint_hex': '#ABCDEF'}}}

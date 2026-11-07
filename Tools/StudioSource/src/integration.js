@@ -4,14 +4,15 @@ const XSIGN_INTEGRATION={schema:2,minimumOS:'15.0',name:'XSign',version:'1.0',bu
   ['المصادر وترتيب المتجر والتبويبات','dashboard'],['التوقيع وتحرير البيانات والأيقونة والحقن','security_locks'],
   ['الصيانة والتحديث الإجباري ورقم البناء','force_update'],['صفحة HTML والتحديث الموقّع','dashboard.update'],
   ['الشريط العلوي وتجديد الكاش','app_control'],['التطبيقات والإصدارات والأخبار والتصنيفات','catalogue']]};
-const DASHBOARD_DEFAULTS={schema_version:2,allow_user_sources:true,signing_enabled:true,
-  tab_order:['today','apps','games','search','library'],
+const DASHBOARD_DEFAULTS={schema_version:2,catalog_profile:'zsign-public-v1',allow_user_sources:false,signing_enabled:true,
+  tab_order:['today','games','apps','library','search'],
   sources:[{id:'xsign.core.owned',name:'IPA BLACK',url:OWNED_CANONICAL_URL,enabled:true,format:'auto'},
-    {id:'xsign.core.primary',name:'متجر بلس',url:PRIMARY_SOURCE_URL,enabled:true,format:'auto'}],
+    {id:'xsign.core.primary',name:'ipasoon',url:PRIMARY_SOURCE_URL,enabled:true,format:'auto'},
+    {id:'xsign.core.zsign',name:'متجر Zsign الرسمي',url:SECONDARY_SOURCE_URL,enabled:true,format:'auto'}],
   sections:[['today-news','الأخبار','today','news'],['today-featured','مختارات IPA BLACK','today','featured'],
-    ['today-apps','جديد المتجر','today','apps'],['apps-sources','المصادر','apps','sources'],
-    ['apps-categories','التصنيفات','apps','categories'],['apps-list','التطبيقات','apps','apps'],
-    ['games-list','الألعاب','games','apps']].map(([id,title,page,kind])=>({id,title,page,kind,enabled:true,limit:kind==='apps'?60:12})),
+    ['today-apps','جديد المتجر','today','apps'],
+    ['apps-categories','التصنيفات','apps','categories'],['apps-featured','مختارات التطبيقات','apps','featured'],['apps-list','التطبيقات','apps','apps'],
+    ['games-featured','مختارات الألعاب','games','featured'],['games-list','الألعاب','games','apps']].map(([id,title,page,kind])=>({id,title,page,kind,enabled:true,limit:kind==='apps'?60:12})),
   update:{enabled:false,latest_version:'',build_version:'',ipa_url:'',sha256:'',manifest_url:'',notes:'',html:''}};
 const TAB_TITLES={today:'اليوم',apps:'التطبيقات',games:'الألعاب',search:'البحث',library:'التوقيع والمكتبة'};
 const KIND_TITLES={apps:'قائمة تطبيقات',featured:'تطبيقات مميزة',sources:'المصادر',categories:'التصنيفات',news:'الأخبار'};
@@ -22,7 +23,7 @@ function canonicalManagedSourceURL(value){
     'https://raw.githubusercontent.com/ipablack/repo/refs/heads/main/repo.json'];
   return aliases.includes(value)?OWNED_CANONICAL_URL:value;
 }
-function managedSourcePriority(source){const url=canonicalManagedSourceURL(source?.url);return url===OWNED_CANONICAL_URL?0:url===PRIMARY_SOURCE_URL?1:2;}
+function managedSourcePriority(source){const url=canonicalManagedSourceURL(source?.url);return url===OWNED_CANONICAL_URL?0:url===PRIMARY_SOURCE_URL?1:url===SECONDARY_SOURCE_URL?2:3;}
 const integrationCoreSources=enforceCoreSources;
 enforceCoreSources=function(value){const sources=value.xsign_config.dashboard?.sources;
   if(Array.isArray(sources))sources.sort((a,b)=>managedSourcePriority(a)-managedSourcePriority(b));return integrationCoreSources(value);};
@@ -30,7 +31,20 @@ const integrationDefaults=createDefaultState;
 createDefaultState=function(){const value=integrationDefaults();value.xsign_config.dashboard=clone(DASHBOARD_DEFAULTS);
   value.xsign_config.theme.appearance='system';value.xsign_config.force_update.min_build_version='';return value;};
 const integrationNormalize=normalizeState;
-normalizeState=function(parsed){const value=integrationNormalize(parsed),cfg=value.xsign_config;
+function migrateZsignCatalogue(parsed){
+  const input=clone(parsed),d=input?.xsign_config?.dashboard;
+  if(d&&d.catalog_profile!=='zsign-public-v1'){
+    if(Array.isArray(d.sections)&&d.sections.some(s=>s.id==='apps-sources'&&s.kind==='sources'))d.sections=d.sections.flatMap(s=>{
+      if(s.id==='apps-sources')return [clone(DASHBOARD_DEFAULTS.sections.find(row=>row.id==='apps-featured'))];
+      if(s.id==='games-list')return [clone(DASHBOARD_DEFAULTS.sections.find(row=>row.id==='games-featured')),s];return [s];});
+    if(Array.isArray(d.sources))d.sources=d.sources.flatMap(s=>s.id==='xsign.core.primary'&&s.url==='https://supapi.trystore.net/rest/v1/plus_library_apps'
+      ?DASHBOARD_DEFAULTS.sources.slice(1).map(row=>({...clone(row),enabled:s.enabled!==false})):[s]);
+    if(JSON.stringify(d.tab_order)===JSON.stringify(['today','apps','games','search','library']))d.tab_order=clone(DASHBOARD_DEFAULTS.tab_order);
+    d.catalog_profile='zsign-public-v1';d.allow_user_sources=false;
+  }
+  return input;
+}
+normalizeState=function(parsed){const value=integrationNormalize(migrateZsignCatalogue(parsed)),cfg=value.xsign_config;
   const old=parsed?.xsign_config?.security_locks;
   if(old&&!own(old,'allow_app_metadata_editing')&&typeof old.lock_bundle_rename==='boolean')cfg.security_locks.allow_app_metadata_editing=!old.lock_bundle_rename;
   cfg.security_locks.lock_bundle_rename=!cfg.security_locks.allow_app_metadata_editing;
@@ -97,15 +111,15 @@ Object.assign(PAGE_META,{
 let editingManagedSource=null,editingStoreSection=null;
 function integrationChange(action,label){mutate(action,label);syncInputs();renderIntegration();}
 function integrationMove(list,index,offset){const other=index+offset;if(other<0||other>=list.length)return;
-  if(list===state.xsign_config.dashboard.sources&&(managedSourcePriority(list[index])<2||managedSourcePriority(list[other])<2)){
-    toast('أولوية IPA BLACK ثم متجر بلس ثابتة. يمكنك ترتيب المصادر الإضافية.');return;}
+  if(list===state.xsign_config.dashboard.sources&&(managedSourcePriority(list[index])<3||managedSourcePriority(list[other])<3)){
+    toast('أولوية IPA BLACK ثم مصدري Zsign. يمكنك ترتيب المصادر الإضافية.');return;}
   integrationChange(()=>{[list[index],list[other]]=[list[other],list[index]];},'تغيير ترتيب المتجر');}
 function sourceOrSectionRow(item,index,list,isSource){
   const row=text('div','','entry row'),details=text('div','','grow');
   details.append(text('strong',isSource?item.name:item.title),text('small',isSource?item.url:(TAB_TITLES[item.page]||item.page)+' · '+KIND_TITLES[item.kind]+' · '+item.limit,'muted'));
   row.append(details,button('تعديل',()=>isSource?editManagedSource(item):editStoreSection(item),'edit'),
     button(item.enabled?'إخفاء':'إظهار',()=>integrationChange(()=>item.enabled=!item.enabled,'تغيير ظهور عنصر المتجر')));
-  if(isSource&&managedSourcePriority(item)<2)row.append(text('small','أولوية ثابتة','muted'));
+  if(isSource&&managedSourcePriority(item)<3)row.append(text('small','أولوية ثابتة','muted'));
   else row.append(button('↑',()=>integrationMove(list,index,-1)),button('↓',()=>integrationMove(list,index,1)));
   row.append(button('حذف',()=>confirmAction('حذف من المتجر','يُحذف هذا العنصر من المسودة. يصل التغيير إلى التطبيق بعد النشر.',()=>integrationChange(()=>list.splice(list.indexOf(item),1),'حذف عنصر متجر')),'trash'));
   return row;

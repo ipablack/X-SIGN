@@ -34,6 +34,31 @@ def normalize_catalogue(current, defaults, priority):
     dashboard = config['dashboard']
     if dashboard.get('schema_version') != 2 or not isinstance(dashboard.get('sources'), list):
         raise ValueError('Review the unsupported dashboard schema before initializing the source repo.')
+    previous_profile = current.get('xsign_config', {}).get('dashboard', {}).get('catalog_profile')
+    if previous_profile != 'zsign-public-v1':
+        migrated = []
+        for source in dashboard['sources']:
+            if isinstance(source, dict) and source.get('id') == 'xsign.core.primary' and source.get('url') == 'https://supapi.trystore.net/rest/v1/plus_library_apps':
+                for replacement in defaults['xsign_config']['dashboard']['sources'][1:]:
+                    migrated.append({**copy.deepcopy(replacement), 'enabled': source.get('enabled', True)})
+            else:
+                migrated.append(source)
+        dashboard['sources'] = migrated
+        if dashboard.get('tab_order') == ['today', 'apps', 'games', 'search', 'library']:
+            dashboard['tab_order'] = ['today', 'games', 'apps', 'library', 'search']
+        if any(item.get('id') == 'apps-sources' and item.get('kind') == 'sources' for item in dashboard.get('sections', []) if isinstance(item, dict)):
+            replacements = {item['id']: item for item in defaults['xsign_config']['dashboard']['sections']}
+            layout = []
+            for item in dashboard['sections']:
+                if item['id'] == 'apps-sources':
+                    layout.append(copy.deepcopy(replacements['apps-featured']))
+                else:
+                    if item['id'] == 'games-list':
+                        layout.append(copy.deepcopy(replacements['games-featured']))
+                    layout.append(item)
+            dashboard['sections'] = layout
+        dashboard['catalog_profile'] = 'zsign-public-v1'
+        dashboard['allow_user_sources'] = False
     aliases = {
         'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json': priority[0],
         'https://github.com/ipablack/repo/blob/main/repo.json': priority[0],
@@ -45,7 +70,7 @@ def normalize_catalogue(current, defaults, priority):
         if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k] for k in ['id', 'name', 'url']):
             raise ValueError('Review a malformed managed source before publishing.')
     sources.sort(key=lambda item: priority.index(aliases.get(item['url'], item['url']))
-                 if aliases.get(item['url'], item['url']) in priority else 2)
+                 if aliases.get(item['url'], item['url']) in priority else len(priority))
     # A real [] stays []; the compatibility projection cannot resurrect defaults.
     config['app_control']['core_sources'] = [
         {key: source[key] for key in ['name', 'id', 'url']}

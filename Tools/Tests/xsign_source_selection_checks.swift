@@ -3,7 +3,7 @@ import Foundation
 @main
 struct ApprovedSourceChecks {
     static func main() throws {
-        let policyKeys=[XSignDashboardSources.key,XSignDashboardSources.historyKey,XSignDashboardSources.userKey]
+        let policyKeys=[XSignDashboardSources.key,XSignDashboardSources.historyKey,XSignDashboardSources.userKey,XSignDashboardSources.profileKey]
         let savedPolicy=policyKeys.map { UserDefaults.standard.object(forKey:$0) }
         policyKeys.forEach { UserDefaults.standard.removeObject(forKey:$0) }
         defer { for (key,value) in zip(policyKeys,savedPolicy) {
@@ -16,8 +16,9 @@ struct ApprovedSourceChecks {
             else { UserDefaults.standard.removeObject(forKey: key) }
         }
         UserDefaults.standard.removeObject(forKey: key)
-        precondition(ProtectedSourcesVault.coreURLs == [ProtectedSourcesVault.defaultOwnedURLString, XSignRESTSource.primaryURL])
-        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: XSignRESTSource.primaryURL)))
+        precondition(ProtectedSourcesVault.coreURLs == [ProtectedSourcesVault.defaultOwnedURLString, ProtectedSourcesVault.primaryURLString, ProtectedSourcesVault.secondaryURLString])
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: ProtectedSourcesVault.primaryURLString)))
+        precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: ProtectedSourcesVault.secondaryURLString)))
         precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString)))
         precondition(XSignCatalogIO.canonicalURL(URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString)!).absoluteString == ProtectedSourcesVault.defaultOwnedURLString)
         precondition(ProtectedSourcesVault.validOwnedURL(ProtectedSourcesVault.defaultOwnedGitHubRawURLString)?.absoluteString == ProtectedSourcesVault.defaultOwnedURLString)
@@ -31,11 +32,11 @@ struct ApprovedSourceChecks {
         precondition(ProtectedSourcesVault.validOwnedURL("https://user:password@sources.example.test/repo.json") == nil)
         precondition(ProtectedSourcesVault.validOwnedURL(XSignRESTSource.primaryURL) == nil)
         let old = [XSignCoreSourceItem(name: "Old", id: "xsign.core.ipablack", url: ProtectedSourcesVault.legacyURLs[0])]
-        precondition(SourceSelection.resolvedManagedSources(old).count == 2)
+        precondition(SourceSelection.resolvedManagedSources(old).count == 3)
         let configured = old + [XSignCoreSourceItem(name: "IPA BLACK", id: "xsign.core.owned", url: candidate)]
-        precondition(SourceSelection.resolvedManagedSources(configured).map(\.url) == [ProtectedSourcesVault.defaultOwnedURLString,XSignRESTSource.primaryURL])
+        precondition(SourceSelection.resolvedManagedSources(configured).map(\.url) == ProtectedSourcesVault.coreURLs)
         UserDefaults.standard.set(candidate, forKey: key)
-        precondition(ProtectedSourcesVault.coreURLs.count == 2)
+        precondition(ProtectedSourcesVault.coreURLs.count == 3)
         precondition(ProtectedSourcesVault.ownedURL?.absoluteString==ProtectedSourcesVault.defaultOwnedURLString)
         precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: candidate)))
         precondition(!ProtectedSourcesVault.isRetiredSource(URL(string: "https://another.example.test/repo.json")))
@@ -88,6 +89,14 @@ struct ApprovedSourceChecks {
         let empty=try JSONDecoder().decode(XSignDashboardConfig.self,from:Data(#"{"schema_version":2,"sources":[]}"#.utf8))
         precondition(XSignDashboardSources.apply(empty))
         precondition(SourceSelection.resolvedManagedSources(nil).isEmpty)
+        let previous=try JSONDecoder().decode(XSignDashboardConfig.self,from:JSONSerialization.data(withJSONObject:["schema_version":2,"sources":[
+            ["id":"xsign.core.primary","name":"Previous","url":XSignDashboardSources.priorPlusURL]
+        ]]))
+        precondition(XSignDashboardSources.apply(previous))
+        precondition(SourceSelection.resolvedManagedSources(nil).map(\.url)==[ProtectedSourcesVault.primaryURLString,ProtectedSourcesVault.secondaryURLString])
+        precondition(!XSignDashboardSources.apply(previous), "Repeated legacy config must be stable")
+        precondition(XSignDashboardSources.apply(empty))
+        precondition(SourceSelection.resolvedManagedSources(nil).isEmpty, "Deleted sources were resurrected")
         let orderedConfig = try JSONDecoder().decode(XSignDashboardConfig.self,from:JSONSerialization.data(withJSONObject:["schema_version":2,"sources":[
             ["id":"plus","name":"Plus","url":XSignRESTSource.primaryURL],
             ["id":"owner","name":"IPA BLACK","url":ProtectedSourcesVault.defaultOwnedGitHubRawURLString]

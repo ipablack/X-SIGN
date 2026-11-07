@@ -239,7 +239,8 @@
   ],
   "Feather/Utilities/XSignRESTSource.swift": [
     null,
-    "7b2dcbff40fd9186e50b0d3f13992cbf7fd8048ad04bd4d098c05f1cb591a56b"
+    "7b2dcbff40fd9186e50b0d3f13992cbf7fd8048ad04bd4d098c05f1cb591a56b",
+    "e56fa96db580c3d30df6bdb10251cfe11de9ed2fc0e67d9be5acefa8d469e91d"
   ],
   "Feather/Utilities/XSignSelfUpdateCertificate.swift": [
     null,
@@ -320,7 +321,8 @@
   "Feather/Views/Settings/Certificates/CertificatesView.swift": [
     "1f6ddba24627b5ab969ac54b68710377821d58a9669aea73cb11367118960596",
     "7859cf95833e81e8d59886f6cd2c2ce264ae4e4a48389e9b5df8dbb77d49287f",
-    "06ef7d2f9231a56b8035008c36970c14c7c3ae1b7c1e4aff69bf4ac5447c574e"
+    "06ef7d2f9231a56b8035008c36970c14c7c3ae1b7c1e4aff69bf4ac5447c574e",
+    "18c3d98f51513802fe5a74b7684728a50c9c88741d6e7c28e633b861b5cbc4d9"
   ],
   "Feather/Views/Settings/Certificates/Info/CertificatesInfoView.swift": [
     "aefa6516acb030242e62c3841f8315609ac967dde5c65ba5f02430da6fd65019",
@@ -348,7 +350,8 @@
   "Feather/Views/Settings/Reset/ResetView.swift": [
     "181b018cfb3cd708e9f4116df21de7a8f5a7346ef4d725fabcbdb573327be14a",
     "675928ae82b6d4b717c551d6b6a3beadff244dfa68c43e6cdba5ce8ac33fef92",
-    "5de05ccb759796a2e5d6076bfe63aaa449bea11cc795eb49910f39459e3aace8"
+    "5de05ccb759796a2e5d6076bfe63aaa449bea11cc795eb49910f39459e3aace8",
+    "e3942ff882193853ddc3e1790f83f5bd82ebe0148fba26a2dace99d9f6e14b5f"
   ],
   "Feather/Views/Settings/SettingsView.swift": [
     "d3830a6d43104e2a233e9d8e3f698fffb997af61af3edff51be43d402b597ba7",
@@ -428,7 +431,8 @@
     "1b4ff8559c82be44f5a653c90fd1933d021fd544a37f4c297ef3820590c999ef",
     "d923846e2e367cc2977c91763673187bb4dd7dde32e1234d4c292d2d9ba27319",
     "378857115bc3e03e14356a7ebe4a494f601b3e0f00ca865c2f9850d34e4c7b3e",
-    "85b071ed1591548f2be7df26f994d68c6249da959f3e1b5c0a4325850ffe3d70"
+    "85b071ed1591548f2be7df26f994d68c6249da959f3e1b5c0a4325850ffe3d70",
+    "f90f49249e0d4ca0fd2ee0ade08910c9e4d79729470135169ecf1ea5c4370f29"
   ],
   "Feather/Views/Sources/SourcesCellView.swift": [
     "d91d3db9911809f00d0d831025f1a5c9bc78b3ce1e79c62f50a118573ebc50aa",
@@ -450,7 +454,8 @@
     "f8ab1e3a67793ead11edd023b0932327189057971603a6e9ce64f0dbf13d558b",
     "307037a91078237b5b20d94d84a805fe83318768da0a47eb309260132e50f616",
     "caa472306b032449772d5c96abbad6c591aa5f980591c54f71be6284892f15fb",
-    "b55faccea350a7b96401394598b7370718b7fd7886fc7f7760403bd293f9fddb"
+    "b55faccea350a7b96401394598b7370718b7fd7886fc7f7760403bd293f9fddb",
+    "0d480da321112fae891f8342eee4517072ca842bbbcb9ad79a6ae7aeed30e54d"
   ],
   "Feather/Views/Sources/XSignConfiguredStoreView.swift": [
     null,
@@ -520,7 +525,8 @@
     "ed5a31b3798c19c9f094c7ae2705fedb40485f03b6500d37864de5696f1dce9c",
     "1de0b920c54555d3ac00bae76a7c9f00fecec669aab59167854b494da0c6fc82",
     "d8c44af163ffd2cd629e67517f4c697d4e4082e2f4857f1aee48089c9cccd531",
-    "54b546135210988edf354ae97f4a9e03815550ee9d158c408dcb505c7cf32542"
+    "54b546135210988edf354ae97f4a9e03815550ee9d158c408dcb505c7cf32542",
+    "2fae36bdfe98237da82f9f6cbef1e751b1cb0709a0a4cf0cf43fd600d222bf32"
   ],
   "Tools/Delivery/XSign_Full_Link_AR.md": [
     null,
@@ -532,7 +538,8 @@
     "865eb820c585309171a091b14f3e9ad5e72f8bb437fa3ca6e038c39ca51d3185",
     "38583fbeeb25c087682e7e9dbb7b56783fcadc79d1dc3113ac115ebd1a6a4390",
     "c23efcee25387125c54af785764cb8b2bfd9a0690da9c71f6448e47cf1057caf",
-    "fb9507d9e6af9cb45759b96e3a882b94de6ecf56eb007c6e57c77bc57512162f"
+    "fb9507d9e6af9cb45759b96e3a882b94de6ecf56eb007c6e57c77bc57512162f",
+    "dd26fdd58039251afc49456732d05f69804fa5aa2c819f6345f5ac8b6afef1dc"
   ],
   "Tools/Delivery/build_unified_delivery.py": [
     null,
@@ -572,7 +579,8 @@
     "7c1102b308abc5ca4f85d1ffd51e7b4b20d532f98f2fbd2e8649aec0f3210671",
     "d992c295bc4f6469a1c02019bb3811a8bf77141b53061b46170cf7667a1fefed",
     "9015117f30b96fbc66311ab48d7a6ce6d5fe3d85ce0536bd220698b7db00d355",
-    "17a0ea51c60c5516a98fd6b072596bcd9048ecdc45397de3b47f3bde373940be"
+    "17a0ea51c60c5516a98fd6b072596bcd9048ecdc45397de3b47f3bde373940be",
+    "498b962be69f7f9961f34828396f7b305bf66c582fdaed4b17d5edc53233e64b"
   ],
   "Tools/Delivery/source-asset-hashes.json": [
     null,
@@ -779,7 +787,8 @@
     "2f719cac7e2e87bdca94d0295f7d1d6b092e6daa0ecc826da1a93c5a10bf7dd3",
     "acf927238e943f2304f5a3cf7d6efcedbfdc4c9dbff6ea1ca070fdde336e8837",
     "0c7a37ae6f19479de3f763c171b00cb45f616f0a5ec85752da479613b7767878",
-    "7fb96f56f6c07cbe4938e7160ad316ad894002bcf4e0811a963dceb1d6e8fa80"
+    "7fb96f56f6c07cbe4938e7160ad316ad894002bcf4e0811a963dceb1d6e8fa80",
+    "3f3f58adfc1558b93ba0f57276829c37e4e3de545d6dea7e432dfd6744715a62"
   ],
   "Tools/Tests/xsign_studio_v2_checks.cjs": [
     null,
@@ -865,15 +874,18 @@
   ],
   "Tools/Tests/check_ios_compatibility.py": [
     null,
-    "89f19fb5150f9d570c5b061a251f077b4e9a9510f34312171107f22368ae87f0"
+    "89f19fb5150f9d570c5b061a251f077b4e9a9510f34312171107f22368ae87f0",
+    "2d5fac90b90aa2954a98d1cbb9e673eddb566e814de59879265594b1a8facc12"
   ],
   "Tools/Delivery/Build_Run_Audit_AR.md": [
     null,
-    "f3ca5f29b640457ae681ca28d5522e5bd743809747d35448f476e6fc61d96901"
+    "f3ca5f29b640457ae681ca28d5522e5bd743809747d35448f476e6fc61d96901",
+    "4c4833a77a549fc17bf43f1f94e31c7fab773531dc048c09bd3e37117a56551e"
   ],
   "Feather/Views/Settings/SettingsDonationCellView.swift": [
     "c1d4e272c62547e018e7334dc54a3c6528bf3af7df404edd5b241fdabbbd4f30",
-    "1cb5d9351285441895bcf444de3b86b9ca253d1f6f42bf83d88ec0e1a2dfbd97"
+    "1cb5d9351285441895bcf444de3b86b9ca253d1f6f42bf83d88ec0e1a2dfbd97",
+    "b4433ff1a13a8378abeb84c14a857bd4f8ced92e496e2834f5fe3ecb74086951"
   ],
   "Feather/Views/Settings/About/AboutView.swift": [
     "77fe4679569cd8dd2595179dfeaa3543a76f713b216b0fa1a873901f4c41588d",
@@ -921,9 +933,22 @@
     "0445dbf8289c68908e4ef546fc8e39c6211530e2898c13afe2d94832afb98e08"
   ],
   "Feather/Views/Signing/Shared/SigningAlternativeIconView.swift": [
-    "609a2eaaae448d0df599ba9374a0a9f233770024313862a8c317c3520f8022a9"
+    "609a2eaaae448d0df599ba9374a0a9f233770024313862a8c317c3520f8022a9",
+    "bc2b7e3c25d65013556ca6c791210f319cfaff9f94ddbe9658328d6fd2caa2f7"
   ],
   "Feather/Views/Sources/Apps/Detail/ExpandableText.swift": [
-    "2e4e35adbeb88c3170ac9025672371d1b9801e84116a0ebdfb5c11c232a49202"
+    "2e4e35adbeb88c3170ac9025672371d1b9801e84116a0ebdfb5c11c232a49202",
+    "84a995e042eb96f350a06f8d8ec64a390865b9a44485de94fcf3b6ca042fc0ec"
+  ],
+  "Tools/Tests/xsign_appstore_provider_checks.swift": [
+    null
+  ],
+  "Feather/Views/Library/XSignAppStoreLinkView.swift": [
+    null,
+    "7882c7dd00c84432e66697f41454a587b7e51b3b0f47d5929657244aed443a58"
+  ],
+  "Feather/Utilities/XSignIPAProvider.swift": [
+    null,
+    "94c61a003379ecb4b019e03cc62c26217ef4898ea640ae5d0fb9a2db2f58341b"
   ]
 }

@@ -46,7 +46,8 @@
   "canonical_guide": "Tools/Delivery/XSign_Unified_Guide_AR.md",
   "source_priority": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
-    "https://supapi.trystore.net/rest/v1/plus_library_apps"
+    "https://appiraq.com/source.php?action=getAll",
+    "https://appiraq.com/han.json"
   ],
   "managed_sources_editable": true,
   "built_in_sources_removable": true,
@@ -58,5 +59,8 @@
   "configuration_authority_independent_of_source_list": true,
   "display_name": "XSign",
   "icon_source_url": "https://up6.cc/2026/11/179399545145851.png",
-  "panel_design": "Tools/Integration/panel-origin.json"
+  "panel_design": "Tools/Integration/panel-origin.json",
+  "user_source_interface": false,
+  "catalog_profile": "zsign-public-v1",
+  "appstore_service_status": "403 from the official endpoint: provider activation for XSign is required"
 }

@@ -20,7 +20,7 @@ struct ResetView: View {
 			_all()
 		}
 	}
-	
+
 	private func _cacheSize() -> String {
 		var totalCacheSize = URLCache.shared.currentDiskUsage
 		if let nukeCache = ImagePipeline.shared.configuration.dataCache as? DataCache {
@@ -28,7 +28,7 @@ struct ResetView: View {
 		}
 		return "\(ByteCountFormatter.string(fromByteCount: Int64(totalCacheSize), countStyle: .file))"
 	}
-	
+
 	static func resetAlert(
 		title: String,
 		message: String = "",
@@ -41,15 +41,15 @@ struct ResetView: View {
 			action()
 			UIApplication.shared.suspendAndReopen()
 		}
-		
+
 		let style: UIAlertController.Style = UIDevice.current.userInterfaceIdiom == .pad
 			? .alert
 			: .actionSheet
-		
+
 		var msg = ""
 		if !message.isEmpty { msg = message + "\n" }
 		msg.append(.localized("This action cannot be undone. Would you like to proceed?"))
-	
+
 		UIAlertController.showAlertWithCancel(
 			title: title,
 			message: msg,
@@ -71,7 +71,7 @@ extension ResetView {
 			} label: {
 				Label(.localized("Reset Work Cache"), systemImage: "xmark.rectangle.portrait")
 			}
-			
+
 			Button {
 				Self.resetAlert(
 					title: .localized("Reset Network Cache"),
@@ -84,21 +84,11 @@ extension ResetView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _coredata() -> some View {
 		Section {
-			Button {
-				Self.resetAlert(
-					title: .localized("Reset Sources"),
-					message: Storage.shared.countContent(for: AltSource.self)
-				) {
-					Self.resetSources()
-				}
-			} label: {
-				Label(.localized("Reset Sources"), systemImage: "xmark.circle")
-			}
-			
+
 			Button {
 				Self.resetAlert(
 					title: .localized("Reset Signed Apps"),
@@ -109,7 +99,7 @@ extension ResetView {
 			} label: {
 				Label(.localized("Reset Signed Apps"), systemImage: "xmark.circle")
 			}
-			
+
 			Button {
 				Self.resetAlert(
 					title: .localized("Reset Imported Apps"),
@@ -120,7 +110,7 @@ extension ResetView {
 			} label: {
 				Label(.localized("Reset Imported Apps"), systemImage: "xmark.circle")
 			}
-			
+
 			Button {
 				Self.resetAlert(
 					title: .localized("Reset Certificates"),
@@ -133,7 +123,7 @@ extension ResetView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _all() -> some View {
 		Section {
@@ -144,7 +134,7 @@ extension ResetView {
 			} label: {
 				Label(.localized("Reset Settings"), systemImage: "xmark.octagon")
 			}
-			
+
 			Button {
 				Self.resetAlert(title: .localized("Reset All")) {
 					Self.resetAll()
@@ -163,54 +153,54 @@ extension ResetView {
 		let fileManager = FileManager.default
         try? fileManager.removeItem(at: XSignPrivateFiles.workRoot)
 		let tmpDirectory = fileManager.temporaryDirectory
-		
+
 		if let files = try? fileManager.contentsOfDirectory(atPath: tmpDirectory.path) {
 			for file in files {
 				try? fileManager.removeItem(atPath: tmpDirectory.appendingPathComponent(file).path)
 			}
 		}
 	}
-	
+
 	static func clearNetworkCache() {
 		URLCache.shared.removeAllCachedResponses()
 		HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
-		
+
 		if let dataCache = ImagePipeline.shared.configuration.dataCache as? DataCache {
 			dataCache.removeAll()
 		}
-		
+
 		if let imageCache = ImagePipeline.shared.configuration.imageCache as? Nuke.ImageCache {
 			imageCache.removeAll()
 		}
 	}
-	
+
 	static func resetSources() {
 		Storage.shared.clearContext(request: AltSource.fetchRequest())
 	}
-	
+
 	static func deleteSignedApps() {
 		Storage.shared.deleteSourceMetadata(kind: .signed)
 		Storage.shared.clearContext(request: Signed.fetchRequest())
 		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
 	}
-	
+
 	static func deleteImportedApps() {
 		Storage.shared.deleteSourceMetadata(kind: .imported)
 		Storage.shared.clearContext(request: Imported.fetchRequest())
 		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
 	}
-	
+
 	static func resetCertificates(resetAll: Bool = false) {
         XSignCertificateSecrets.deleteAll()
 		if !resetAll { UserDefaults.standard.set(0, forKey: "feather.selectedCert") }
 		Storage.shared.clearContext(request: CertificatePair.fetchRequest())
 		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
 	}
-	
+
 	static func resetUserDefaults() {
 		UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
 	}
-	
+
 	static func resetAll() {
 		clearWorkCache()
 		clearNetworkCache()

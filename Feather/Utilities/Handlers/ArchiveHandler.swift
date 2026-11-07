@@ -37,10 +37,10 @@ final class ArchiveHandler: NSObject {
     func archive() async throws -> URL {
         guard let payload else { throw SigningFileHandlerError.appNotFound }
         let package = work.appendingPathComponent("Install.ipa")
+        let compress = UserDefaults.standard.integer(forKey: "Feather.compressionLevel") == 8
         try await Task.detached(priority: .userInitiated) {
             try Task.checkCancellation()
-            // Installation is local: avoid spending CPU recompressing an already signed bundle.
-            try FileManager.default.zipItem(at: payload, to: package, shouldKeepParent: true, compressionMethod: .none)
+            try FileManager.default.zipItem(at: payload, to: package, shouldKeepParent: true, compressionMethod: compress ? .deflate : .none)
             try XSignPrivateFiles.protect(package)
         }.value
         await MainActor.run { self.viewModel.packageProgress = 1 }

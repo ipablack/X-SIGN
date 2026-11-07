@@ -9,106 +9,99 @@ struct XSignStoreSource: Identifiable {
     let count: Int
 }
 
-struct XSignConfiguredStorePage: View {
+// Keep the original App Store cards while applying published content and order.
+// Source-management rows and owner diagnostics are not customer-facing sections.
+struct XSignClassicStoreContent: View {
     let page: String
-    let title: String
+    var category: AppStore2026Category? = nil
     @ObservedObject private var cache = AppStoreCacheManager.shared
     @ObservedObject private var remote = XSignRemoteManager.shared
-    @ObservedObject private var viewModel = SourcesViewModel.shared
-    @State private var settings = false
-    @FetchRequest(entity:AltSource.entity(),sortDescriptors:[NSSortDescriptor(keyPath:\AltSource.name,ascending:true)])
-    private var sources: FetchedResults<AltSource>
     private var sections: [XSignStoreSection] {
-        if let dashboard=remote.config?.dashboard { return dashboard.sections(for:page) }
-        return XSignDashboardConfig.defaultSections.filter { $0.page == page }
+        (remote.config?.dashboard?.sections(for: page)
+            ?? XSignDashboardConfig.defaultSections.filter { $0.page == page })
+            .filter { $0.kind != "sources" }
     }
     var body: some View {
-        XSignNavigationView {
-            ScrollView {
-                LazyVStack(alignment:.leading,spacing:24) {
-                    AppStore2026TopHeader(title:title,onSettingsTap:{ settings=true })
-                    if page == "today" {
-                        Text(Date(),format:.dateTime.weekday(.wide).day().month(.wide)).font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    ForEach(sections) { section in
-                        XSignConfiguredStoreSection(section:section,page:page,cache:cache)
-                    }
-                    if cache.allCombinedItems.isEmpty {
-                        AppStore2026EmptyState(isLoading:cache.isRefreshing || cache.isPreparing,
-                            emptyMessage:cache.catalogErrorMessage ?? "لا توجد تطبيقات بعد. يمكنك إضافة مصدر من الإعدادات.",
-                            retry:{ Task { await cache.forceRefresh(sources:sources,viewModel:viewModel) } })
-                    }
-                }.padding(.horizontal,18).padding(.bottom,110)
-            }
-            .background(AppStoreTheme.background.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .refreshable { await cache.forceRefresh(sources:sources,viewModel:viewModel) }
-            .sheet(isPresented:$settings,onDismiss:{ AutoSignPipelineManager.shared.presentNextReadyApp() }) {
-                AppStore2026SettingsPopup(sources:sources,viewModel:viewModel)
-            }
-        }
-        .environment(\.layoutDirection,.rightToLeft)
-        .task(id:sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
-            await cache.ensureFetched(sources:sources,viewModel:viewModel)
+        ForEach(sections) { section in
+            XSignClassicStoreSection(section: section, page: page, category: category, cache: cache)
         }
     }
 }
 
-private struct XSignConfiguredStoreSection: View {
+private struct XSignClassicStoreSection: View {
     let section: XSignStoreSection
     let page: String
+    let category: AppStore2026Category?
     @ObservedObject var cache: AppStoreCacheManager
-    @State private var visible = 60
     private var items: [AppStoreAppItem] {
-        var result=page == "games" ? cache.pureGamesOnly : page == "apps" ? cache.pureAppsOnly : cache.allCombinedItems
-        if let source=section.source_url, let url=URL(string:source) {
-            result=result.filter { $0.sourceURL.map(XSignCatalogIO.canonicalURL) == XSignCatalogIO.canonicalURL(url) }
+        var result = page == "games" ? cache.pureGamesOnly : page == "apps" ? cache.pureAppsOnly : cache.allCombinedItems
+        if let category { result = result.filter { $0.category == category } }
+        if let source = section.source_url.flatMap(URL.init(string:)) {
+            result = result.filter { $0.sourceURL.map(XSignCatalogIO.canonicalURL) == XSignCatalogIO.canonicalURL(source) }
         }
-        if let category=section.category_id, !category.isEmpty { result=result.filter { $0.app.category == category } }
-        let selectedIDs=section.app_ids ?? (section.kind == "featured" ? cache.featuredCatalogIDs : nil)
-        if let ids=selectedIDs, !ids.isEmpty || section.kind == "featured" {
-            result=ids.flatMap { id in result.filter { $0.app.id == id || $0.app.catalogID == id } }
-        }
+        if let id = section.category_id, !id.isEmpty { result = result.filter { $0.app.category == id } }
+        let ids = section.app_ids ?? (section.kind == "featured" && !cache.featuredCatalogIDs.isEmpty ? cache.featuredCatalogIDs : nil)
+        if let ids { result = ids.flatMap { id in result.filter { $0.app.id == id || $0.app.catalogID == id } } }
         if section.sort == "name" { result.sort { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending } }
         if section.sort == "reverse" { result.reverse() }
         return result
     }
     var body: some View {
-        VStack(alignment:.leading,spacing:12) {
-            if !section.title.isEmpty { Text(section.title).font(.title2.bold()) }
-            switch section.kind {
-            case "news":
-                ForEach(Array(cache.ipablackEditorialNews.prefix(section.boundedLimit))) { item in XSignAnnouncementCard(instruction:item) }
-            case "sources":
-                ForEach(Array(cache.storeSources.prefix(section.boundedLimit))) { source in
-                    NavigationLink { XSignSourceStoreDetail(source:source) } label: { XSignStoreSourceRow(source:source) }.buttonStyle(.plain)
-                }
-            case "categories":
-                ScrollView(.horizontal,showsIndicators:false) {
-                    HStack {
-                        ForEach(Array(cache.sourceCategories.filter { page == "today" || ($0.isGame ?? false) == (page == "games") }.prefix(section.boundedLimit)),id:\.id) { category in
+        Group {
+            if section.kind == "news" {
+                ForEach(Array(cache.ipablackEditorialNews.prefix(section.boundedLimit))) { XSignAnnouncementCard(instruction: $0) }
+            } else if section.kind == "categories" {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(cache.sourceCategories.filter { page == "today" || ($0.isGame ?? false) == (page == "games") }.prefix(section.boundedLimit)), id: \.id) { item in
                             NavigationLink {
-                                XSignCatalogList(title:category.name,category:category.id,source:nil,onlyGames:page == "games")
-                            } label: { Text(category.name).font(.subheadline.bold()).padding(12).background(AppStoreTheme.cardSurface,in:Capsule()) }
+                                XSignClassicCatalogueList(title: item.name, items: cache.allCombinedItems.filter { $0.app.category == item.id })
+                            } label: {
+                                Text(item.name).font(.subheadline.weight(.bold)).padding(.horizontal, 16).padding(.vertical, 9)
+                                    .background(AppStoreTheme.controlSurface, in: Capsule())
+                            }.buttonStyle(.plain)
                         }
                     }
                 }
-            case "featured":
-                ScrollView(.horizontal,showsIndicators:false) {
-                    LazyHStack(spacing:14) {
-                        ForEach(Array(items.prefix(min(12,section.boundedLimit)))) { item in
-                            NavigationLink { AppStore2026DetailView(item:item) } label: { AppStore2026FeaturedBanner(item:item) }.buttonStyle(.plain)
+            } else if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 20) {
+                    if section.kind == "featured", category == nil {
+                        if page == "today", let first = items.first {
+                            XSignTodayFeatureCard(item: first, sourceName: "XSign")
+                            HStack(alignment: .top, spacing: 14) {
+                                ForEach(Array(items.dropFirst().prefix(2))) { item in
+                                    NavigationLink { AppStore2026DetailView(item: item) } label: { XSignTodaySmallCard(item: item) }.buttonStyle(.plain)
+                                }
+                            }
+                        } else if page == "games", let first = items.first {
+                            NavigationLink { AppStore2026DetailView(item: first) } label: {
+                                TodayLiveEventHeroCard(outerTitle: nil, outerSubtitle: nil, cornerBadge: "يحدث الآن", eventTag: "رائج الآن",
+                                    headline: "العب مواجهة \(first.app.currentName)", descriptionText: first.arabicSubtitle,
+                                    bannerImageURL: first.screenshots.first, cardColor: Color.accentColor, item: first)
+                            }.buttonStyle(.plain)
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                LazyHStack(spacing: 16) {
+                                    ForEach(Array(items.prefix(min(6, section.boundedLimit)))) { item in
+                                        NavigationLink { AppStore2026DetailView(item: item) } label: { AppStore2026FeaturedBanner(item: item) }.buttonStyle(.plain)
+                                    }
+                                }
+                            }
                         }
-                    }
-                }
-            default:
-                ForEach(Array(items.prefix(min(visible,section.boundedLimit)))) { item in
-                    NavigationLink { AppStore2026DetailView(item:item) } label: { AppStore2026AppRow(item:item) }.buttonStyle(.plain)
-                    Divider()
-                }
-                if items.count > min(visible,section.boundedLimit) {
-                    NavigationLink("عرض الكل (\(items.count))") {
-                        XSignCatalogList(title:section.title,category:section.category_id,source:section.source_url,onlyGames:page == "games",appIDs:section.app_ids)
+                        AppStore2026ThreeRowSection(title: section.title, subtitle: page == "games" ? "أقوى الألعاب المختارة لك" : "أفضل التطبيقات المختارة لك", items: Array(items.prefix(min(18, section.boundedLimit)))).padding(.horizontal, -18)
+                    } else {
+                        HStack { Text(section.title).font(.system(size: 22, weight: .bold)); Spacer() }
+                        if page == "today" {
+                            TodayFourAppsListCard(outerTitle: nil, outerSubtitle: nil, innerCaption: "اكتشف تطبيقك القادم", innerTitle: section.title, items: Array(items.prefix(min(8, section.boundedLimit))))
+                        } else {
+                            ForEach(Array(items.prefix(section.boundedLimit))) { item in
+                                NavigationLink { AppStore2026DetailView(item: item) } label: { AppStore2026AppRow(item: item) }.buttonStyle(.plain)
+                                Divider().padding(.leading, 64)
+                            }
+                            if items.count > section.boundedLimit {
+                                NavigationLink("عرض الكل (\(items.count))") { XSignClassicCatalogueList(title: section.title, items: items) }
+                            }
+                        }
                     }
                 }
             }
@@ -116,50 +109,15 @@ private struct XSignConfiguredStoreSection: View {
     }
 }
 
-struct XSignStoreSourceRow: View {
-    let source: XSignStoreSource
-    var body: some View {
-        HStack(spacing:12) {
-            LazyImage(url:source.icon) { state in
-                if let image=state.image { image.resizable().scaledToFit() }
-                else { Image(systemName:"shippingbox.fill").resizable().scaledToFit().padding(10).foregroundStyle(Color.accentColor) }
-            }.frame(width:52,height:52).background(AppStoreTheme.cardSurface).clipShape(RoundedRectangle(cornerRadius:12))
-            VStack(alignment:.leading,spacing:4) {
-                Text(source.name).font(.headline)
-                Text("\(source.count) تطبيق").font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName:"chevron.left").font(.caption).foregroundStyle(.secondary)
-        }.padding(12).background(AppStoreTheme.cardSurface,in:RoundedRectangle(cornerRadius:16))
-    }
-}
-
-private struct XSignSourceStoreDetail: View {
-    let source: XSignStoreSource
-    var body: some View { XSignCatalogList(title:source.name,category:nil,source:source.id,onlyGames:nil) }
-}
-
-private struct XSignCatalogList: View {
+private struct XSignClassicCatalogueList: View {
     let title: String
-    let category: String?
-    let source: String?
-    let onlyGames: Bool?
-    var appIDs: [String]? = nil
-    @ObservedObject private var cache=AppStoreCacheManager.shared
-    @State private var limit=60
-    private var items: [AppStoreAppItem] {
-        cache.allCombinedItems.filter { item in
-            (onlyGames.map { item.isGame == $0 } ?? true) &&
-            (category == nil || item.app.category == category) &&
-            (source == nil || item.sourceURL.map(XSignCatalogIO.canonicalURL) == source.flatMap(URL.init(string:)).map(XSignCatalogIO.canonicalURL)) &&
-            (appIDs?.isEmpty != false || appIDs!.contains(item.app.id ?? "") || appIDs!.contains(item.app.catalogID ?? ""))
-        }
-    }
+    let items: [AppStoreAppItem]
+    @State private var limit = 60
     var body: some View {
         ScrollView {
-            LazyVStack(spacing:12) {
+            LazyVStack(spacing: 12) {
                 ForEach(Array(items.prefix(limit))) { item in
-                    NavigationLink { AppStore2026DetailView(item:item) } label: { AppStore2026AppRow(item:item) }.buttonStyle(.plain)
+                    NavigationLink { AppStore2026DetailView(item: item) } label: { AppStore2026AppRow(item: item) }.buttonStyle(.plain)
                 }
                 if limit < items.count { Button("عرض المزيد") { limit += 60 } }
             }.padding(18)

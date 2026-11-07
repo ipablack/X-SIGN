@@ -20,6 +20,7 @@ struct LibraryView: View {
 	@State private var _selectedInstallAppPresenting: AnyApp?
 	@State private var _isImportingPresenting = false
 	@State private var _isDownloadingPresenting = false
+    @State private var _isAppStoreLinkPresenting = false
     @State private var _batchApps: [any AppInfoPresentable] = []
     @State private var _isBulkSigningPresenting = false
     @State private var _isImportingFiles = false
@@ -228,6 +229,10 @@ struct LibraryView: View {
 						}
 						.disabled(_selectedAppUUIDs.isEmpty)
 					} else {
+                        Button { _isAppStoreLinkPresenting = true } label: {
+                            Image(systemName: "link.badge.plus").font(.system(size: 16))
+                        }
+                        .accessibilityLabel("السحب من رابط App Store")
 						Menu {
 							Button {
 								_isImportingPresenting = true
@@ -259,6 +264,9 @@ struct LibraryView: View {
             }) { CertificatesAddView() }
             .sheet(isPresented: $_isBulkSigningPresenting, onDismiss: { _batchApps = []; AutoSignPipelineManager.shared.presentNextReadyApp() }) {
                 XSignBulkSigningView(apps: _batchApps)
+            }
+            .sheet(isPresented: $_isAppStoreLinkPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) {
+                XSignAppStoreLinkView()
             }
 			.sheet(item: $_selectedInfoAppPresenting, onDismiss: { AutoSignPipelineManager.shared.presentNextReadyApp() }) { app in
 				LibraryInfoView(app: app.base)

@@ -3,16 +3,16 @@ import NimbleViews
 
 struct InstallationView: View {
     var body: some View {
-        NBList("التثبيت بطريقة Feather") {
+        NBList(.localized("Installation")) {
             Section {
                 Label("التوقيع داخل XSign",systemImage:"signature")
-                Text("تستخدم شهادة P12 وMobileProvision المحفوظة على جهازك.")
-                Label("Feather Semi Local",systemImage:"arrow.down.app")
-                Text("تُنشئ خدمة api.palera.in ملف التثبيت عبر HTTPS. ينقل iOS ملف التطبيق من خادم مؤقت على جهازك فقط.")
+                Text("أضف شهادة P12 وملف MobileProvision مرة واحدة من قسم الشهادات.")
+                Label("التثبيت المباشر",systemImage:"arrow.down.app")
+                Text("بعد التوقيع اضغط تثبيت، ثم أكّد طلب التثبيت الذي يعرضه iOS.")
             }
             Section {
-                Text("لا يحتاج المسار إلى Pairing أو VPN أو نشر خدمة في Firebase. تبقى الشهادة الصالحة والاتصال وتأكيد iOS مطلوبة.")
-                Text("الخدمة تستقبل البندل والإصدار وعنوان التثبيت المحلي المؤقت. لا تُرفع شهادة التوقيع أو كلمة مرورها أو بايتات IPA إليها.")
+                Text("يتطلب التثبيت شهادة صالحة لجهازك واتصالاً بالإنترنت.")
+                Text("تبقى شهادة التوقيع وكلمة مرورها على جهازك.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

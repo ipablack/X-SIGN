@@ -11,7 +11,10 @@ struct TabbarView: View {
 	@State private var selectedTab: TabEnum = .today
     @ObservedObject private var remote=XSignRemoteManager.shared
     private var tabs: [TabEnum] {
-        guard let order=remote.config?.dashboard?.tab_order else { return TabEnum.defaultTabs }
+        guard let dashboard=remote.config?.dashboard, let order=dashboard.tab_order else { return TabEnum.defaultTabs }
+        if dashboard.catalog_profile == nil, order == ["today","apps","games","search","library"] {
+            return TabEnum.defaultTabs
+        }
         var seen=Set<TabEnum>()
         let result=order.compactMap { value -> TabEnum? in
             let key=value == "apps" ? "sources" : value

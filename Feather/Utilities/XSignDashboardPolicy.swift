@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct XSignManagedSource: Codable, Equatable, Identifiable, Sendable {
     let id: String
@@ -42,15 +43,35 @@ struct XSignOwnerUpdate: Codable, Equatable, Sendable {
     let html: String?
     let manifest_url: String?
     let build_version: String?
+    // nil keeps the minimum-version rule used by previously published policies.
+    var required: Bool? = nil
+    var manifestURL: URL? {
+        guard enabled == true, let latest_version, XSignVersion.valid(latest_version),
+              required != true || XSignVersion.valid(build_version ?? "") else { return nil }
+        return XSignManagedSource.httpsURL(manifest_url)
+    }
     var verifiedURL: URL? {
         guard enabled == true, let sha256, sha256.count == 64,
               sha256.allSatisfy({ "0123456789abcdefABCDEF".contains($0) }),
               let version = latest_version, XSignVersion.valid(version) else { return nil }
         return XSignManagedSource.httpsURL(ipa_url)
     }
+    var installable: Bool {
+        guard build_version == nil || build_version == "" || XSignVersion.valid(build_version ?? "") else { return false }
+        if !(manifest_url ?? "").isEmpty { return manifestURL != nil }
+        return verifiedURL != nil
+    }
+    var targetBuild: String? { build_version.flatMap { $0.isEmpty ? nil : $0 } }
+    var releaseOrigin: String? {
+        guard installable, let link = manifestURL != nil ? manifest_url : ipa_url else { return nil }
+        let value = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        return SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    var installIdentity: [String?] { [latest_version, targetBuild, releaseOrigin, sha256?.lowercased()] }
 }
 
 struct XSignDashboardConfig: Codable, Equatable, Sendable {
+    var experience_version: Int? = nil
     var catalog_profile: String? = nil
     let schema_version: Int?
     let sources: [XSignManagedSource]?
@@ -59,6 +80,10 @@ struct XSignDashboardConfig: Codable, Equatable, Sendable {
     let allow_user_sources: Bool?
     let signing_enabled: Bool?
     let update: XSignOwnerUpdate?
+
+    var userSourcesEnabled: Bool {
+        (experience_version ?? 0) < 2 || allow_user_sources != false
+    }
 
     func sections(for page: String) -> [XSignStoreSection] {
         var seen = Set<String>()
@@ -88,6 +113,19 @@ struct XSignDashboardConfig: Codable, Equatable, Sendable {
     ]
 }
 
+enum XSignTodaySourcePolicy {
+    static func allows(_ sourceURL: URL?) -> Bool {
+        guard let sourceURL else { return false }
+        let url = XSignCatalogIO.canonicalURL(sourceURL)
+        if url.absoluteString == ProtectedSourcesVault.defaultOwnedURLString { return true }
+        guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil,
+              url.port == nil || url.port == 443,
+              ["appiraq.com", "vip.appiraq.com"].contains(url.host?.lowercased() ?? ""),
+              url.path == "/source.php", let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        return url.fragment == nil && parts.queryItems == [URLQueryItem(name: "action", value: "getAll")]
+    }
+}
+
 enum XSignVersion {
     static func valid(_ text:String)->Bool { XSignReleaseVersion.valid(text) }
     static func older(_ current:String,than target:String)->Bool { XSignReleaseVersion.compare(current,target) == -1 }
@@ -95,7 +133,15 @@ enum XSignVersion {
 }
 
 enum XSignDashboardSources {
-    static let profile = "zsign-public-v1"
+    static let profile = "iosboom-public-v1"
+    nonisolated static let iosboomSources: [XSignManagedSource] = [
+        .init(id:"xsign.iosboom.ucerts",name:"uCerts",url:"https://repo.ucerts.io",enabled:false),
+        .init(id:"xsign.iosboom.apptesters",name:"AppTesters",url:"https://repository.apptesters.org/",enabled:true),
+        .init(id:"xsign.iosboom.nabzclan",name:"Nabzclan",url:"https://appstore.nabzclan.vip/repos/scarlet.php",enabled:false),
+        .init(id:"xsign.iosboom.ipaomtk",name:"IPAOMTK Apps",url:"https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",enabled:true),
+        .init(id:"xsign.iosboom.buildstore",name:"Build Store",url:"https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",enabled:false),
+        .init(id:"xsign.iosboom.minoa",name:"Minoa’s Combined",url:"https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json",enabled:true)
+    ]
     static let profileKey = "xsign.catalogProfile.v1"
     static let priorPlusURL = "https://supapi.trystore.net/rest/v1/plus_library_apps"
     static let key = "xsign.dashboardSources.v2"
@@ -103,19 +149,26 @@ enum XSignDashboardSources {
     static let userKey = "xsign.explicitUserSources.v2"
     static var configured: [XSignManagedSource]? {
         UserDefaults.standard.data(forKey:key).flatMap { try? JSONDecoder().decode([XSignManagedSource].self,from:$0) }
-            .map { migrated($0, profile: UserDefaults.standard.string(forKey:profileKey)) }.map(ordered)
+            .map { migrated($0, profile: UserDefaults.standard.string(forKey:profileKey)).filter { $0.enabled != false } }.map(ordered)
     }
     static func migrated(_ sources: [XSignManagedSource], profile: String?) -> [XSignManagedSource] {
         // Upgrade the previous built-in provider only. Explicit deletions and
         // unrelated custom configuration survive. No empty-list reset.
         guard profile != Self.profile else { return sources }
-        return sources.flatMap { item -> [XSignManagedSource] in
+        var result = sources.flatMap { item -> [XSignManagedSource] in
             guard item.id == "xsign.core.primary", item.url == priorPlusURL else { return [item] }
             return [
                 .init(id:"xsign.core.primary",name:"ipasoon",url:ProtectedSourcesVault.primaryURLString,enabled:item.enabled),
                 .init(id:"xsign.core.zsign",name:"متجر Zsign الرسمي",url:ProtectedSourcesVault.secondaryURLString,enabled:item.enabled)
             ]
         }
+        if result.isEmpty { return result }
+        let ids = Set(result.map(\.id))
+        let urls = Set(result.compactMap(\.safeURL).map(XSignCatalogIO.canonicalURL))
+        result += iosboomSources.filter { item in
+            !ids.contains(item.id) && item.safeURL.map { !urls.contains(XSignCatalogIO.canonicalURL($0)) } == true
+        }
+        return result
     }
     static func ordered(_ sources:[XSignManagedSource])->[XSignManagedSource] {
         func priority(_ source:XSignManagedSource)->Int {
@@ -141,6 +194,9 @@ enum XSignDashboardSources {
         var urls=Set(UserDefaults.standard.stringArray(forKey:userKey) ?? [])
         urls.insert(XSignCatalogIO.canonicalURL(url).absoluteString)
         UserDefaults.standard.set(Array(urls),forKey:userKey)
+    }
+    static func isExplicitUserSource(_ url: URL) -> Bool {
+        (UserDefaults.standard.stringArray(forKey:userKey) ?? []).contains(XSignCatalogIO.canonicalURL(url).absoluteString)
     }
     static func isUserSource(_ url: URL) -> Bool {
         let value=XSignCatalogIO.canonicalURL(url).absoluteString

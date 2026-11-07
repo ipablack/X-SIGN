@@ -8,6 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SYMBOLS = {
+    r'\bTab\s*\(\s*value\s*:': 18.0,
     r'\bURL\.documentsDirectory\b': 16.0,
     r'\.searchScopes\s*\(': 16.0,
     r'\bUnevenRoundedRectangle\s*\(': 17.0,
@@ -19,6 +20,7 @@ SYMBOLS = {
     r'\bContentUnavailableView\s*\{': 17.0,
     r'\bTabViewCustomization\s*\(': 18.0,
     r'\.glassEffect\s*\(': 26.0,
+    r'\.tabViewSearchActivation\s*\(': 26.0,
     r'\.translationTask\s*\(': 18.0,
     r'\.translationPresentation\s*\(': 17.4,
     r'\.onScrollGeometryChange\s*\(': 18.0,

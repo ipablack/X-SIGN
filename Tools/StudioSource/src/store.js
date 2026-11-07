@@ -150,6 +150,7 @@ publishNow=async function(){
     }
     if(!written)throw Error('لم تكتمل عملية النشر.');
     state=normalizeState(data);setRemoteSnapshot(job.connection,{...written,sha:null,data:state});lastPublishedAt=new Date().toISOString();addActivity('نشر ملفي الكتالوج والتكوين · مراجعة '+state.repo_revision_id);persist();renderAll();$('publishDialog').close();pendingPublish=null;toast('تم نشر repo.json وملف التكوين معاً بنجاح.');
+    if(typeof observePublishedProjection==='function')void observePublishedProjection(job.connection,state.repo_revision_id);
   }catch(error){$('publishError').textContent=error.message;$('publishError').hidden=false;}
   finally{operationBusy=false;$('publishNow').disabled=false;$('publishNow').replaceChildren(icon('cloud'),document.createTextNode('نشر الآن'));updateStatus();}
 };

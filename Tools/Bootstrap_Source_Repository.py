@@ -4,7 +4,7 @@ All files are committed atomically. Existing apps, managed-source deletions and
 unknown catalogue fields survive. --preview performs GET requests only.
 """
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 import argparse
 import base64
 import copy
@@ -24,6 +24,18 @@ def merge_missing(defaults, current):
     return copy.deepcopy(current)
 
 
+def canonical_source_url(value):
+    if not isinstance(value, str):
+        return value
+    parsed = urlsplit(value)
+    parts = parsed.path.split('/')
+    if parsed.hostname == 'github.com' and len(parts) >= 6 and parts[3] in ['raw', 'blob']:
+        parsed = parsed._replace(netloc='raw.githubusercontent.com', path='/'.join(parts[:3] + parts[4:]))
+    if parsed.hostname == 'raw.githubusercontent.com':
+        parsed = parsed._replace(path=parsed.path.replace('/refs/heads/', '/'))
+    return urlunsplit(parsed)
+
+
 def normalize_catalogue(current, defaults, priority):
     if not isinstance(current, dict) or not isinstance(current.get('apps'), list):
         raise ValueError('The existing repo.json needs a valid apps array; it was not overwritten.')
@@ -34,16 +46,25 @@ def normalize_catalogue(current, defaults, priority):
     dashboard = config['dashboard']
     if dashboard.get('schema_version') != 2 or not isinstance(dashboard.get('sources'), list):
         raise ValueError('Review the unsupported dashboard schema before initializing the source repo.')
+    if current.get('xsign_config', {}).get('dashboard', {}).get('experience_version', 0) < 2:
+        dashboard['experience_version'] = 2
+        dashboard['allow_user_sources'] = True
     previous_profile = current.get('xsign_config', {}).get('dashboard', {}).get('catalog_profile')
-    if previous_profile != 'zsign-public-v1':
+    if previous_profile != 'iosboom-public-v1':
         migrated = []
         for source in dashboard['sources']:
             if isinstance(source, dict) and source.get('id') == 'xsign.core.primary' and source.get('url') == 'https://supapi.trystore.net/rest/v1/plus_library_apps':
-                for replacement in defaults['xsign_config']['dashboard']['sources'][1:]:
+                for replacement in defaults['xsign_config']['dashboard']['sources'][1:3]:
                     migrated.append({**copy.deepcopy(replacement), 'enabled': source.get('enabled', True)})
             else:
                 migrated.append(source)
         dashboard['sources'] = migrated
+        if migrated:
+            ids = {source.get('id') for source in migrated if isinstance(source, dict)}
+            urls = {canonical_source_url(source.get('url')) for source in migrated if isinstance(source, dict)}
+            for source in defaults['xsign_config']['dashboard']['sources'][3:]:
+                if source['id'] not in ids and canonical_source_url(source['url']) not in urls:
+                    dashboard['sources'].append(copy.deepcopy(source))
         if dashboard.get('tab_order') == ['today', 'apps', 'games', 'search', 'library']:
             dashboard['tab_order'] = ['today', 'games', 'apps', 'library', 'search']
         if any(item.get('id') == 'apps-sources' and item.get('kind') == 'sources' for item in dashboard.get('sections', []) if isinstance(item, dict)):
@@ -57,8 +78,7 @@ def normalize_catalogue(current, defaults, priority):
                         layout.append(copy.deepcopy(replacements['games-featured']))
                     layout.append(item)
             dashboard['sections'] = layout
-        dashboard['catalog_profile'] = 'zsign-public-v1'
-        dashboard['allow_user_sources'] = False
+        dashboard['catalog_profile'] = 'iosboom-public-v1'
     aliases = {
         'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json': priority[0],
         'https://github.com/ipablack/repo/blob/main/repo.json': priority[0],
@@ -69,8 +89,9 @@ def normalize_catalogue(current, defaults, priority):
     for item in sources:
         if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k] for k in ['id', 'name', 'url']):
             raise ValueError('Review a malformed managed source before publishing.')
-    sources.sort(key=lambda item: priority.index(aliases.get(item['url'], item['url']))
-                 if aliases.get(item['url'], item['url']) in priority else len(priority))
+    fixed_priority = priority[:3]
+    sources.sort(key=lambda item: fixed_priority.index(aliases.get(item['url'], item['url']))
+                 if aliases.get(item['url'], item['url']) in fixed_priority else len(fixed_priority))
     # A real [] stays []; the compatibility projection cannot resurrect defaults.
     config['app_control']['core_sources'] = [
         {key: source[key] for key in ['name', 'id', 'url']}

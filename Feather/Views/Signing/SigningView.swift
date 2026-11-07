@@ -73,6 +73,7 @@ struct SigningView: View {
 	@State private var _isFilePickerPresenting = false
 	@State private var _isImagePickerPresenting = false
 	@State private var _isSigning = false
+    @State private var signingFailureMessage: String?
     @State private var _showCertificateSetup = false
     @State private var _resumeAfterCertificateSetup = false
 	@State var appIcon: UIImage?
@@ -103,6 +104,12 @@ struct SigningView: View {
 				_customizationOptions(for: app)
 				_cert()
 				_customizationProperties(for: app)
+                if let message = signingFailureMessage {
+                    Section {
+                        Label("تعذّر التوقيع", systemImage: "exclamationmark.circle").foregroundStyle(.red)
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
 
 				// horrible
 				Rectangle()
@@ -389,13 +396,15 @@ extension SigningView {
 // MARK: - Extension: View (import)
 extension SigningView {
 	private func _start() {
+        guard !_isSigning else { return }
+        signingFailureMessage = nil
         if policy.locks.allowsAppMetadataEditing {
             do {
                 _ = try XSignAppMetadata.validated(_temporaryOptions.appName, field: .name, original: app.name)
                 _ = try XSignAppMetadata.validated(_temporaryOptions.appIdentifier, field: .bundleIdentifier, original: app.identifier)
                 _ = try XSignAppMetadata.validated(_temporaryOptions.appVersion, field: .version, original: app.version)
             } catch {
-                UIAlertController.showAlertWithOk(title: "معلومات التطبيق", message: error.localizedDescription)
+                signingFailureMessage = error.localizedDescription
                 return
             }
         }
@@ -417,16 +426,9 @@ extension SigningView {
 			icon: appIcon,
 			certificate: _selectedCert()
 		) { error in
+			_isSigning = false
 			if let error {
-				let ok = UIAlertAction(title: .localized("Dismiss"), style: .cancel) { _ in
-					dismiss()
-				}
-
-				UIAlertController.showAlert(
-					title: "Error",
-					message: error.localizedDescription,
-					actions: [ok]
-				)
+                signingFailureMessage = error.localizedDescription
 			} else {
 				if
 					_temporaryOptions.post_deleteAppAfterSigned,

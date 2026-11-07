@@ -1,6 +1,7 @@
 """X-SIGN IPA metadata/release publisher. Standard library only; never runs IPA code."""
 import base64, copy, hashlib, html, ipaddress, json, os, plistlib, re, socket, struct
-import subprocess, sys, urllib.parse, urllib.request, zipfile, zlib
+import subprocess, sys, time, urllib.parse, urllib.request, zipfile, zlib
+from http.client import HTTPSConnection
 from pathlib import Path
 
 MAX_IPA = 1800 * 1024 * 1024
@@ -337,24 +338,113 @@ def prepare_jobs(inputs):
     return jobs
 
 
+def find_release(tag):
+    published = api('releases/tags/' + urllib.parse.quote(tag, safe=''), optional=True)
+    if published: return published
+    # A draft may not have a Git tag yet. Find it by tag_name in the authenticated list.
+    for page in range(1, 21):
+        rows = api(f'releases?per_page=100&page={page}')
+        for row in rows:
+            if row.get('tag_name') == tag: return row
+        if len(rows) < 100: return None
+    raise ValueError('Could not safely locate the release in the first 2,000 entries.')
+
+
+def streamed_asset_digest(asset_id, expected_size):
+    args = ['gh', 'api', '-H', 'Accept: application/octet-stream', f'repos/{REPO}/releases/assets/{asset_id}']
+    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
+        hasher = hashlib.sha256(); size = 0
+        while block := process.stdout.read(1024 * 1024):
+            size += len(block)
+            if size > expected_size:
+                process.kill(); return None
+            hasher.update(block)
+        return hasher.hexdigest() if process.wait() == 0 and size == expected_size else None
+
+
+def verify_asset(asset, name, size, digest):
+    if not isinstance(asset, dict) or asset.get('name') != name or not isinstance(asset.get('id'), int):
+        raise ValueError(f'{name}: missing or invalid release asset.')
+    if asset.get('state') != 'uploaded' or asset.get('size') != size:
+        raise ValueError(f'{name}: expected uploaded asset with {size} bytes; got {asset.get("state")} / {asset.get("size")} bytes.')
+    # The download URL may be temporary in a draft. Verify the stored bytes instead.
+    checksum = asset.get('digest')
+    if not checksum:
+        verified = streamed_asset_digest(asset['id'], size) == digest
+    else:
+        verified = isinstance(checksum, str) and checksum.lower() == 'sha256:' + digest
+    if not verified: raise ValueError(f'{name}: SHA-256 verification failed. Queue was retained.')
+
+
+def upload_asset(repo_name, release_id, path):
+    # GitHub's upload endpoint requires a known content length. Stream the file
+    # from disk and keep the runner token out of subprocess arguments and logs.
+    endpoint = f'/repos/{repo_name}/releases/{release_id}/assets?' + urllib.parse.urlencode({'name':path.name})
+    connection = HTTPSConnection('uploads.github.com', timeout=180)
+    try:
+        with path.open('rb') as source:
+            connection.request('POST', endpoint, body=source, headers={
+                'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'User-Agent': 'XSign-IPA-Publisher/1.1',
+                'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/octet-stream', 'Content-Length': str(path.stat().st_size),
+            })
+            response = connection.getresponse()
+            if response.status != 201:
+                raise ValueError(f'{path.name}: GitHub upload returned HTTP {response.status}. Draft and queue were retained.')
+            return json.loads(response.read(256 * 1024))
+    finally:
+        connection.close()
+
+
+def final_release_assets(release_id, tag, repo_name, verified):
+    reason = 'release not published yet'
+    for delay in (0, 1, 2, 4, 8):
+        if delay: time.sleep(delay)
+        release = api('releases/' + release_id)
+        if release.get('draft') is not False or release.get('tag_name') != tag: continue
+        assets = {asset['name']: asset for asset in release.get('assets', [])}
+        urls = {}
+        for name, original in verified.items():
+            asset = assets.get(name, {})
+            url = asset.get('browser_download_url', '')
+            parsed = urllib.parse.urlsplit(url)
+            path = parsed.path.split('/', 3)
+            if (asset.get('id') != original['id'] or asset.get('size') != original['size'] or
+                    asset.get('state') != 'uploaded' or parsed.scheme != 'https' or parsed.netloc != 'github.com' or
+                    parsed.query or parsed.fragment or len(path) != 4 or
+                    '/'.join(path[1:3]).lower() != repo_name.lower() or
+                    urllib.parse.unquote(path[3]) != f'releases/download/{tag}/{name}'):
+                reason = f'{name}: final release link or uploaded asset was not ready'
+                break
+            urls[name] = url
+        if len(urls) == len(verified): return urls
+    raise ValueError('Published release could not be verified: ' + reason + '. Catalogue and queue were retained.')
+
+
 def publish_release(job, repository):
     from datetime import datetime, timezone
-    info = job['info']; info['date'] = datetime.now(timezone.utc).date().isoformat()
+    info = job['info']
+    repo_name = repository.get('full_name') or REPO
+    if repo_name.lower() != REPO.lower(): raise ValueError('Release repository does not match the requested destination.')
     slug = re.sub(r'[^a-zA-Z0-9.-]+', '-', info['bundleIdentifier'])[:90]
-    tag = 'ipa-' + slug + '-' + info['sha256'][:12] + '-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ.get('GITHUB_RUN_ATTEMPT','1')
-    # Include the batch index in case two variants contain identical IPA bytes.
-    tag += '-' + job['folder'].name
-    prefix = 'https://github.com/' + REPO + '/releases/download/' + tag + '/'
+    identity = json.dumps({'ipa':info['sha256'], 'icon':info['iconSha256'], 'metadata':job['metadata']},
+                          sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    tag = f'ipa-{slug}-{info["sha256"][:12]}-{hashlib.sha256(identity.encode()).hexdigest()[:20]}'
+    notes = '## IPA BLACK\n\n' + '\n'.join('- **'+key+'**: '+html.escape(str(info[key])).replace('\n',' ') for key in ['name','bundleIdentifier','version','buildVersion','minOSVersion','size','sha256']) + '\n'
+    release = find_release(tag)
+    if release is None:
+        release = api('releases', 'POST', {'tag_name':tag, 'target_commitish':os.environ['GITHUB_SHA'],
+                      'name':info['name'][:140]+' · '+info['version'][:40], 'body':notes, 'draft':True, 'make_latest':'false'})
+    release_id = str(int(release['id']))
+    if release.get('tag_name') != tag: raise ValueError('GitHub returned a different release tag.')
+    draft = release.get('draft') is True
+    prefix = f'https://github.com/{repo_name}/releases/download/{tag}/'
+    created = (release.get('created_at') or '')[:10]
+    info['date'] = created if re.fullmatch(r'\d{4}-\d{2}-\d{2}', created) else datetime.now(timezone.utc).date().isoformat()
     info.update(downloadURL=prefix+'app.ipa', iconURL=prefix+info['iconFile'],
-                releaseURL='https://github.com/'+REPO+'/releases/tag/'+tag, repository=REPO,
+                releaseURL=f'https://github.com/{repo_name}/releases/tag/{tag}', repository=repo_name,
                 releaseVisibility='private' if repository.get('private') else 'public')
     info_file = job['folder'] / 'info.json'; info_file.write_text(json.dumps(info,ensure_ascii=False,indent=2)+'\n')
-    notes = job['folder'] / 'notes.md'
-    notes.write_text('## IPA BLACK\n\n' + '\n'.join('- **'+key+'**: '+html.escape(str(info[key])).replace('\n',' ') for key in ['name','bundleIdentifier','version','buildVersion','minOSVersion','size','sha256']) + '\n')
-    release = api('releases', 'POST', {'tag_name':tag, 'target_commitish':os.environ['GITHUB_SHA'],
-                  'name':info['name'][:140]+' · '+info['version'][:40], 'body':notes.read_text(), 'draft':True,
-                  'make_latest':'false'})
-    release_id = str(release['id'])
     # Give the IPA a stable asset name without loading the entire file into memory.
     local = job['folder'] / 'app.ipa'
     if local.resolve() != job['ipa'].resolve() and not (local.exists() and local.samefile(job['ipa'])):
@@ -362,15 +452,21 @@ def publish_release(job, repository):
         try: os.link(job['ipa'], local)
         except OSError:
             import shutil; shutil.copyfile(job['ipa'], local)
-    gh('release','upload',tag,str(local),str(job['folder']/info['iconFile']),str(info_file),'--repo',REPO)
-    # The by-tag REST endpoint only guarantees published releases; use the draft ID.
-    release = api('releases/' + release_id)
-    assets = {asset['name']:asset for asset in release.get('assets',[])}
-    for path in [local,job['folder']/info['iconFile'],info_file]:
-        asset=assets.get(path.name)
-        if not asset or asset.get('state')!='uploaded' or asset.get('size')!=path.stat().st_size or asset.get('browser_download_url')!=prefix+path.name:
-            raise ValueError('Release asset verification failed; release remains draft.')
-    api('releases/' + release_id, 'PATCH', {'draft':False, 'make_latest':'false'})
+    assets = {asset['name']: asset for asset in api('releases/' + release_id).get('assets', [])}
+    verified = {}
+    for path, digest in [(local, info['sha256']), (job['folder']/info['iconFile'], info['iconSha256']),
+                         (info_file, hashlib.sha256(info_file.read_bytes()).hexdigest())]:
+        asset = assets.get(path.name)
+        if draft and asset and asset.get('state') == 'starter' and asset.get('size') == 0:
+            api('releases/assets/' + str(int(asset['id'])), 'DELETE'); asset = None
+        if asset is None and draft:
+            asset = upload_asset(repo_name, release_id, path)
+        verify_asset(asset, path.name, path.stat().st_size, digest)
+        verified[path.name] = asset
+        print(f'Verified release asset {path.name} ({path.stat().st_size} bytes).')
+    if draft: api('releases/' + release_id, 'PATCH', {'draft':False, 'make_latest':'false'})
+    urls = final_release_assets(release_id, tag, repo_name, verified)
+    info.update(downloadURL=urls['app.ipa'], iconURL=urls[info['iconFile']])
 
 
 def commit_catalogue(jobs):

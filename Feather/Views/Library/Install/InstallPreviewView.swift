@@ -18,10 +18,9 @@ struct InstallPreviewView: View {
     var body: some View {
         VStack(spacing: 12) {
             if awaitingChoice {
-                Label("النسخة جاهزة", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(.green)
-                Text(app.name ?? "التطبيق").font(.subheadline)
-                Text("تثبيت مباشر بطريقة Feather، بدون Pairing.").font(.footnote).foregroundStyle(.secondary)
-                Button("تثبيت على الجهاز") { begin() }.buttonStyle(.borderedProminent)
+                XSignUpdateHTML(html: XSignInstallPageHTML.page(heading: "جاهز للتثبيت", name: app.name ?? "التطبيق",
+                    version: app.version.map { "الإصدار \($0)" } ?? "", details: "ثبّت النسخة الموقعة على جهازك.",
+                    canInstall: true, button: "تثبيت على الجهاز"), onInstall: begin)
                 Button("تم") { dismiss() }
             } else {
                 if !delivered && started { ProgressView() }
@@ -52,6 +51,9 @@ struct InstallPreviewView: View {
 
     @MainActor private func begin() {
         guard !started else { return }
+        if let reason = XSignRemoteManager.shared.blockingReason {
+            errorMessage = reason; showError = true; return
+        }
         guard let identifier = app.identifier, !identifier.isEmpty else { fail(XSignOTAError.invalidPackage); return }
         started = true
         awaitingChoice = false
@@ -82,7 +84,8 @@ struct InstallPreviewView: View {
                             viewModel.status = .installing
                         }
                     }, open: { link in
-                        await withCheckedContinuation { continuation in
+                        guard XSignRemoteManager.shared.blockingReason == nil else { return false }
+                        return await withCheckedContinuation { continuation in
                             UIApplication.shared.open(link, options: [:]) { continuation.resume(returning: $0) }
                         }
                     })

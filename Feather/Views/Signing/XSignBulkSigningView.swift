@@ -18,15 +18,6 @@ private final class XSignBulkSigningModel: ObservableObject {
         common.signingOption = .default
         // A per-app name/version override must never rename an entire batch to the same identity.
         common.appName = nil; common.appIdentifier = nil; common.appVersion = nil
-        if common.matchCertificateAppID == true && XSignSecurityEnforcer.shared.locks.allowsAppMetadataEditing && queue.entries.count > 1 {
-            do {
-                guard let url = Storage.shared.getFile(.provision, from: certificate) else { throw SigningFileHandlerError.missingCertifcate }
-                guard try XSignProvisioningProfile.read(at: url).isWildcard else {
-                    errorMessage = "مطابقة App ID المحدد ستعطي التطبيقات البندل نفسه. استخدم بروفايل عامًا للمجموعة أو وقّع تطبيقًا واحدًا."
-                    return
-                }
-            } catch { errorMessage = error.localizedDescription; return }
-        }
         errorMessage = nil
         if retry { queue.prepareRetry() }
         let snapshot = common

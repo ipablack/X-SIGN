@@ -1,8 +1,11 @@
 from pathlib import Path
+import json
 import re
 
 root = Path(__file__).resolve().parent.parent
 template = (root / 'src/template.html').read_text()
+theme = (root / 'src/experience.css').read_text()
+template = template.replace('<!-- XSIGN_STUDIO_THEME -->', '<style>\n' + theme + '</style>')
 vendor = root / 'node_modules/js-yaml/dist/js-yaml.min.js'
 if not vendor.is_file():
     raise SystemExit('Install dependencies before building (npm install).')
@@ -10,6 +13,10 @@ boot = "loadLocal();bindEvents();bindStoreEvents();renderAll();openPage(location
 parts = [vendor.read_text()]
 for name in ['contract.js', 'base.js', 'store.js', 'integration.js']:
     parts.append((root / ('src/' + name)).read_text().replace(boot, ''))
+install_page = root.parents[1] / 'Feather/Resources/XSignInstall.html'
+if not install_page.is_file():
+    install_page = root / 'src/XSignInstall.html'  # standalone Studio source export
+parts.append('const XSIGN_INSTALL_TEMPLATE = ' + json.dumps(install_page.read_text(), ensure_ascii=False) + ';')
 parts.append(boot)
 script = '\n'.join(parts)
 # Keep inline HTML strings safe for HTML parsers and development live reload.

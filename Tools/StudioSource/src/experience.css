@@ -1,0 +1,75 @@
+/* Studio palette sampled from XSign's blue (#003173) and white mark. */
+:root {
+  --brand:#003173; --blue:#a6ceff; --bg:#07090e; --sidebar:#0b111c;
+  --surface:#101a29; --surface-2:#142338; --field:#090f19;
+  --line:#293c55; --line-soft:#1e2d41; --text:#f2f7ff; --muted:#b3c4db;
+  --subtle:#95a9c2; --green:var(--blue); --green-soft:#182d49; --radius:16px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;
+}
+body { color-scheme:dark; background:radial-gradient(ellipse at top right,#0b2344 0,transparent 52%) var(--bg); }
+.sidebar { background:linear-gradient(180deg,#0b2445,#0b111c 38%,#080c14); padding-bottom:16px; }
+.side-brand { min-height:74px; }
+.side-brand .logo-mark { color:#fff; }
+.side-group { margin-top:9px; }
+.side-group-label { color:#99b3d4; letter-spacing:0; }
+.side-nav .nav-btn { min-height:41px; padding:8px 11px; color:#b7c9e2; font-size:13px; }
+.nav-btn .icon { flex-shrink:0; }
+.nav-btn:hover { background:#162941; color:#fff; }
+.nav-btn.active { background:linear-gradient(100deg,#0d4386,#173658); color:#fff; }
+.nav-btn.active:before { background:#8dc4ff; }
+.topbar { background:#0a111ef7; }
+.page-head { margin-bottom:20px; }
+.page-head .eyebrow { display:none; }
+.page-head p { font-size:13px; }
+.card,.stat { background:linear-gradient(145deg,#132238,#101927 58%); }
+.card-head h2 { color:#f2f7ff; }
+.card-foot,.apps-table-head,.app-row.selected,.source-card,.mode-switch,.chip,.tag { background:#122237; }
+.stat-foot,.note,.field-hint { color:#aebfd7; }
+.btn { background:#172840; border-color:#2e4765; color:#eff6ff; }
+.btn:hover { background:#203959; border-color:#5279a5; }
+.btn-primary,.btn-primary:hover { background:#e5f1ff; border-color:#e5f1ff; color:#003173; }
+.btn-primary:hover { background:#bfdfff; border-color:#bfdfff; }
+.btn-ghost { background:transparent; }
+.btn-danger { background:#4b2534; border-color:#753749; color:#ffdfe4; }
+.btn-danger:hover { background:#613145; }
+.switch input:checked+.switch-track { background:#649ce0; border-color:#649ce0; }
+.source-symbol,.app-icon,.activity-dot { background:#1a3353; color:var(--blue); border-color:var(--line); }
+.catalogue-health,.overview-preview,.target-card { background:linear-gradient(145deg,#10315d,#111a2b 66%); }
+.quick-launch { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.quick-launch button { min-width:0; display:grid; justify-items:start; gap:4px; padding:15px;
+  text-align:start; border:1px solid var(--line); border-radius:14px; background:linear-gradient(140deg,#123964,#101927); }
+.quick-launch button:hover { border-color:#6da4e1; }
+.quick-launch .icon { width:21px; height:21px; color:var(--blue); margin-bottom:4px; }
+.quick-launch strong { font-size:14px; color:#f5f9ff; }
+.quick-launch span { font-size:11px; color:var(--muted); }
+.release-editor { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:16px; align-items:start; }
+.release-editor>*,.release-editor .field { min-width:0; }
+.release-form .card-head>.icon,.install-preview-card .card-head>.icon { color:var(--blue); }
+.release-form .card-body { gap:14px; }
+.release-options summary { cursor:pointer; padding:13px 16px; min-height:44px; font-size:14px; font-weight:650; }
+.release-options[open] summary { border-bottom:1px solid var(--line); margin-bottom:13px; }
+.release-options .field-hint code { overflow-wrap:anywhere; }
+.install-preview { display:block; width:100%; height:332px; border:1px solid var(--line); border-radius:15px; background:#090f19; }
+.custom-install { border:1px solid var(--line); border-radius:12px; }
+.custom-install>.stack { padding:0 13px 14px; }
+.release-live { font-size:12px; min-height:42px; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid #8dc4ff; outline-offset:3px; }
+@media (max-width:1050px) {
+  .release-editor { grid-template-columns:minmax(0,1fr); }
+  .quick-launch { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:700px) {
+  .content { padding-bottom:calc(85px + env(safe-area-inset-bottom)); }
+  .sidebar { width:min(385px,calc(100vw - 18px)); }
+  .sidebar .side-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
+  .sidebar .side-nav .nav-btn { min-height:44px; font-size:12px; gap:6px; }
+  .sidebar .nav-btn.active:before { display:none; }
+  .mobile-dock { background:#0b1628f5; border-color:#2c4361; padding-inline:6px; }
+  .mobile-dock button { min-height:44px; font-size:11px; color:#afc4e2; }
+  .mobile-dock button.active { color:#fff; background:#153760; border-radius:11px; }
+  .release-form .grid-2 { grid-template-columns:1fr; }
+  .release-editor .card-head { padding:15px; }
+  .release-editor .card-body { padding:0 15px 16px; }
+  .quick-launch { gap:8px; }
+  .quick-launch button { padding:12px; }
+}

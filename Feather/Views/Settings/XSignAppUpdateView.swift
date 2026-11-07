@@ -24,27 +24,32 @@ struct XSignVerifiedSelfUpdate: Sendable {
     private var operation: Task<Void,Never>?
     private let maximumSize: Int64=2_147_483_648
     func cancel() { operation?.cancel() }
+    func releaseChanged() {
+        cancel(); pendingUpdate = nil; needsCertificate = false; delivered = false; progress = nil
+        if !busy { message = "" }
+    }
     func start(_ update: XSignOwnerUpdate) {
         guard !busy,!delivered else { return }
         busy=true;progress=nil;message="التحقق من التحديث…"
         operation=Task {
             defer { busy=false }
             do {
-                guard update.enabled == true, let latest=update.latest_version, XSignVersion.valid(latest),
-                      XSignReleaseVersion.isNewer(currentVersion:XSignRemoteManager.shared.currentVersion,currentBuild:XSignRemoteManager.shared.currentBuild,targetVersion:latest,targetBuild:update.build_version),
-                      let bundleID=Bundle.main.bundleIdentifier else { throw failure("لا يوجد تحديث أحدث صالح في إعدادات الناشر.") }
-                if let manifest=XSignManagedSource.httpsURL(update.manifest_url) {
+                try checkRelease(update)
+                guard let latest=update.latest_version, let origin=update.releaseOrigin,
+                      let bundleID=Bundle.main.bundleIdentifier else { throw failure("لا يوجد تحديث صالح في إعدادات الناشر.") }
+                if let manifest=update.manifestURL {
                     let session=XSignBoundedHTTP.session();defer { session.invalidateAndCancel() }
                     let (data,response)=try await XSignBoundedHTTP.fetch(URLRequest(url:manifest),using:session,limit:32768)
                     guard response.statusCode == 200,
                           let root=try PropertyListSerialization.propertyList(from:data,format:nil) as? [String:Any],
                           let items=root["items"] as? [[String:Any]],items.count == 1,
                           let metadata=items[0]["metadata"] as? [String:Any],metadata["bundle-identifier"] as? String == bundleID,
-                          metadata["bundle-version"] as? String == (update.build_version ?? latest),
+                          metadata["bundle-version"] as? String == (update.targetBuild ?? latest),
                           let assets=items[0]["assets"] as? [[String:Any]],
                           assets.contains(where:{ $0["kind"] as? String == "software-package" && XSignManagedSource.httpsURL($0["url"] as? String) != nil }) else {
                         throw failure("ملف تحديث الناشر لا يطابق هوية XSign ورقم البناء المطلوب.")
                     }
+                    try checkRelease(update)
                     var link=URLComponents();link.scheme="itms-services";link.host=""
                     link.queryItems=[.init(name:"action",value:"download-manifest"),.init(name:"url",value:manifest.absoluteString)]
                     guard let url=link.url, await open(url) else { throw failure("تعذّر فتح طلب تثبيت iOS.") }
@@ -71,7 +76,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 let file=try await XSignUpdateFileDownload.fetch(url,to:directory.appendingPathComponent("update.ipa"),maximum:maximumSize,progress:{ [weak self] value in
                     Task { @MainActor in self?.progress=value }
                 })
-                try Task.checkCancellation()
+                try checkRelease(update)
                 progress=nil
                 message="التحقق من سلامة التحديث…"
                 let hashTask=Task.detached(priority:.userInitiated) {
@@ -81,7 +86,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
                     return hasher.finalize().map { String(format:"%02x",$0) }.joined()
                 }
                 let hash=try await withTaskCancellationHandler(operation:{ try await hashTask.value },onCancel:{ hashTask.cancel() })
-                try Task.checkCancellation()
+                try checkRelease(update)
                 guard hash == expected.lowercased() else { throw failure("بصمة الملف لا تطابق الإصدار المنشور. أُوقف التحديث.") }
                 let uuid: String=try await withCheckedThrowingContinuation { continuation in
                     FR.importPackageFile(file,consumeTemporaryFile:false) { continuation.resume(with:$0) }
@@ -93,9 +98,17 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 guard let appDirectory=Storage.shared.getAppDirectory(for:imported) else { throw failure("تعذّر قراءة تطبيق التحديث.") }
                 let info=try XSignOTABundleMetadata.read(from:appDirectory)
                 guard info.identifier == bundleID, info.shortVersion == latest,
-                      update.build_version == nil || update.build_version == info.version else {
+                      update.targetBuild == nil || update.targetBuild == info.version else {
                     throw failure("ملف التحديث لا يطابق هوية التطبيق أو الإصدار المنشور.")
                 }
+                try checkRelease(update)
+                // The signed bundle records the selected release, including reinstalls of the same version.
+                let plist = appDirectory.appendingPathComponent("Info.plist")
+                var stamped = try XSignAppMetadata.readInfo(at: plist)
+                stamped["XSignReleaseOrigin"] = origin
+                let data = try PropertyListSerialization.data(fromPropertyList: stamped, format: .binary, options: 0)
+                try data.write(to: plist, options: .atomic)
+                try XSignPrivateFiles.protect(plist)
                 message="جاري تجهيز التحديث…"
                 var options=Options.defaultOptions;options.signingOption = .default
                 options.appName=nil;options.appIdentifier=nil;options.appVersion=nil;options.matchCertificateAppID=false
@@ -109,19 +122,25 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 request.predicate=NSPredicate(format:"uuid == %@",signedUUID)
                 guard let signed=try Storage.shared.context.fetch(request).first else { throw failure("تعذّر العثور على نسخة التحديث الموقعة.") }
                 defer { Storage.shared.deleteApp(for:signed) }
-                try Task.checkCancellation()
+                try checkRelease(update)
                 guard let signedDirectory=Storage.shared.getAppDirectory(for:signed) else { throw failure("تعذّر فحص التحديث الجاهز.") }
                 let signedInfo=try XSignOTABundleMetadata.read(from:signedDirectory)
                 let signedProfile=try XSignSelfUpdateProfile.read(signedDirectory.appendingPathComponent("embedded.mobileprovision"))
+                let signedDictionary = try XSignAppMetadata.readInfo(at: signedDirectory.appendingPathComponent("Info.plist"))
                 guard signedInfo.identifier==bundleID,signedInfo.shortVersion==latest,
-                      signedInfo.version==info.version,signedProfile.canReplace(installed,bundleID:bundleID) else {
+                      signedInfo.version==info.version,signedProfile.canReplace(installed,bundleID:bundleID),
+                      signedDictionary["XSignReleaseOrigin"] as? String == origin else {
                     throw failure("لم تجتز النسخة الموقعة فحص الهوية. أُوقف التثبيت لحماية بياناتك.")
                 }
-                try await install(signed)
+                try await install(signed, release: update)
                 delivered=true;message="تم إرسال التحديث إلى iOS. وافق على طلب التثبيت وانتظر اكتماله."
             } catch is CancellationError { message="أُلغي التحديث." }
             catch { message=(error as NSError).domain == "XSign.Update" ? error.localizedDescription : "تعذّر تجهيز التحديث. تحقق من الخدمة والشهادة وملف الإصدار." }
         }
+    }
+    private func checkRelease(_ release: XSignOwnerUpdate) throws {
+        try Task.checkCancellation()
+        guard XSignRemoteManager.shared.canInstall(release) else { throw failure("تغيّر الإصدار المعتمد أو توقف التحديث. تحقق مجدداً.") }
     }
     func certificateSetupFinished() {
         guard let update=pendingUpdate else { return }
@@ -129,7 +148,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
         let added=Set(Storage.shared.getAllCertificates().compactMap { $0.uuid }).subtracting(knownCertificates)
         if !added.isEmpty { start(update) }
     }
-    private func install(_ app: AppInfoPresentable) async throws {
+    private func install(_ app: AppInfoPresentable, release: XSignOwnerUpdate) async throws {
         let status=InstallerStatusViewModel(isIdevice:false)
         let handler=ArchiveHandler(app:app,viewModel:status)
         #if !targetEnvironment(macCatalyst)
@@ -139,7 +158,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
         do {
             let metadata=try await handler.move()
             let package=try await handler.archive()
-            try Task.checkCancellation()
+            try checkRelease(release)
             let installer=XSignOTAInstaller()
             try await installer.install(package:package,bundleIdentifier:metadata.identifier,
                 version:metadata.version,title:metadata.title,update:{ [weak self] stage in
@@ -149,7 +168,8 @@ struct XSignVerifiedSelfUpdate: Sendable {
                     default: break
                     }
                 },open:{ link in
-                    await withCheckedContinuation { continuation in
+                    guard XSignRemoteManager.shared.canInstall(release) else { return false }
+                    return await withCheckedContinuation { continuation in
                         UIApplication.shared.open(link,options:[:]) { continuation.resume(returning:$0) }
                     }
                 })
@@ -212,29 +232,61 @@ private final class XSignUpdateFileDownload: NSObject, URLSessionDownloadDelegat
 struct XSignAppUpdateView: View {
     @ObservedObject private var remote=XSignRemoteManager.shared
     @StateObject private var updater=XSignAppUpdater()
+    var isRequired = false
     var body: some View {
         ScrollView {
-            VStack(alignment:.leading,spacing:18) {
-                Text("تحديث XSign").font(.largeTitle.bold())
-                Text("الإصدار الحالي: \(remote.currentVersion)").foregroundStyle(.secondary)
-                if let release=remote.config?.dashboard?.update,release.enabled == true {
-                    Text("الإصدار الجديد: \(release.latest_version ?? "—")").font(.headline)
-                    if let html=release.html,!html.isEmpty { XSignUpdateHTML(html:html,onInstall:{ updater.start(release) }).frame(minHeight:350) }
-                    if let notes=release.notes { Text(notes) }
+            VStack(spacing:16) {
+                if let release=remote.config?.dashboard?.update, release.installable {
+                    let allowed = remote.canInstall(release) && !updater.busy && !updater.delivered
+                    let custom = release.html.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                    let heading = isRequired ? "حدّث XSign للمتابعة" : "تحديث XSign"
+                    let version = "الإصدار \(release.latest_version ?? "—")" + (release.targetBuild.map { " · البناء \($0)" } ?? "")
+                    let info = release.notes.flatMap { $0.isEmpty ? nil : $0 } ?? (isRequired ? (remote.config?.force_update?.message ?? "ثبّت الإصدار المعتمد لمواصلة استخدام XSign.") : "ثبّت الإصدار الجديد ووافق على طلب iOS.")
+                    XSignUpdateHTML(html: custom ?? XSignInstallPageHTML.page(heading: heading, name: "XSign", version: version,
+                        details: info, canInstall: allowed, button: "تثبيت التحديث"), onInstall: { if allowed { updater.start(release) } })
+                        .frame(height: custom == nil ? 345 : 390)
+                    if custom != nil && allowed { Button("تثبيت التحديث") { updater.start(release) }.buttonStyle(.borderedProminent) }
+                    Text("المثبّت الآن: \(remote.currentVersion) · البناء \(remote.currentBuild)").font(.caption).foregroundStyle(.secondary)
                     if updater.busy { ProgressView(value:updater.progress) }
-                    Button("تثبيت") { updater.start(release) }
-                        .buttonStyle(.borderedProminent).disabled(updater.busy || updater.delivered || !XSignReleaseVersion.isNewer(currentVersion:remote.currentVersion,currentBuild:remote.currentBuild,targetVersion:release.latest_version ?? "",targetBuild:release.build_version))
-                    Text(updater.message).font(.footnote)
+                    if !updater.message.isEmpty { Text(updater.message).font(.footnote).multilineTextAlignment(.center) }
                     if updater.busy { Button("إلغاء",role:.cancel) { updater.cancel() } }
-                } else { Text("لم يفعّل الناشر تحديثاً داخلياً بعد.") }
-                Text("أبقِ التطبيق مفتوحاً ووافق على رسالة التثبيت التي يعرضها iOS.")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Button("التحقق من وجود تحديث") { Task { await remote.fetchRemoteConfig() } }
-            }.padding(22)
+                } else { Label("ماكو تحديث متاح حالياً", systemImage: "checkmark.circle").font(.headline) }
+                Button("التحقق الآن") { Task { await remote.fetchRemoteConfig(force: true) } }.font(.footnote)
+            }.frame(maxWidth: 480).padding(.horizontal, 16).padding(.vertical, 24)
+                .frame(maxWidth: .infinity)
         }
+        .background(AppStoreTheme.background.ignoresSafeArea())
+        .environment(\.layoutDirection, .rightToLeft)
         .sheet(isPresented:$updater.needsCertificate,onDismiss:{ updater.certificateSetupFinished() }) { CertificatesAddView() }
         .interactiveDismissDisabled(updater.busy)
         .onDisappear { updater.cancel() }
+        .onChange(of: remote.config?.dashboard?.update?.installIdentity) { _ in updater.releaseChanged() }
+    }
+}
+
+enum XSignInstallPageHTML {
+    private static let template = Bundle.main.url(forResource: "XSignInstall", withExtension: "html")
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+        ?? "<main style='padding:24px;background:#003173;color:white;border-radius:18px;text-align:center;font-family:system-ui'><h1>{{heading}}</h1><p>{{name}} · {{version}}</p><p>{{details}}</p>{{action}}</main>"
+
+    private static func escape(_ value: String) -> String {
+        value.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "{", with: "&#123;").replacingOccurrences(of: "}", with: "&#125;")
+    }
+
+    static func page(heading: String, name: String, version: String, details: String, canInstall: Bool, button: String) -> String {
+        let action = canInstall ? "<a class='install-action' style='color:#003173;background:#e9f3ff' href='xsign-update://install'>\(escape(button))</a><p class='install-hint'>وافق على طلب التثبيت من iOS.</p>" : ""
+        var page = template
+        for (key, value) in [("heading", escape(heading)), ("name", escape(name)), ("version", escape(version)),
+                             ("details", escape(String(details.prefix(3000)))), ("action", action)] {
+            page = page.replacingOccurrences(of: "{{\(key)}}", with: value)
+        }
+        return page
+    }
+
+    static func document(_ fragment: String) -> String {
+        "<!doctype html><html lang='ar' dir='rtl'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none';style-src 'unsafe-inline';img-src data:;form-action 'none';base-uri 'none'\"></head><body>" + String(fragment.prefix(100000)) + "</body></html>"
     }
 }
 
@@ -252,7 +304,7 @@ struct XSignUpdateHTML: UIViewRepresentable {
     }
     func updateUIView(_ view:WKWebView,context:Context) {
         context.coordinator.onInstall=onInstall
-        let content="<meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none';style-src 'unsafe-inline';img-src data:;form-action 'none';base-uri 'none'\"><body dir='rtl'>"+String(html.prefix(100000))+"</body>"
+        let content=XSignInstallPageHTML.document(html)
         if context.coordinator.lastHTML != content {
             context.coordinator.lastHTML=content;view.loadHTMLString(content,baseURL:nil)
         }
@@ -263,7 +315,7 @@ struct XSignUpdateHTML: UIViewRepresentable {
         init(onInstall:@escaping()->Void) { self.onInstall=onInstall }
         func webView(_ webView:WKWebView,decidePolicyFor action:WKNavigationAction,
                      decisionHandler:@escaping(WKNavigationActionPolicy)->Void) {
-            if action.navigationType == .linkActivated,action.targetFrame?.isMainFrame == true,
+            if action.navigationType == .linkActivated,action.sourceFrame.isMainFrame,action.targetFrame?.isMainFrame == true,
                action.request.url?.absoluteString == "xsign-update://install" {
                 decisionHandler(.cancel);onInstall();return
             }

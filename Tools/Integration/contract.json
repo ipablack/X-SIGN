@@ -27,7 +27,8 @@
     "apps": "Feather/Views/Sources/SourcesView.swift",
     "news": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
     "categories": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
-    "featuredApps": "Feather/Views/Sources/XSignConfiguredStoreView.swift"
+    "featuredApps": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "xsign_config.dashboard.update.required": "Feather/FeatherApp.swift"
   },
   "not_enforced_in_local_signing_build": [
     "anti_vpn_proxy",
@@ -47,7 +48,13 @@
   "source_priority": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
     "https://appiraq.com/source.php?action=getAll",
-    "https://appiraq.com/han.json"
+    "https://appiraq.com/han.json",
+    "https://repo.ucerts.io",
+    "https://repository.apptesters.org/",
+    "https://appstore.nabzclan.vip/repos/scarlet.php",
+    "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
+    "https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",
+    "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json"
   ],
   "managed_sources_editable": true,
   "built_in_sources_removable": true,
@@ -60,7 +67,29 @@
   "display_name": "XSign",
   "icon_source_url": "https://up6.cc/2026/11/179399545145851.png",
   "panel_design": "Tools/Integration/panel-origin.json",
-  "user_source_interface": false,
-  "catalog_profile": "zsign-public-v1",
-  "appstore_service_status": "403 from the official endpoint: provider activation for XSign is required"
+  "user_source_interface": true,
+  "catalog_profile": "iosboom-public-v1",
+  "appstore_service_status": "403 from the official endpoint: provider activation for XSign is required",
+  "active_source_urls": [
+    "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+    "https://appiraq.com/source.php?action=getAll",
+    "https://appiraq.com/han.json",
+    "https://repository.apptesters.org/",
+    "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
+    "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json"
+  ],
+  "public_source_registry": "Tools/Integration/iosboom-public-sources.json",
+  "experience_version": 2,
+  "today_sources": [
+    "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+    "https://appiraq.com/source.php?action=getAll"
+  ],
+  "tab_bar": "Native SwiftUI Tab with a search role on iOS 18+, native legacy TabView on iOS 15–17",
+  "product_page": "Feather/Views/Sources/XSignAppStoreProductPage.swift",
+  "signing": "Native Zsign with dynamic eligible certificate selection and no Swift App ID rejection for ordinary signing",
+  "live_config_url": "https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json",
+  "foreground_config_refresh_seconds": 5,
+  "release_gate": "Exact version, optional build, and release URL fingerprint in the signed bundle",
+  "installation_page": "Feather/Resources/XSignInstall.html",
+  "studio_theme": "Black and XSign blue #003173"
 }

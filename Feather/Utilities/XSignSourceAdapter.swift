@@ -9,11 +9,14 @@ enum XSignSourceAdapter {
         catch { throw XSignCatalogError.invalidJSON }
         let config = supplied ?? XSignDashboardSources.configuration(for:url)
         let dictionary = input as? [String:Any]
-        if config?.format == "altstore" { return data }
+        let knownNumericTypes = XSignDashboardSources.iosboomSources.contains {
+            $0.safeURL.map(XSignCatalogIO.canonicalURL) == XSignCatalogIO.canonicalURL(url)
+        }
+        if config?.format == "altstore" { return try sanitizedCatalogue(dictionary, fallback: data, numericTypes: knownNumericTypes) }
         if config?.fields?.isEmpty != false, config?.root_path?.isEmpty != false,
            let apps=dictionary?["apps"] as? [[String:Any]],
            apps.allSatisfy({ $0["name"] is String && ($0["downloadURL"] is String || $0["versions"] is [[String:Any]]) }) {
-            return data
+            return try sanitizedCatalogue(dictionary, fallback: data, numericTypes: knownNumericTypes)
         }
         var selected: Any? = input
         if let path=config?.root_path, !path.isEmpty { selected=value(input,path:path) }
@@ -52,6 +55,32 @@ enum XSignSourceAdapter {
         if let subtitle=dictionary?["subtitle"] { root["subtitle"]=subtitle }
         if let categories=dictionary?["categories"] as? [[String:Any]] { root["categories"]=categories }
         return try JSONSerialization.data(withJSONObject:root,options:[.sortedKeys])
+    }
+    // A catalogue can publish metadata without an IPA. Preserve its app/version
+    // records, but never turn an empty, relative or non-HTTPS URL into a download.
+    private static func sanitizedCatalogue(_ input: [String: Any]?, fallback: Data, numericTypes: Bool) throws -> Data {
+        guard var root = input, let apps = root["apps"] as? [[String: Any]] else { return fallback }
+        var changed = false
+        func cleanDownload(_ input: [String: Any]) -> [String: Any] {
+            var row = input
+            if let value = row["downloadURL"],
+               (value as? String).flatMap({ XSignManagedSource.httpsURL($0) }) == nil {
+                row.removeValue(forKey: "downloadURL")
+                changed = true
+            }
+            return row
+        }
+        root["apps"] = apps.map { app in
+            var item = cleanDownload(app)
+            if numericTypes, (item["category"] as? String)?.isEmpty != false,
+               item["type"] as? Int == 2 {
+                item["category"] = "games"
+                changed = true
+            }
+            if let versions = item["versions"] as? [[String: Any]] { item["versions"] = versions.map(cleanDownload) }
+            return item
+        }
+        return changed ? try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]) : fallback
     }
     private static func value(_ input: Any, path: String) -> Any? {
         guard path.utf8.count <= 300 else { return nil }

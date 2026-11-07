@@ -3,6 +3,7 @@
     // All application behavior is contained in this file. No external JavaScript.
     const PRIMARY_SOURCE_URL = 'https://appiraq.com/source.php?action=getAll';
     const SECONDARY_SOURCE_URL = 'https://appiraq.com/han.json';
+    const IOSBOOM_PUBLIC_SOURCES = [{"id":"xsign.iosboom.ucerts","name":"uCerts","url":"https://repo.ucerts.io","enabled":false,"format":"auto"},{"id":"xsign.iosboom.apptesters","name":"AppTesters","url":"https://repository.apptesters.org/","enabled":true,"format":"auto"},{"id":"xsign.iosboom.nabzclan","name":"Nabzclan","url":"https://appstore.nabzclan.vip/repos/scarlet.php","enabled":false,"format":"auto"},{"id":"xsign.iosboom.ipaomtk","name":"IPAOMTK Apps","url":"https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json","enabled":true,"format":"auto"},{"id":"xsign.iosboom.buildstore","name":"Build Store","url":"https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json","enabled":false,"format":"auto"},{"id":"xsign.iosboom.minoa","name":"Minoa’s Combined","url":"https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json","enabled":true,"format":"auto"}];
     const OWNED_CANONICAL_URL = 'https://raw.githubusercontent.com/ipablack/repo/main/repo.json';
     const STORAGE_KEY = 'xsign.studio.state.v3';
     const LEGACY_STORAGE_KEY = 'xsign.studio.state.v2';
@@ -60,7 +61,8 @@
       const sources=Array.isArray(configured)?configured.filter(s=>isObject(s)&&s.enabled!==false):[
         {name:'IPA BLACK',id:'xsign.core.owned',url:OWNED_CANONICAL_URL},
         {name:'ipasoon',id:'xsign.core.primary',url:PRIMARY_SOURCE_URL},
-        {name:'متجر Zsign الرسمي',id:'xsign.core.zsign',url:SECONDARY_SOURCE_URL}
+        {name:'متجر Zsign الرسمي',id:'xsign.core.zsign',url:SECONDARY_SOURCE_URL},
+        ...IOSBOOM_PUBLIC_SOURCES.filter(s=>s.enabled!==false)
       ];
       target.xsign_config.app_control.core_sources=sources.map(s=>({name:s.name,id:s.id,url:s.url}));
       return target;
@@ -220,6 +222,7 @@
     }
     function renderOverview() {
       $('statApps').textContent=padded(state.apps.length);$('statRevision').textContent=padded(state.repo_revision_id);
+      $('statSourceCount').textContent=padded((state.xsign_config.dashboard?.sources||[]).filter(source=>source.enabled!==false).length);
       const maintenance=state.xsign_config.maintenance.enabled;
       $('statMaintenance').textContent=maintenance?'قيد الصيانة':'متاح';$('statMaintenance').style.color=maintenance?'var(--yellow)':'';
       $('statMaintenanceNote').textContent=maintenance?'الصيانة مفعّلة في التكوين':'الصيانة غير مفعّلة في التكوين';

@@ -163,6 +163,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>XSignReleaseOrigin</key>
+	<string>$(XSIGN_RELEASE_ORIGIN)</string>
 	<key>CFBundleDisplayName</key>
 	<string>XSign</string>
 	<key>CFBundleName</key>

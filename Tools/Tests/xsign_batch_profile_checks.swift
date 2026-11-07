@@ -43,6 +43,33 @@ private func reject(_ message: String, _ operation: () throws -> Void) throws {
         let all = try profile("TEAM.*")
         let retained = try all.identifier(for:"org.example.app",matchExactID:true,now:now)
         try check(retained == "org.example.app", "Global wildcard changed the bundle")
+        do {
+            _ = try exact.signingIdentifier(for:"org.original.app",allowRemap:false,metadataEditingAllowed:true,now:now)
+            throw TestFailure(description:"An identity change did not require consent")
+        } catch let proposal as XSignProfileIdentityChange {
+            try check(proposal.current == "org.original.app" && proposal.replacement == "com.example.personal", "Wrong identity proposal")
+        }
+        let approved = try exact.signingIdentifier(for:"org.original.app",allowRemap:true,metadataEditingAllowed:true,now:now)
+        try check(approved == "com.example.personal", "Approved exact matching failed")
+        let scoped = try wildcard.signingIdentifier(for:"org.original.app",allowRemap:true,metadataEditingAllowed:true,now:now)
+        try check(scoped == "com.example.org.original.app", "Scoped wildcard mapping failed")
+        let second = try wildcard.signingIdentifier(for:"org.other.app",allowRemap:true,metadataEditingAllowed:true,preserveBatchIdentity:true,now:now)
+        try check(second != scoped, "Batch mapping collapsed two apps into one bundle")
+        let alreadyMatching = try wildcard.signingIdentifier(for:scoped,allowRemap:true,metadataEditingAllowed:true,now:now)
+        try check(alreadyMatching == scoped, "Matching repeatedly prepended the profile scope")
+        try reject("Metadata lock was bypassed") {
+            _ = try exact.signingIdentifier(for:"org.original.app",allowRemap:true,metadataEditingAllowed:false,now:now)
+        }
+        try reject("Explicit profile collapsed batch identities") {
+            _ = try exact.signingIdentifier(for:"org.original.app",allowRemap:true,metadataEditingAllowed:true,preserveBatchIdentity:true,now:now)
+        }
+        try reject("Invalid input was made signable") {
+            _ = try wildcard.signingIdentifier(for:"org..bad",allowRemap:true,metadataEditingAllowed:true,now:now)
+        }
+        try reject("App was renamed into the signer's own bundle") {
+            _ = try exact.signingIdentifier(for:"org.original.app",allowRemap:true,metadataEditingAllowed:true,
+                protectedIdentifier:"com.example.personal",now:now)
+        }
         let legacy = try profile("OLDPREFIX.com.example.legacy",prefix:"OLDPREFIX")
         try check(legacy.bundlePattern == "com.example.legacy", "Legacy App ID prefix was confused with Team ID")
         let expired = try profile("TEAM.com.example.app", expires:now.addingTimeInterval(-1))
@@ -52,7 +79,7 @@ private func reject(_ message: String, _ operation: () throws -> Void) throws {
         for bad in [Data(),Data("not XML".utf8),Data("<?xml version=\"1.0\"?><plist>".utf8)] {
             try reject("Malformed profile was accepted") { _ = try XSignProvisioningProfile.decode(bad) }
         }
-        print("PASS: real profile parsing from CMS-wrapped XML/binary plist, legacy prefixes, exact/wildcard matching, expiration and malformed input")
+        print("PASS: profile parsing, strict scope checks, explicit consent, approved matching, unique batch identifiers and metadata locks")
     }
 
     @MainActor static func idle<T>(_ queue: XSignBatchQueue<T>) async throws {

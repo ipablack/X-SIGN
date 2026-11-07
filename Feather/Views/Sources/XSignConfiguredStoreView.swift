@@ -34,13 +34,14 @@ private struct XSignClassicStoreSection: View {
     let category: AppStore2026Category?
     @ObservedObject var cache: AppStoreCacheManager
     private var items: [AppStoreAppItem] {
-        var result = page == "games" ? cache.pureGamesOnly : page == "apps" ? cache.pureAppsOnly : cache.allCombinedItems
+        var result = page == "games" ? cache.pureGamesOnly : page == "apps" ? cache.pureAppsOnly : cache.todayItems
         if let category { result = result.filter { $0.category == category } }
         if let source = section.source_url.flatMap(URL.init(string:)) {
             result = result.filter { $0.sourceURL.map(XSignCatalogIO.canonicalURL) == XSignCatalogIO.canonicalURL(source) }
         }
         if let id = section.category_id, !id.isEmpty { result = result.filter { $0.app.category == id } }
-        let ids = section.app_ids ?? (section.kind == "featured" && !cache.featuredCatalogIDs.isEmpty ? cache.featuredCatalogIDs : nil)
+        let featured = page == "today" ? cache.todayFeaturedIDs : cache.featuredCatalogIDs
+        let ids = section.app_ids ?? (section.kind == "featured" && !featured.isEmpty ? featured : nil)
         if let ids { result = ids.flatMap { id in result.filter { $0.app.id == id || $0.app.catalogID == id } } }
         if section.sort == "name" { result.sort { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending } }
         if section.sort == "reverse" { result.reverse() }
@@ -49,13 +50,13 @@ private struct XSignClassicStoreSection: View {
     var body: some View {
         Group {
             if section.kind == "news" {
-                ForEach(Array(cache.ipablackEditorialNews.prefix(section.boundedLimit))) { XSignAnnouncementCard(instruction: $0) }
+                ForEach(Array((page == "today" ? cache.todayEditorialNews : cache.ipablackEditorialNews).prefix(section.boundedLimit))) { XSignAnnouncementCard(instruction: $0) }
             } else if section.kind == "categories" {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(Array(cache.sourceCategories.filter { page == "today" || ($0.isGame ?? false) == (page == "games") }.prefix(section.boundedLimit)), id: \.id) { item in
+                        ForEach(Array((page == "today" ? cache.todayCategories : cache.sourceCategories).filter { page == "today" || ($0.isGame ?? false) == (page == "games") }.prefix(section.boundedLimit)), id: \.id) { item in
                             NavigationLink {
-                                XSignClassicCatalogueList(title: item.name, items: cache.allCombinedItems.filter { $0.app.category == item.id })
+                                XSignClassicCatalogueList(title: item.name, items: (page == "today" ? cache.todayItems : cache.allCombinedItems).filter { $0.app.category == item.id })
                             } label: {
                                 Text(item.name).font(.subheadline.weight(.bold)).padding(.horizontal, 16).padding(.vertical, 9)
                                     .background(AppStoreTheme.controlSurface, in: Capsule())

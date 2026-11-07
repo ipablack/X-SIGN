@@ -240,9 +240,11 @@ final class XSignRemoteManager: ObservableObject {
     @Published private(set) var remoteSyncStatus = "بانتظار المزامنة"
     @Published private(set) var sourceName = "IPA BLACK"
     private var cachedRoot: XSignRemoteRoot?
-    private var requestTask: Task<XSignRemoteRoot?, Never>?
-    private var lastSuccess = Date.distantPast
-    private var lastCatalogRefresh = Date.distantPast
+    private var requestTask: Task<Void, Never>?
+    private var lastAttempt = Date.distantPast
+    private var lastLegacyProbe = Date.distantPast
+    private var lastSuccess: Date?
+    static let foregroundSyncInterval: UInt64 = 5_000_000_000
 
     init() {
         if let data = UserDefaults.standard.data(forKey: cacheKey),
@@ -262,10 +264,27 @@ final class XSignRemoteManager: ObservableObject {
     }
     var isMaintenanceActive: Bool { config?.maintenance?.enabled == true }
     var currentBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0" }
+    private var installedOrigin: String? { Bundle.main.object(forInfoDictionaryKey: "XSignReleaseOrigin") as? String }
+    func matchesInstalled(_ update: XSignOwnerUpdate) -> Bool {
+        guard let version = update.latest_version, let origin = update.releaseOrigin else { return false }
+        return XSignReleaseVersion.matchesInstalled(version: currentVersion, build: currentBuild, origin: installedOrigin,
+            targetVersion: version, targetBuild: update.targetBuild, targetOrigin: origin)
+    }
     var isForceUpdateRequired: Bool {
+        if let update = config?.dashboard?.update, let required = update.required {
+            return required && update.installable && !matchesInstalled(update)
+        }
         guard let update=config?.force_update,update.enabled == true else { return false }
         return XSignReleaseVersion.isNewer(currentVersion:currentVersion,currentBuild:currentBuild,
             targetVersion:update.min_version ?? currentVersion,targetBuild:update.min_build_version)
+    }
+    func canInstall(_ update: XSignOwnerUpdate) -> Bool {
+        guard !isMaintenanceActive, update.installable, let version = update.latest_version,
+              config?.dashboard?.update?.installIdentity == update.installIdentity,
+              config?.dashboard?.update?.enabled == true else { return false }
+        if config?.dashboard?.update?.required == true { return !matchesInstalled(update) }
+        return XSignReleaseVersion.isNewer(currentVersion: currentVersion, currentBuild: currentBuild,
+            targetVersion: version, targetBuild: update.targetBuild)
     }
     nonisolated static func versionIsOlder(_ current: String, than required: String) -> Bool {
         XSignVersion.older(current, than: required)
@@ -283,36 +302,44 @@ final class XSignRemoteManager: ObservableObject {
         return blockingReason
     }
 
-    func fetchRemoteConfig(storeCache: AppStoreCacheManager? = nil, sourcesViewModel: SourcesViewModel? = nil) async {
-        let root: XSignRemoteRoot?
-        if let running = requestTask {
-            root = await running.value
-        } else if Date().timeIntervalSince(lastSuccess) < 5, XSignSecurityEnforcer.shared.didCompleteOnlineHandshake {
-            root = cachedRoot
-        } else {
-            let cached = cachedRoot
-            let task = Task.detached(priority: .utility) { await Self.downloadRoot(cached: cached) }
-            requestTask = task
-            root = await task.value
-            if root != nil { lastSuccess = Date() }
-            requestTask = nil
+    func fetchRemoteConfig(storeCache: AppStoreCacheManager? = nil, sourcesViewModel: SourcesViewModel? = nil, force: Bool = false) async {
+        if let running = requestTask { await running.value; return }
+        let now = Date()
+        guard force || now.timeIntervalSince(lastAttempt) >= 4 else { return }
+        lastAttempt = now
+        let cached = cachedRoot
+        let tryLegacy = now.timeIntervalSince(lastLegacyProbe) >= 60
+        let task = Task { @MainActor in
+            let result = await Self.downloadRoot(cached: cached, allowLegacy: tryLegacy)
+            if result.usedLegacy { lastLegacyProbe = Date() }
+            applyRoot(result.root, storeCache: storeCache, sourcesViewModel: sourcesViewModel)
         }
-        guard let root, let next = root.xsign_config else {
-            XSignSecurityEnforcer.shared.didCompleteOnlineHandshake = false
-            remoteSyncStatus = "تعذّر جلب التكوين؛ بقي آخر إعداد صالح"
+        requestTask = task
+        await task.value
+        requestTask = nil
+    }
+
+    private func applyRoot(_ root: XSignRemoteRoot?, storeCache: AppStoreCacheManager?, sourcesViewModel: SourcesViewModel?) {
+        guard let root, let next = root.xsign_config, (root.repo_revision_id ?? 0) >= currentRevisionID else {
+            if XSignSecurityEnforcer.shared.didCompleteOnlineHandshake { XSignSecurityEnforcer.shared.didCompleteOnlineHandshake = false }
+            let status = "تعذّر جلب التكوين؛ بقي آخر إعداد صالح"
+            if remoteSyncStatus != status { remoteSyncStatus = status }
             return
         }
+        lastSuccess = Date()
         let changedRevision = root != cachedRoot
         let changedConfig = next != config
         cachedRoot = root
         if changedConfig { config = next }
-        sourceName = root.name ?? sourceName
-        currentRevisionID = root.repo_revision_id ?? currentRevisionID
-        lastRemoteSync = lastSuccess == Date.distantPast ? nil : lastSuccess
-        remoteSyncStatus = "تمت قراءة تكوين IPA BLACK بنجاح"
+        if let name = root.name, name != sourceName { sourceName = name }
+        if let revision = root.repo_revision_id, revision != currentRevisionID { currentRevisionID = revision }
+        if changedRevision || lastRemoteSync == nil || remoteSyncStatus != "تكوين IPA BLACK متزامن" { lastRemoteSync = lastSuccess }
+        if remoteSyncStatus != "تكوين IPA BLACK متزامن" { remoteSyncStatus = "تكوين IPA BLACK متزامن" }
         if changedConfig || changedRevision,
            let data = try? JSONEncoder().encode(root) { UserDefaults.standard.set(data, forKey: cacheKey) }
-        XSignSecurityEnforcer.shared.updateLocks(next.security_locks, verifiedOnline: true)
+        if changedConfig || !XSignSecurityEnforcer.shared.didCompleteOnlineHandshake {
+            XSignSecurityEnforcer.shared.updateLocks(next.security_locks, verifiedOnline: true)
+        }
         let tint = next.theme?.app_tint_hex ?? root.tintColor
         if let tint, Self.validHex(tint),
            UserDefaults.standard.string(forKey: "xsign.lastAppliedRemoteTint") != tint.uppercased() {
@@ -330,7 +357,7 @@ final class XSignRemoteManager: ObservableObject {
         let sourcePolicyChanged = XSignDashboardSources.apply(next.dashboard)
         if sourcePolicyChanged { cache.invalidateNetworkCache() }
         let commandChanged = cache.configureManagedSources(next.app_control?.core_sources) || sourcePolicyChanged
-        var needsRefresh = changedRevision || commandChanged || !cache.hasLoadedCatalog || Date().timeIntervalSince(lastCatalogRefresh) >= 60
+        var needsRefresh = changedRevision || commandChanged
         if let flush = next.app_control?.cache_flush_id,
            flush > UserDefaults.standard.integer(forKey: "xsign.lastCacheFlushID") {
             cache.invalidateNetworkCache()
@@ -345,9 +372,8 @@ final class XSignRemoteManager: ObservableObject {
             UserDefaults.standard.set(purge, forKey: "xsign.lastPurgeSourcesID")
             needsRefresh = true
         }
-        NotificationCenter.default.post(name: .xsignPolicyChanged, object: nil)
+        if changedConfig { NotificationCenter.default.post(name: .xsignPolicyChanged, object: nil) }
         if needsRefresh {
-            lastCatalogRefresh = Date()
             let sources = Storage.shared.getSources()
             Task { @MainActor in await cache.forceRefresh(sources: sources, viewModel: sourcesVM) }
         }
@@ -356,36 +382,47 @@ final class XSignRemoteManager: ObservableObject {
     nonisolated static func validHex(_ value: String) -> Bool {
         value.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil
     }
-    private nonisolated static func downloadRoot(cached: XSignRemoteRoot?) async -> XSignRemoteRoot? {
+    private nonisolated static func downloadRoot(cached: XSignRemoteRoot?, allowLegacy: Bool) async -> (root: XSignRemoteRoot?, usedLegacy: Bool) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 6
         configuration.timeoutIntervalForResource = 10
         configuration.httpMaximumConnectionsPerHost = 1
         configuration.urlCache = nil
-        let session = URLSession(configuration: configuration)
+        configuration.httpShouldSetCookies = false
+        let session = URLSession(configuration: configuration, delegate: XSignNoHTTPRedirects(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
-        guard let ownerURL = URL(string: ProtectedSourcesVault.defaultOwnedURLString) else { return nil }
-        var endpoints: [(String, URL)] = [("owner-repo.json", ownerURL)]
-        if ownerURL.absoluteString == ProtectedSourcesVault.defaultOwnedURLString,
-           let alt = URL(string: ProtectedSourcesVault.defaultOwnedGitHubRawURLString) {
-            endpoints.append(("owner-repo-github.json", alt))
-        }
-        for (filename, url) in endpoints {
-            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+        guard let ownerURL = URL(string: ProtectedSourcesVault.defaultOwnedURLString) else { return (nil, false) }
+        let liveURL = ownerURL.deletingLastPathComponent().appendingPathComponent("xsign-config.json")
+        var endpoints = [(liveURL, 524_288)]
+        if allowLegacy { endpoints.append((ownerURL, 16_777_216)) }
+        for (index, entry) in endpoints.enumerated() {
+            let (url, limit) = entry
+            guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { continue }
+            parts.queryItems = [URLQueryItem(name: "xsign_live", value: String(Int(Date().timeIntervalSince1970 / 5)))]
+            guard let freshURL = parts.url else { continue }
+            var request = URLRequest(url: freshURL, cachePolicy: .reloadIgnoringLocalCacheData)
             request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-            let tagKey = "xsign.config.etag." + filename
-            if cached != nil, let etag = UserDefaults.standard.string(forKey: tagKey) {
+            let tagKey = "xsign.config.etag.v2." + url.lastPathComponent
+            // Only reuse a tag that was saved for this exact cached revision.
+            let revisionKey = tagKey + ".revision"
+            if let revision = cached?.repo_revision_id, UserDefaults.standard.object(forKey: revisionKey) as? Int == revision,
+               let etag = UserDefaults.standard.string(forKey: tagKey) {
                 request.setValue(etag, forHTTPHeaderField: "If-None-Match")
             }
-            guard let (data, http) = try? await XSignBoundedHTTP.fetch(request, using: session, limit: 16_777_216) else { continue }
-            if http.statusCode == 304 { return cached }
-            guard http.statusCode == 200, data.count <= 16_777_216,
+            guard let (data, http) = try? await XSignBoundedHTTP.fetch(request, using: session, limit: limit) else { continue }
+            if http.statusCode == 304, let cached { return (cached, index > 0) }
+            guard http.statusCode == 200,
                   let decoded = try? JSONDecoder().decode(XSignRemoteRoot.self, from: data),
-                  decoded.xsign_config != nil else { continue }
-            if let etag = http.value(forHTTPHeaderField: "ETag") { UserDefaults.standard.set(etag, forKey: tagKey) }
-            return decoded
+                  (decoded.repo_revision_id ?? 0) >= (cached?.repo_revision_id ?? 0),
+                  let config = decoded.xsign_config,
+                  config.dashboard?.update?.required != true || config.dashboard?.update?.installable == true else { continue }
+            if let etag = http.value(forHTTPHeaderField: "ETag"), let revision = decoded.repo_revision_id {
+                UserDefaults.standard.set(etag, forKey: tagKey)
+                UserDefaults.standard.set(revision, forKey: revisionKey)
+            }
+            return (decoded, index > 0)
         }
-        return nil
+        return (nil, allowLegacy)
     }
 }
 
@@ -487,12 +524,15 @@ struct FeatherApp: App {
         }
     }
 
+    private var gateIsVisible: Bool { remoteManager.isMaintenanceActive || remoteManager.isForceUpdateRequired }
+
 	var body: some Scene {
 		WindowGroup {
             Group {
                 if !storage.isStoreLoaded { XSignStorageLoadView(storage: storage) }
                 else {
 			ZStack {
+				if !gateIsVisible {
 				VStack(spacing: 0) {
 					if remoteManager.config?.app_control?.top_banner_enabled == true,
 					   let text = remoteManager.config?.app_control?.top_banner_text, !text.isEmpty {
@@ -529,9 +569,18 @@ struct FeatherApp: App {
 				.tint(activeTintColor)
 				.accentColor(activeTintColor)
 				.animation(.easeInOut(duration: 0.25), value: downloadManager.manualDownloads.description)
+				.sheet(isPresented: $autoSign.showCertificateSetup, onDismiss: {
+                    autoSign.resumeAfterCertificateSetup()
+                }) { CertificatesAddView() }
+                .sheet(item: $autoSign.readyToInstallApp, onDismiss: {
+                    autoSign.presentNextReadyApp()
+                }) { signedApp in
+                    InstallPreviewView(app: signedApp.base).xsignCompactSheet(height: 340)
+                }
+				}
 
 
-				if _showSplash {
+				if _showSplash && !gateIsVisible {
 					XSignPhotoIdenticalSplashView(
 						cache: storeCache,
 						sourcesViewModel: sourcesViewModel,
@@ -545,7 +594,7 @@ struct FeatherApp: App {
 					.zIndex(999)
 				}
 
-				if !_showSplash && (remoteManager.isMaintenanceActive || remoteManager.isForceUpdateRequired) {
+				if gateIsVisible {
 					XSignRemoteGateOverlayView(remoteManager: remoteManager, tintColor: activeTintColor)
 						.transition(.opacity)
 						.zIndex(1000)
@@ -563,22 +612,14 @@ struct FeatherApp: App {
 			}
             .tint(activeTintColor)
             .accentColor(activeTintColor)
+			.environment(\.managedObjectContext, storage.context)
 			.preferredColorScheme(preferredAppColorScheme)
-            .sheet(isPresented: $autoSign.showCertificateSetup, onDismiss: {
-                autoSign.resumeAfterCertificateSetup()
-            }) { CertificatesAddView() }
-            .sheet(item: $autoSign.readyToInstallApp, onDismiss: {
-                autoSign.presentNextReadyApp()
-            }) { signedApp in
-                InstallPreviewView(app: signedApp.base)
-                    .xsignCompactSheet(height: 300)
-
-            }
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
+                await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel, force: true)
                 while !Task.isCancelled {
+                    do { try await Task.sleep(nanoseconds: XSignRemoteManager.foregroundSyncInterval) } catch { break }
                     await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel)
-                    do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { break }
                 }
             }
             .task(id: scenePhase) {
@@ -589,6 +630,10 @@ struct FeatherApp: App {
                 autoSign.applyRemotePolicy()
                 if remoteManager.blockingReason != nil {
                     for download in downloadManager.downloads where download.task != nil { downloadManager.cancelDownload(download) }
+                }
+                if gateIsVisible {
+                    autoSign.showCertificateSetup = false
+                    autoSign.readyToInstallApp = nil
                 }
             }
             .onChange(of: userTintHex) { _ in
@@ -707,13 +752,12 @@ struct XSignVPNBlockedOverlayView: View {
 struct XSignRemoteGateOverlayView: View {
 	@ObservedObject var remoteManager: XSignRemoteManager
 	let tintColor: Color
-    @State private var showInternalUpdate=false
     @AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
 
 	var body: some View {
         ZStack {
-            if !remoteManager.isMaintenanceActive,remoteManager.config?.dashboard?.update?.enabled == true {
-                XSignAppUpdateView()
+            if !remoteManager.isMaintenanceActive, remoteManager.config?.dashboard?.update?.installable == true {
+                XSignAppUpdateView(isRequired: true)
             } else {
 			AppStoreTheme.background.ignoresSafeArea()
 
@@ -737,18 +781,9 @@ struct XSignRemoteGateOverlayView: View {
 					.multilineTextAlignment(.center)
 					.padding(.horizontal, 24)
 
-				Button {
-                    if !remoteManager.isMaintenanceActive, remoteManager.config?.dashboard?.update?.enabled == true {
-                        showInternalUpdate=true
-                        return
-                    }
-					let target = remoteManager.isMaintenanceActive
-						? (remoteManager.config?.maintenance?.button_url ?? "")
-						: (remoteManager.config?.force_update?.update_url ?? "")
-					if let url = URL(string: target) {
-						UIApplication.shared.open(url)
-					}
-				} label: {
+                let target = remoteManager.isMaintenanceActive ? remoteManager.config?.maintenance?.button_url : remoteManager.config?.force_update?.update_url
+                if let url = xsignSafeURL(target) {
+				Button { UIApplication.shared.open(url) } label: {
 					Text(remoteManager.isMaintenanceActive ? "متابعة قناة التيليجرام" : "تحديث التطبيق الآن")
 						.font(.headline.bold())
 						.foregroundColor(AppStoreTheme.contrastingText(forHex: userTintHex))
@@ -758,11 +793,12 @@ struct XSignRemoteGateOverlayView: View {
 						.cornerRadius(14)
 				}
 				.padding(.horizontal, 36)
+                }
 			}
 			.padding(24)
 		}
         }
-        .sheet(isPresented:$showInternalUpdate) { XSignAppUpdateView() }
+        .background(AppStoreTheme.background.ignoresSafeArea())
 	}
 }
 

@@ -2,6 +2,13 @@ import Foundation
 
 // Pure rules shared by the update gate, eligibility checks and regression tests.
 enum XSignReleaseVersion {
+    static func matchesInstalled(version: String, build: String, origin: String?,
+                                 targetVersion: String, targetBuild: String?, targetOrigin: String) -> Bool {
+        guard valid(targetVersion), version == targetVersion, origin == targetOrigin else { return false }
+        guard let targetBuild else { return true }
+        return valid(targetBuild) && build == targetBuild
+    }
+
     // Immutable Release URLs distinguish republished builds without inventing versions.
     static func catalogNeedsUpdate(currentVersion:String?,targetVersion:String,currentURL:URL?,targetURL:URL)->Bool {
         guard let currentVersion else { return true }

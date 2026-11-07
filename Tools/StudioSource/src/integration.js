@@ -4,11 +4,11 @@ const XSIGN_INTEGRATION={schema:2,minimumOS:'15.0',name:'XSign',version:'1.0',bu
   ['المصادر وترتيب المتجر والتبويبات','dashboard'],['التوقيع وتحرير البيانات والأيقونة والحقن','security_locks'],
   ['الصيانة والتحديث الإجباري ورقم البناء','force_update'],['صفحة HTML والتحديث الموقّع','dashboard.update'],
   ['الشريط العلوي وتجديد الكاش','app_control'],['التطبيقات والإصدارات والأخبار والتصنيفات','catalogue']]};
-const DASHBOARD_DEFAULTS={schema_version:2,catalog_profile:'zsign-public-v1',allow_user_sources:false,signing_enabled:true,
+const DASHBOARD_DEFAULTS={schema_version:2,catalog_profile:'iosboom-public-v1',experience_version:2,allow_user_sources:true,signing_enabled:true,
   tab_order:['today','games','apps','library','search'],
   sources:[{id:'xsign.core.owned',name:'IPA BLACK',url:OWNED_CANONICAL_URL,enabled:true,format:'auto'},
     {id:'xsign.core.primary',name:'ipasoon',url:PRIMARY_SOURCE_URL,enabled:true,format:'auto'},
-    {id:'xsign.core.zsign',name:'متجر Zsign الرسمي',url:SECONDARY_SOURCE_URL,enabled:true,format:'auto'}],
+    {id:'xsign.core.zsign',name:'متجر Zsign الرسمي',url:SECONDARY_SOURCE_URL,enabled:true,format:'auto'},...IOSBOOM_PUBLIC_SOURCES.map(clone)],
   sections:[['today-news','الأخبار','today','news'],['today-featured','مختارات IPA BLACK','today','featured'],
     ['today-apps','جديد المتجر','today','apps'],
     ['apps-categories','التصنيفات','apps','categories'],['apps-featured','مختارات التطبيقات','apps','featured'],['apps-list','التطبيقات','apps','apps'],
@@ -21,26 +21,34 @@ function canonicalManagedSourceURL(value){
   const aliases=['https://github.com/ipablack/repo/raw/refs/heads/main/repo.json',
     'https://github.com/ipablack/repo/blob/main/repo.json',
     'https://raw.githubusercontent.com/ipablack/repo/refs/heads/main/repo.json'];
-  return aliases.includes(value)?OWNED_CANONICAL_URL:value;
+  if(aliases.includes(value))return OWNED_CANONICAL_URL;
+  try{const u=new URL(value),parts=u.pathname.split('/').filter(Boolean);
+    if(u.hostname==='github.com'&&parts.length>=5&&['raw','blob'].includes(parts[2])){
+      u.hostname='raw.githubusercontent.com';u.pathname='/'+[...parts.slice(0,2),...parts.slice(3)].join('/');u.searchParams.delete('raw');}
+    if(u.hostname==='raw.githubusercontent.com'){u.pathname=u.pathname.replace('/refs/heads/','/');return u.href;}
+  }catch{}
+  return value;
 }
 function managedSourcePriority(source){const url=canonicalManagedSourceURL(source?.url);return url===OWNED_CANONICAL_URL?0:url===PRIMARY_SOURCE_URL?1:url===SECONDARY_SOURCE_URL?2:3;}
 const integrationCoreSources=enforceCoreSources;
 enforceCoreSources=function(value){const sources=value.xsign_config.dashboard?.sources;
-  if(Array.isArray(sources))sources.sort((a,b)=>managedSourcePriority(a)-managedSourcePriority(b));return integrationCoreSources(value);};
+  if(Array.isArray(sources))sources.sort((a,b)=>managedSourcePriority(a)-managedSourcePriority(b));
+  syncReleaseGate(value);return integrationCoreSources(value);};
 const integrationDefaults=createDefaultState;
 createDefaultState=function(){const value=integrationDefaults();value.xsign_config.dashboard=clone(DASHBOARD_DEFAULTS);
   value.xsign_config.theme.appearance='system';value.xsign_config.force_update.min_build_version='';return value;};
 const integrationNormalize=normalizeState;
 function migrateZsignCatalogue(parsed){
   const input=clone(parsed),d=input?.xsign_config?.dashboard;
-  if(d&&d.catalog_profile!=='zsign-public-v1'){
+  if(d&&d.catalog_profile!=='iosboom-public-v1'){
     if(Array.isArray(d.sections)&&d.sections.some(s=>s.id==='apps-sources'&&s.kind==='sources'))d.sections=d.sections.flatMap(s=>{
       if(s.id==='apps-sources')return [clone(DASHBOARD_DEFAULTS.sections.find(row=>row.id==='apps-featured'))];
       if(s.id==='games-list')return [clone(DASHBOARD_DEFAULTS.sections.find(row=>row.id==='games-featured')),s];return [s];});
     if(Array.isArray(d.sources))d.sources=d.sources.flatMap(s=>s.id==='xsign.core.primary'&&s.url==='https://supapi.trystore.net/rest/v1/plus_library_apps'
-      ?DASHBOARD_DEFAULTS.sources.slice(1).map(row=>({...clone(row),enabled:s.enabled!==false})):[s]);
+      ?DASHBOARD_DEFAULTS.sources.slice(1,3).map(row=>({...clone(row),enabled:s.enabled!==false})):[s]);
     if(JSON.stringify(d.tab_order)===JSON.stringify(['today','apps','games','search','library']))d.tab_order=clone(DASHBOARD_DEFAULTS.tab_order);
-    d.catalog_profile='zsign-public-v1';d.allow_user_sources=false;
+    if(Array.isArray(d.sources)&&d.sources.length){const ids=new Set(d.sources.map(s=>s.id)),urls=new Set(d.sources.map(s=>canonicalManagedSourceURL(s.url)));d.sources.push(...IOSBOOM_PUBLIC_SOURCES.filter(s=>!ids.has(s.id)&&!urls.has(canonicalManagedSourceURL(s.url))).map(clone));}
+    d.catalog_profile='iosboom-public-v1';d.allow_user_sources=false;
   }
   return input;
 }
@@ -49,11 +57,20 @@ normalizeState=function(parsed){const value=integrationNormalize(migrateZsignCat
   if(old&&!own(old,'allow_app_metadata_editing')&&typeof old.lock_bundle_rename==='boolean')cfg.security_locks.allow_app_metadata_editing=!old.lock_bundle_rename;
   cfg.security_locks.lock_bundle_rename=!cfg.security_locks.allow_app_metadata_editing;
   const d=cfg.dashboard;
+  if((parsed?.xsign_config?.dashboard?.experience_version||0)<2){d.experience_version=2;d.allow_user_sources=true;}
   if(Array.isArray(d?.sources))d.sources=d.sources.map(s=>isObject(s)?{enabled:true,format:'auto',...s}:s);
   if(Array.isArray(d?.sections))d.sections=d.sections.map(s=>isObject(s)?{enabled:true,limit:12,...s}:s);
+  syncReleaseGate(value);
   return value;};
 const numericRelease=value=>typeof value==='string'&&/^[0-9]{1,9}(\.[0-9]{1,9}){0,3}$/.test(value);
 const nativeHTTPS=value=>httpsUrl(value)&&!new URL(value).hash;
+function releaseLink(u){const link=u.manifest_url||u.ipa_url;return typeof link==='string'?link.trim():'';}
+function syncReleaseGate(root){
+  const cfg=root.xsign_config,u=cfg?.dashboard?.update,f=cfg?.force_update;
+  if(!f||typeof u?.required!=='boolean')return;
+  f.enabled=u.enabled===true&&u.required;
+  if(f.enabled){f.min_version=u.latest_version||'';f.min_build_version=u.build_version||'';f.update_url=releaseLink(u);}
+}
 function compareRelease(a,b){if(!numericRelease(a)||!numericRelease(b))throw Error('رقم إصدار أو بناء غير صالح.');const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return Math.sign(d);}return 0;}
 function dashboardErrors(root){
   const errors=[],cfg=root.xsign_config,d=cfg.dashboard;
@@ -78,10 +95,12 @@ function dashboardErrors(root){
   const u=d.update,f=cfg.force_update;
   if(!isObject(u)||typeof u.enabled!=='boolean')errors.push('إعداد التحديث الداخلي غير صالح.');
   else {
+    if((u.required!=null&&typeof u.required!=='boolean')||(u.required===true&&!u.enabled))errors.push('حالة إلزام الإصدار غير صالحة.');
     if(typeof u.html!=='string'||u.html.length>100000)errors.push('حد صفحة HTML هو 100000 حرف.');
     if(u.enabled){
       if(!numericRelease(u.latest_version)||u.build_version&&!numericRelease(u.build_version))errors.push('الإصدار الجديد ورقم البناء يحتاجان أرقاماً مفصولة بنقاط.');
-      if(u.manifest_url){if(!nativeHTTPS(u.manifest_url))errors.push('رابط manifest يجب أن يكون HTTPS.');}
+      if(u.manifest_url){if(!nativeHTTPS(u.manifest_url))errors.push('رابط manifest يجب أن يكون HTTPS.');
+        if(u.required===true&&!numericRelease(u.build_version))errors.push('أدخل رقم البناء للتحديث الإجباري عبر manifest.');}
       else if(!nativeHTTPS(u.ipa_url)||!/^[a-f0-9]{64}$/i.test(u.sha256||''))errors.push('التحديث الداخلي يحتاج رابط IPA وبصمة SHA-256 من الملف نفسه.');
     }
     if(f.enabled){
@@ -92,6 +111,7 @@ function dashboardErrors(root){
       }
     }
   }
+  if(new TextEncoder().encode(JSON.stringify(Store.project(root),null,2)+'\n').length>524288)errors.push('إعدادات التطبيق كبيرة جداً للمزامنة؛ قلّل حجم HTML أو الصور المضمّنة.');
   return errors;
 }
 const integrationValidate=validateState;
@@ -105,7 +125,7 @@ loadLocal=function(){integrationLoadLocal();
 Object.assign(PAGE_META,{
   layout:['ترتيب المتجر والمصادر','XSIGN / STORE LAYOUT','أقسام المتجر، المصادر المدارة والتبويبات كما يقرأها التطبيق.'],
   sources:['مصادر المتجر والاتصال','XSIGN / SOURCES','أضف أو احذف أي مصدر، حتى المصادر الأساسية، ثم انشر التغييرات.'],
-  updates:['تحديث XSign','XSIGN / APP UPDATE','اربط إصدارك المنشور بصفحة HTML والتحديث الداخلي الموقّع.'],
+  updates:['التحديث والتثبيت','XSIGN / APP UPDATE','اعتمد إصداراً واحداً وتحكّم في صفحة تثبيته.'],
   integration:['ربط التطبيق','XSIGN / INTEGRATION','عقد الربط الفعلي وما يلزم لتطبيق الإعدادات على الأجهزة.']
 });
 let editingManagedSource=null,editingStoreSection=null;
@@ -162,8 +182,92 @@ function adoptCatalogueUpdate(){try{
   integrationChange(()=>Object.assign(state.xsign_config.dashboard.update,patch),'ربط إصدار XSign من الكتالوج');
   toast('نُقلت بيانات IPA وبصمته إلى المسودة. راجع الصفحة ثم فعّل التحديث وانشر.');
 }catch(error){toast(error.message,'error');}}
+function catalogueRelease(link){return state.apps.find(a=>a.bundleIdentifier===XSIGN_INTEGRATION.bundle&&a.downloadURL===link&&numericRelease(a.version)&&/^[a-f0-9]{64}$/i.test(a.sha256||''));}
+function setReleaseLink(link,kind){
+  const u=state.xsign_config.dashboard.update,previous=releaseLink(u);
+  link=link.trim();
+  if(!kind){try{kind=new URL(link).pathname.toLowerCase().endsWith('.plist')?'manifest':(link===previous&&u.manifest_url?'manifest':'ipa');}catch{kind='ipa';}}
+  if(link!==previous||(kind==='manifest')!==Boolean(u.manifest_url)){u.sha256='';u.build_version='';}
+  u.ipa_url=kind==='ipa'?link:'';u.manifest_url=kind==='manifest'?link:'';
+  const app=kind==='ipa'&&catalogueRelease(link);
+  if(app)Object.assign(u,ownerUpdateFromApp(app,XSIGN_INTEGRATION.bundle));
+  syncReleaseGate(state);
+}
+function setReleaseMode(mode){
+  const u=state.xsign_config.dashboard.update;
+  u.enabled=mode!=='off';u.required=mode==='required';syncReleaseGate(state);
+}
+function releaseMetadataURL(link){
+  if(!nativeHTTPS(link))return null;
+  const url=new URL(link),parts=url.pathname.split('/').filter(Boolean);
+  if(url.hostname!=='github.com'||url.port||url.search||parts.length!==6||parts[2]!=='releases'||parts[3]!=='download')return null;
+  if(!parts.slice(0,2).every(p=>/^[A-Za-z0-9_.-]+$/.test(p)))return null;
+  return {url:'https://api.github.com/repos/'+parts.slice(0,2).join('/')+'/releases/tags/'+encodeURIComponent(decodeURIComponent(parts[4])),asset:decodeURIComponent(parts[5])};
+}
+async function publicReleaseJSON(url){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try {const res=await fetch(url,{credentials:'omit',cache:'no-store',redirect:'error',signal:controller.signal});
+    if(!res.ok)throw Error('لم يصل الملف المنشور إلى الرابط العام بعد.');return await res.json();
+  }finally{clearTimeout(timer);}
+}
+async function fillReleaseMetadata(){
+  const u=state.xsign_config.dashboard.update,link=releaseLink(u),btn=$('fillReleaseMetadata');
+  if(!link||!nativeHTTPS(link)){toast('أدخل رابط إصدار HTTPS أولاً.','error');return;}
+  const app=catalogueRelease(link);
+  if(app){integrationChange(()=>Object.assign(u,ownerUpdateFromApp(app,XSIGN_INTEGRATION.bundle)),'جلب إصدار XSign من الكتالوج');toast('تم ملء الإصدار والبناء والبصمة.');return;}
+  if(u.manifest_url){$('releaseAdvanced').open=true;toast('أدخل رقم البناء كما يظهر في manifest.');return;}
+  btn.disabled=true;
+  try{
+    const target=releaseMetadataURL(link);
+    if(!target)throw Error('أدخل بصمة SHA-256 في الخيارات المتقدمة لهذا الرابط.');
+    const release=await publicReleaseJSON(target.url);
+    const asset=release.draft===false&&Array.isArray(release.assets)&&release.assets.find(a=>a.name===target.asset&&a.state==='uploaded');
+    if(!asset||!/^sha256:[a-f0-9]{64}$/i.test(asset.digest||''))throw Error('الرابط لا يحتوي ملف Release منشوراً ببصمة SHA-256.');
+    if(releaseLink(state.xsign_config.dashboard.update)!==link)return;
+    integrationChange(()=>state.xsign_config.dashboard.update.sha256=asset.digest.slice(7).toLowerCase(),'جلب بصمة إصدار XSign');
+    toast('تم جلب بصمة الملف. تأكد من رقم الإصدار ثم انشر.');
+  }catch(error){$('releaseAdvanced').open=true;toast(error.message,'error');}
+  finally{btn.disabled=false;}
+}
+let latestDeliveryProbe=0;
+async function observePublishedProjection(c,revision){
+  const current=++latestDeliveryProbe,box=$('liveDeliveryStatus');
+  if(c.owner.toLowerCase()!=='ipablack'||c.repo.toLowerCase()!=='repo'||c.branch!=='main'||c.configPath!=='xsign-config.json'){
+    box.textContent='تم النشر إلى الوجهة المختارة. بناء XSign الحالي يقرأ ipablack/repo على main.';return;
+  }
+  box.textContent='تم النشر. جارٍ التحقق من ظهور المراجعة '+revision+' للأجهزة…';
+  for(let attempt=0;attempt<3;attempt++){
+    if(attempt)await new Promise(resolve=>setTimeout(resolve,3000));
+    if(current!==latestDeliveryProbe)return;
+    try{
+      const config=await publicReleaseJSON('https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json?xsign_live='+Math.floor(Date.now()/5000));
+      if(current!==latestDeliveryProbe)return;
+      if(config.xsign_config&&Number.isSafeInteger(config.repo_revision_id)&&config.repo_revision_id>=revision){
+        box.textContent='المراجعة '+config.repo_revision_id+' متاحة الآن لـ XSign. الأجهزة المفتوحة تقرأها في دورة المزامنة التالية.';return;
+      }
+    }catch{}
+  }
+  if(current===latestDeliveryProbe)box.textContent='تم النشر إلى GitHub. ظهور المراجعة للأجهزة ينتظر وصولها إلى الرابط العام.';
+}
+function installEscape(value){return String(value??'').replace(/[&<>"{}]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','{':'&#123;','}':'&#125;'}[c]));}
+function defaultInstallFragment(u,required){
+  const template=typeof XSIGN_INSTALL_TEMPLATE==='string'?XSIGN_INSTALL_TEMPLATE:'<h1>{{heading}}</h1><p>{{name}} · {{version}}</p><p>{{details}}</p>{{action}}';
+  const values={heading:required?'حدّث XSign للمتابعة':'تحديث XSign',name:'XSign',version:'الإصدار '+(u.latest_version||'—')+(u.build_version?' · البناء '+u.build_version:''),details:u.notes||'ثبّت الإصدار ووافق على طلب iOS.'};
+  return template.replace(/\{\{(\w+)\}\}/g,(_,key)=>key==='action'?'<a class="install-action" href="xsign-update://install">تثبيت التحديث</a>':installEscape(values[key]));
+}
 function renderUpdateHTML(){const frame=$('ownerHTMLPreview');if(!frame)return;
-  frame.srcdoc='<!doctype html><html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;;style-src &#39;unsafe-inline&#39;;img-src data:;form-action &#39;none&#39;"></head><body>'+state.xsign_config.dashboard.update.html+'</body></html>';
+  const cfg=state.xsign_config,u=cfg.dashboard.update,required=u.required??cfg.force_update.enabled;
+  const content=u.html||defaultInstallFragment(u,required);
+  const doc='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;;style-src &#39;unsafe-inline&#39;;img-src data:;form-action &#39;none&#39;"></head><body>'+content+'</body></html>';
+  if(frame.srcdoc!==doc)frame.srcdoc=doc;
+}
+function renderReleaseEditor(){
+  const cfg=state.xsign_config,u=cfg.dashboard.update,f=cfg.force_update;
+  $('ownerReleaseLink').value=releaseLink(u);$('ownerLinkKind').value=u.manifest_url?'manifest':'ipa';
+  $('ownerReleaseMode').value=u.required===true?'required':u.required==null&&f.enabled?'legacy':u.enabled?'optional':'off';
+  $('legacyReleaseSettings').hidden=typeof u.required==='boolean'||!f.enabled;
+  $('ownerReleaseState').textContent=u.required===true?'بعد النشر يتوقف XSign عند اختلاف الإصدار أو رابط البناء المعتمد.':u.enabled?'يمكن للمستخدم تثبيت الإصدار من داخل XSign.':'الإصدار محفوظ في المسودة. اختر حالة التحديث لتفعيله.';
+  renderUpdateHTML();
 }
 function renderIntegration(){
   if(!$('managedSourcesV2'))return;const d=state.xsign_config.dashboard;
@@ -178,15 +282,15 @@ function renderIntegration(){
     if(index>=0)row.append(button('↑',()=>integrationMove(d.tab_order,index,-1)),button('↓',()=>integrationMove(d.tab_order,index,1)));tabs.append(row);
   }
   const selected=$('selfUpdateApp').value;const select=$('selfUpdateApp');select.replaceChildren();const empty=text('option','اختر إصداراً من الكتالوج');empty.value='';select.append(empty);
-  for(const app of state.apps){const option=text('option',(app.name||app.bundleIdentifier)+' · '+app.version+' · '+app.bundleIdentifier);option.value=catalogueKey(app);select.append(option);}select.value=selected;
-  $('expectedBundle').value=connection.appBundle||XSIGN_INTEGRATION.bundle;
+  for(const app of state.apps.filter(a=>a.bundleIdentifier===XSIGN_INTEGRATION.bundle)){const option=text('option',(app.name||app.bundleIdentifier)+' · '+app.version);option.value=catalogueKey(app);select.append(option);}select.value=selected;
+  $('expectedBundle').value=XSIGN_INTEGRATION.bundle;
   $('integrationRevision').textContent=String(state.repo_revision_id);
   $('integrationIdentity').textContent=XSIGN_INTEGRATION.name+' '+XSIGN_INTEGRATION.version+' · '+XSIGN_INTEGRATION.bundle+' · iOS '+XSIGN_INTEGRATION.minimumOS+'+';
   const c=connection;const expected=c.owner==='ipablack'&&c.repo==='repo'&&c.branch==='main'&&c.path==='repo.json'&&c.appBundle===XSIGN_INTEGRATION.bundle;
   $('integrationTarget').textContent=expected?'وجهة النشر تطابق رابط القراءة في هذا البناء':'وجهة النشر مختلفة عن رابط بناء XSign. عدّل الربط قبل الاعتماد.';
   $('integrationSource').textContent=XSIGN_INTEGRATION.source;
   $('integrationFeatures').replaceChildren(...XSIGN_INTEGRATION.features.map(([title,path])=>{const row=text('div','','entry');row.append(text('strong',title),text('small',path,'muted latin'));return row;}));
-  renderUpdateHTML();
+  renderReleaseEditor();
 }
 const integrationRenderAll=renderAll;
 renderAll=function(){integrationRenderAll();renderIntegration();};
@@ -196,14 +300,20 @@ const integrationField=fieldInput;
 fieldInput=function(el,final=false){integrationField(el,final);const path=el.dataset.path,locks=state.xsign_config.security_locks;
   if(path==='xsign_config.security_locks.lock_bundle_rename'){locks.allow_app_metadata_editing=!locks.lock_bundle_rename;$('allowMetadata').checked=locks.allow_app_metadata_editing;}
   if(path==='xsign_config.security_locks.allow_app_metadata_editing'){locks.lock_bundle_rename=!locks.allow_app_metadata_editing;$('lockBundle').checked=locks.lock_bundle_rename;}
-  if(path==='xsign_config.dashboard.update.html')renderUpdateHTML();
+  if(path.startsWith('xsign_config.dashboard.update.')){syncReleaseGate(state);renderUpdateHTML();}
+  if(path==='xsign_config.force_update.enabled')renderReleaseEditor();
 };
 const integrationBind=bindStoreEvents;
 bindStoreEvents=function(){integrationBind();
   $('managedSourceForm').addEventListener('submit',saveManagedSource);$('storeSectionForm').addEventListener('submit',saveStoreSection);
   $('cancelManagedSource').addEventListener('click',()=>editManagedSource());$('cancelStoreSection').addEventListener('click',()=>editStoreSection());
   $('adoptCatalogueUpdate').addEventListener('click',adoptCatalogueUpdate);
-  $('expectedBundle').addEventListener('change',()=>{connection.appBundle=$('expectedBundle').value.trim();persist();});
+  $('ownerReleaseLink').addEventListener('input',event=>{setReleaseLink(event.target.value);syncInputs();renderOverview();clearTimeout(saveTimer);saveTimer=setTimeout(persist,260);});
+  $('ownerReleaseLink').addEventListener('change',renderReleaseEditor);
+  $('ownerLinkKind').addEventListener('change',event=>integrationChange(()=>setReleaseLink(releaseLink(state.xsign_config.dashboard.update),event.target.value),'تغيير نوع رابط الإصدار'));
+  $('ownerReleaseMode').addEventListener('change',event=>integrationChange(()=>setReleaseMode(event.target.value),'تغيير حالة الإصدار'));
+  $('fillReleaseMetadata').addEventListener('click',fillReleaseMetadata);
   $('ownerHTMLFile').addEventListener('change',async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>200000)throw Error('اختر صفحة HTML أصغر من 200 KB.');const html=await file.text();if(html.length>100000)throw Error('حد الصفحة 100000 حرف.');integrationChange(()=>state.xsign_config.dashboard.update.html=html,'استيراد صفحة التحديث');}catch(error){toast(error.message,'error');}finally{event.target.value='';}});
-  $('ownerHTMLSample').addEventListener('click',()=>confirmAction('قالب صفحة التحديث','استبدال HTML الحالي في المسودة بقالب قابل للتعديل؟',()=>integrationChange(()=>state.xsign_config.dashboard.update.html='<style>body{background:#090b0c;color:#fff;font:18px system-ui;text-align:center;padding:40px 20px}a{display:block;background:#c3e9ce;color:#122419;padding:16px;border-radius:16px;margin-top:30px;text-decoration:none}</style><h1>تحديث XSign</h1><p>إصدار جديد جاهز للتثبيت.</p><a href="xsign-update://install">تثبيت التحديث</a>','تغيير صفحة التحديث'),'تطبيق القالب',false));
+  $('ownerHTMLSample').addEventListener('click',()=>confirmAction('قالب صفحة التثبيت','استبدال HTML الحالي بقالب قابل للتعديل؟',()=>integrationChange(()=>state.xsign_config.dashboard.update.html=defaultInstallFragment(state.xsign_config.dashboard.update,true),'تغيير صفحة التثبيت'),'تطبيق القالب',false));
+  $('resetInstallHTML').addEventListener('click',()=>integrationChange(()=>state.xsign_config.dashboard.update.html='','استعادة صفحة التثبيت الافتراضية'));
 };

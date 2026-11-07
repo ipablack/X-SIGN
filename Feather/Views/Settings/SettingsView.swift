@@ -41,6 +41,11 @@ struct SettingsView: View {
 				}
 
 				Section {
+					NavigationLink(destination: XSignPersonalSourcesView()) {
+                        Label("المصادر وإضافة مصدر", systemImage: "plus.rectangle.on.folder")
+                    }
+                }
+				Section {
                     NavigationLink(destination: XSignAppUpdateView()) {
                         Label("تحديث XSign", systemImage: "arrow.down.circle.fill")
                     }

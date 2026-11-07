@@ -55,12 +55,12 @@ struct SigningOptionsView: View {
 		}
 		
         Section {
-            _toggle("مطابقة بندل الشهادة", systemImage: "checkmark.seal",
+            _toggle("مطابقة App ID يدوياً", systemImage: "checkmark.seal",
                 isOn: Binding(get: { options.matchCertificateAppID == true }, set: { options.matchCertificateAppID = $0 }),
                 temporaryValue: temporaryOptions.map { $0.matchCertificateAppID == true })
                 .disabled(!policy.locks.allowsAppMetadataEditing || options.signingOption != .default)
         } footer: {
-            Text("عند التفعيل يُستخدم App ID المحدد في البروفايل بدل بندل التطبيق. البروفايل العام يحافظ على البندل إذا كان ضمن نطاقه. قد يؤثر تغيير البندل في خدمات التطبيق وبياناته.")
+            Text("خيار متقدم لتغيير البندل عمداً، وليس شرطاً للتوقيع العادي. المسار المعتاد يحافظ على بندل التطبيق ويستخدم محرك Zsign مباشرة.")
         }
 
 		if (temporaryOptions == nil) {

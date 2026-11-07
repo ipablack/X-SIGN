@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import plistlib
+import re
 
 root = Path(__file__).resolve().parents[2]
 contract = json.loads((root / 'Tools/Integration/contract.json').read_text())
@@ -19,8 +20,20 @@ for key, relative in contract['bindings'].items():
         value = value[field]
 sources = example['xsign_config']['dashboard']['sources']
 assert [s['url'] for s in sources] == contract['source_priority']
-assert [s['url'] for s in example['xsign_config']['app_control']['core_sources']] == contract['source_priority']
+assert [s['url'] for s in example['xsign_config']['app_control']['core_sources']] == contract['active_source_urls']
 assert contract['config_url'] == contract['source_priority'][0]
+registry = json.loads((root / contract['public_source_registry']).read_text())
+assert registry['catalog_profile'] == contract['catalog_profile']
+assert len(registry['items']) == 6
+assert len([item for item in registry['items'] if item['enabled']]) == 3
+assert all(item['enabled'] == (item['state'] == 'available') for item in registry['items'])
+assert [s['url'] for s in sources if s.get('enabled') is not False] == contract['active_source_urls']
+swift = (root / 'Feather/Utilities/XSignDashboardPolicy.swift').read_text()
+definition = swift.split('static let iosboomSources:', 1)[1].split('static let profileKey', 1)[0]
+native = [dict(id=json.loads(i), name=json.loads(n), url=json.loads(u), enabled=e == 'true')
+    for i, n, u, e in re.findall(r'\.init\(id:("[^"]+"),name:("[^"]+"),url:("[^"]+"),enabled:(true|false)\)', definition)]
+assert native == [{key: item[key] for key in ['id','name','url','enabled']} for item in registry['items']]
+assert [{key: item[key] for key in ['id','name','url','enabled','format']} for item in registry['items']] == sources[3:]
 assert example['apps'] == [], 'An example cannot replace a live catalogue with invented apps.'
 assert all(field in example['xsign_config']['dashboard']['update'] for field in contract['publisher_to_update_fields'].values())
 panel = (root / 'Tools/StudioSource/dist/index.html').read_bytes()

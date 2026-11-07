@@ -31,6 +31,7 @@ struct LibraryView: View {
 	@State private var _alertDownloadString: String = ""
 
 	@State private var _signingInProgressUUIDs: Set<String> = []
+    @State private var signingErrors: [String: String] = [:]
 	@State private var _oneClickStatusMessage: String? = nil
 
 	@State private var _selectedAppUUIDs: Set<String> = []
@@ -186,6 +187,9 @@ struct LibraryView: View {
 									}
 									.buttonStyle(.plain)
 								}
+                                if let message = signingErrors[app.uuid ?? ""] {
+                                    Text(message).font(.caption).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
+                                }
 							}
 							.padding(.vertical, 2)
 						}
@@ -381,6 +385,7 @@ struct LibraryView: View {
 		let uuid = app.uuid ?? ""
 		UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
 		_signingInProgressUUIDs.insert(uuid)
+        signingErrors[uuid] = nil
 		_oneClickStatusMessage = "توقيع لحظي لـ \(app.name ?? "التطبيق")..."
 
 		var options = OptionsManager.shared.options
@@ -398,11 +403,7 @@ struct LibraryView: View {
 
                 switch result {
                 case .failure(let error):
-					UINotificationFeedbackGenerator().notificationOccurred(.error)
-					UIAlertController.showAlertWithOk(
-						title: "فشل التوقيع",
-						message: error.localizedDescription
-					)
+                    signingErrors[uuid] = error.localizedDescription
                 case .success(let uuid):
 					UINotificationFeedbackGenerator().notificationOccurred(.success)
 					if let newlySigned = AutoSignPipelineManager.fetchSignedApp(uuid: uuid) {

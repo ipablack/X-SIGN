@@ -54,9 +54,8 @@ final class ZsignHandler {
             }
             return (provision.path, key.path, try Storage.shared.signingPassword(for: cert))
         }
-        let profile = try XSignProvisioningProfile.read(at: URL(fileURLWithPath: credentials.0))
-        let info = try XSignAppMetadata.readInfo(at: _appUrl.appendingPathComponent("Info.plist"))
-        _ = try profile.identifier(for: info["CFBundleIdentifier"] as? String ?? "", matchExactID: false)
+        // Let the embedded Zsign engine validate the real P12/profile assets.
+        // Do not reject unrelated apps based on a second Swift App ID check.
         if let entitlements = _options.appEntitlementsFile {
             _ = try XSignAppMetadata.readInfo(at: entitlements)
         }

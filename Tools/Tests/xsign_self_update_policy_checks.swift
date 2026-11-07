@@ -31,6 +31,11 @@ import Foundation
         precondition(!XSignReleaseVersion.isNewer(currentVersion:"5.5",currentBuild:"1",targetVersion:"5.4",targetBuild:"99"))
         precondition(!XSignReleaseVersion.isNewer(currentVersion:"5.5",currentBuild:"1",targetVersion:"5.5",targetBuild:"bad"))
         precondition(XSignReleaseVersion.isNewer(currentVersion:"5.5",currentBuild:"99",targetVersion:"5.6",targetBuild:nil))
+        precondition(XSignReleaseVersion.matchesInstalled(version:"1.0",build:"4",origin:"approved",targetVersion:"1.0",targetBuild:"4",targetOrigin:"approved"))
+        precondition(!XSignReleaseVersion.matchesInstalled(version:"1.0",build:"4",origin:"previous-link",targetVersion:"1.0",targetBuild:"4",targetOrigin:"approved"))
+        precondition(!XSignReleaseVersion.matchesInstalled(version:"1.0",build:"4",origin:nil,targetVersion:"1.0",targetBuild:nil,targetOrigin:"approved"))
+        precondition(!XSignReleaseVersion.matchesInstalled(version:"1.1",build:"4",origin:"approved",targetVersion:"1.0",targetBuild:"4",targetOrigin:"approved"))
+        precondition(!XSignReleaseVersion.matchesInstalled(version:"1.0",build:"3",origin:"approved",targetVersion:"1.0",targetBuild:"4",targetOrigin:"approved"))
         let previous=URL(string:"https://github.com/owner/repo/releases/download/old/app.ipa")!
         let next=URL(string:"https://github.com/owner/repo/releases/download/new/app.ipa")!
         precondition(XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentURL:previous,targetURL:next))

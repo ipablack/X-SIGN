@@ -21,6 +21,7 @@ final class SigningHandler: NSObject {
 	private var _app: AppInfoPresentable
 	private var _options: Options
 	private let _uniqueWorkDir: URL
+    private let isVerifiedSelfUpdate: Bool
 	// the options struct is not gonna decode these so
 	// we're just going to do this. If appicon is not
 	// specified, we're not going to modify the app
@@ -30,9 +31,10 @@ final class SigningHandler: NSObject {
 	var appIcon: UIImage?
 	var appCertificate: CertificatePair?
 	
-	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options) {
+	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options, isVerifiedSelfUpdate: Bool = false) {
 		self._app = app
 		self._options = options
+        self.isVerifiedSelfUpdate = isVerifiedSelfUpdate
 		self._uniqueWorkDir = XSignPrivateFiles.workDirectory(prefix: "Signing")
 		super.init()
 	}
@@ -108,6 +110,7 @@ final class SigningHandler: NSObject {
 		
 		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate)
 		try await handler.disinject()
+		try await checkPolicy()
 		
 		if
 			_options.signingOption == .default,
@@ -123,9 +126,16 @@ final class SigningHandler: NSObject {
 		}
 		
         if let error = handler.hadError { throw error }
+        try await checkPolicy()
         try await self.move()
         try await self.addToDatabase()
 	}
+
+    private func checkPolicy() async throws {
+        if !isVerifiedSelfUpdate, let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
+            throw NSError(domain: "XSign.Policy", code: 403, userInfo: [NSLocalizedDescriptionKey: reason])
+        }
+    }
 	
 	func move() async throws {
 		guard let movedAppPath = _movedAppPath else {

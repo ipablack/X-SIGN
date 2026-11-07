@@ -1,0 +1,74 @@
+{
+  "catalog_profile": "iosboom-public-v1",
+  "website": "https://iosboom.com/ar",
+  "public_script": "https://iosboom.com/assets/index-DQ6KzOBO.js",
+  "checked_at": "2026-11-07",
+  "items": [
+    {
+      "id": "xsign.iosboom.ucerts",
+      "name": "uCerts",
+      "url": "https://repo.ucerts.io",
+      "enabled": false,
+      "format": "auto",
+      "http_status": 503,
+      "catalog_apps": 0,
+      "state": "unavailable",
+      "source_bytes": 0
+    },
+    {
+      "id": "xsign.iosboom.apptesters",
+      "name": "AppTesters",
+      "url": "https://repository.apptesters.org/",
+      "enabled": true,
+      "format": "auto",
+      "http_status": 200,
+      "catalog_apps": 10072,
+      "state": "available",
+      "source_bytes": 10329631
+    },
+    {
+      "id": "xsign.iosboom.nabzclan",
+      "name": "Nabzclan",
+      "url": "https://appstore.nabzclan.vip/repos/scarlet.php",
+      "enabled": false,
+      "format": "auto",
+      "http_status": 301,
+      "catalog_apps": 0,
+      "state": "unavailable",
+      "source_bytes": 0
+    },
+    {
+      "id": "xsign.iosboom.ipaomtk",
+      "name": "IPAOMTK Apps",
+      "url": "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
+      "enabled": true,
+      "format": "auto",
+      "http_status": 200,
+      "catalog_apps": 3193,
+      "state": "available",
+      "source_bytes": 1958259
+    },
+    {
+      "id": "xsign.iosboom.buildstore",
+      "name": "Build Store",
+      "url": "https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",
+      "enabled": false,
+      "format": "auto",
+      "http_status": 200,
+      "catalog_apps": 3986,
+      "state": "metadata_only",
+      "source_bytes": 15960314
+    },
+    {
+      "id": "xsign.iosboom.minoa",
+      "name": "Minoa’s Combined",
+      "url": "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json",
+      "enabled": true,
+      "format": "auto",
+      "http_status": 200,
+      "catalog_apps": 13371,
+      "state": "available",
+      "source_bytes": 16850809
+    }
+  ]
+}

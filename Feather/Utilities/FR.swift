@@ -11,6 +11,7 @@ import ZsignC
 import NimbleJSON
 import AltSourceKit
 import IDeviceSwift
+import CryptoKit
 
 // MARK: - Serial package work gate
 private actor FRPackageWorkGate {
@@ -129,6 +130,7 @@ enum FR {
             }
             let locks = await MainActor.run { XSignSecurityEnforcer.shared.locks }
             var permittedOptions = options
+            var signingCertificate = certificate
             if !locks.allowsAppMetadataEditing {
                 permittedOptions.appName = nil
                 permittedOptions.appIdentifier = nil
@@ -147,20 +149,37 @@ enum FR {
                 permittedOptions.injectionFiles = []
                 permittedOptions.experiment_replaceSubstrateWithEllekit = false
             }
-            if permittedOptions.signingOption == .default && permittedOptions.matchCertificateAppID == true {
+            if permittedOptions.signingOption == .default {
                 do {
-                    let input = try await MainActor.run { () throws -> (URL, String) in
-                        guard let certificate, let url = Storage.shared.getFile(.provision, from: certificate) else {
-                            throw SigningFileHandlerError.missingCertifcate
+                    let original = try await MainActor.run { () throws -> String in
+                        guard let directory = Storage.shared.getAppDirectory(for: app) else {
+                            throw SigningFileHandlerError.appNotFound
                         }
-                        return (url, app.identifier ?? "")
+                        let info = try XSignAppMetadata.readInfo(at: directory.appendingPathComponent("Info.plist"))
+                        guard let identifier = info["CFBundleIdentifier"] as? String, !identifier.isEmpty else {
+                            throw NSError(domain: "XSign.Metadata", code: 400, userInfo: [NSLocalizedDescriptionKey: "ملف معلومات التطبيق لا يحتوي على بندل صالح."])
+                        }
+                        return identifier
                     }
-                    let profile = try XSignProvisioningProfile.read(at: input.0)
-                    let current = permittedOptions.appIdentifier ?? input.1
-                    permittedOptions.appIdentifier = try profile.identifier(for: current, matchExactID: !preserveBundleForBatch)
-                    if !profile.isWildcard {
-                        permittedOptions.ppqProtection = false
-                        permittedOptions.dynamicProtection = false
+                    let current = permittedOptions.appIdentifier ?? original
+                    let protectedID = selfUpdatePermit == nil ? Bundle.main.bundleIdentifier : nil
+                    if current != original, current == protectedID {
+                        throw XSignProvisioningProfile.ProfileError.protectedApplication
+                    }
+                    if selfUpdatePermit == nil {
+                        signingCertificate = await Storage.shared.signingCertificate(for: current, preferred: certificate)
+                    }
+                    guard let selectedCertificate = signingCertificate else { throw SigningFileHandlerError.missingCertifcate }
+                    if permittedOptions.matchCertificateAppID == true, locks.allowsAppMetadataEditing, selfUpdatePermit == nil,
+                       let url = await MainActor.run(body: { Storage.shared.getFile(.provision, from: selectedCertificate) }),
+                       let profile = try? XSignProvisioningProfile.read(at: url),
+                       let resolved = try? profile.signingIdentifier(for: current, allowRemap: true,
+                           metadataEditingAllowed: true, preserveBatchIdentity: preserveBundleForBatch, protectedIdentifier: protectedID) {
+                        if resolved != original { permittedOptions.appIdentifier = resolved }
+                        if !profile.isWildcard {
+                            permittedOptions.ppqProtection = false
+                            permittedOptions.dynamicProtection = false
+                        }
                     }
                 } catch {
                     await FRPackageWorkGate.shared.release()
@@ -168,8 +187,8 @@ enum FR {
                     return
                 }
             }
-            let handler = SigningHandler(app: app, options: permittedOptions)
-            handler.appCertificate = certificate
+            let handler = SigningHandler(app: app, options: permittedOptions, isVerifiedSelfUpdate: permittedSelfUpdate)
+            handler.appCertificate = signingCertificate
             handler.appIcon = (locks.lock_icon_change ?? true) ? nil : icon
             do {
                 try await handler.copy()
@@ -244,19 +263,20 @@ enum FR {
         }
         let url = XSignCatalogIO.canonicalURL(input)
         Task { @MainActor in
-            guard XSignRemoteManager.shared.config?.dashboard?.allow_user_sources != false else {
+            guard XSignRemoteManager.shared.config?.dashboard?.userSourcesEnabled != false else {
                 let error=NSError(domain:"XSign.Sources",code:403,userInfo:[NSLocalizedDescriptionKey:"إضافة مصادر شخصية متوقفة من إدارة المتجر."])
-                onFailure?(error)
-                UIAlertController.showAlertWithOk(title:"المصادر",message:error.localizedDescription)
+                if let onFailure { onFailure(error) }
+                else { UIAlertController.showAlertWithOk(title:"المصادر",message:error.localizedDescription) }
                 return
             }
             do {
                 let record = try await XSignCatalogIO.shared.fetch(url)
-                let identifier = record.repository.id ?? url.absoluteString
+                let existing = Storage.shared.getSources().first { $0.sourceURL.map(XSignCatalogIO.canonicalURL) == url }
+                let identifier = existing?.identifier ?? "xsign.user." + SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
                 let finish: (Error?) -> Void = { error in
                     if let error {
-                        onFailure?(error)
-                        UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription)
+                        if let onFailure { onFailure(error) }
+                        else { UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription) }
                         return
                     }
                     XSignDashboardSources.registerUser(url)
@@ -276,8 +296,8 @@ enum FR {
                 if Storage.shared.sourceExists(identifier) { finish(nil) }
                 else { Storage.shared.addSource(url, repository: record.repository, id: identifier, completion: finish) }
             } catch {
-                onFailure?(error)
-                UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription)
+                if let onFailure { onFailure(error) }
+                else { UIAlertController.showAlertWithOk(title: .localized("Error"), message: error.localizedDescription) }
             }
         }
     }

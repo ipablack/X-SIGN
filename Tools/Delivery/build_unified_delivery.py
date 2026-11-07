@@ -149,6 +149,7 @@ print('Applied',len(ready),'reviewed source updates and restored',len(restored),
         for file in sorted(studio.rglob('*')):
             if file.is_file() and not {'node_modules', 'dist', '__pycache__'}.intersection(file.relative_to(studio).parts):
                 put('CONTROL_PANEL/StudioSource/' + file.relative_to(studio).as_posix(), file.read_bytes())
+        put('CONTROL_PANEL/StudioSource/src/XSignInstall.html', (ROOT / 'Feather/Resources/XSignInstall.html').read_bytes())
         put('SOURCE_REPOSITORY/.github/workflows/ipa_manager.yml', (ROOT / 'Tools/Delivery/ipa_manager.yml').read_bytes())
         put('SOURCE_REPOSITORY/repo.example.json', (ROOT / 'Tools/Delivery/repo.example.json').read_bytes())
         put('PROJECT_CONTRACT.json', (ROOT / 'Tools/Integration/contract.json').read_bytes())

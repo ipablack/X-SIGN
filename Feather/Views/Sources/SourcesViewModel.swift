@@ -22,6 +22,7 @@ final class SourcesViewModel: ObservableObject {
 
     func seed(_ record: XSignRepositoryRecord, for source: AltSource) {
         guard !ProtectedSourcesVault.isRetiredSource(source.sourceURL, identifier: source.identifier) else { return }
+        errors[source] = nil
         guard fingerprints[source] != record.fingerprint else { return }
         fingerprints[source] = record.fingerprint
         sources[source] = record.repository
@@ -68,6 +69,7 @@ struct XSignRepositoryRecord: Sendable {
 
 enum XSignCatalogError: LocalizedError {
     case invalidURL, invalidResponse, http(Int), tooLarge, invalidJSON
+    case awaitingOwnerRevision
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "رابط السورس غير صالح."
@@ -75,11 +77,13 @@ enum XSignCatalogError: LocalizedError {
         case .http(let status): return "تعذّر جلب السورس (HTTP \(status))."
         case .tooLarge: return "حجم السورس يتجاوز الحد المسموح."
         case .invalidJSON: return "بيانات السورس ليست بصيغة AltStore صالحة."
+        case .awaitingOwnerRevision: return "تحديث كتالوج IPA BLACK قيد الوصول؛ تظهر الآن النسخة المحفوظة."
         }
     }
 }
 
 actor XSignCatalogIO {
+    private struct OwnerRevision: Decodable { let repo_revision_id: Int? }
     static let shared = XSignCatalogIO()
     nonisolated static let maximumBytes = 33_554_432
     private let directory: URL
@@ -208,21 +212,22 @@ actor XSignCatalogIO {
         return nil // Retired bundled and legacy disk catalogs are never used.
     }
 
-    func fetch(_ input: URL) async throws -> XSignRepositoryRecord {
+    func fetch(_ input: URL, ownerRevision: Int? = nil) async throws -> XSignRepositoryRecord {
         let url = Self.canonicalURL(input)
         guard !ProtectedSourcesVault.isRetiredSource(url) else { throw XSignCatalogError.invalidURL }
         guard let scheme = url.scheme?.lowercased(), ["https", "http"].contains(scheme), url.host != nil else {
             throw XSignCatalogError.invalidURL
         }
-        let key = url.absoluteString
+        let revision = url.absoluteString == ProtectedSourcesVault.defaultOwnedURLString ? ownerRevision : nil
+        let key = url.absoluteString + (revision.map { "|owner-revision:\($0)" } ?? "")
         if let running = requests[key] { return try await running.value }
-        let task = Task { try await self.download(url) }
+        let task = Task { try await self.download(url, minimumRevision: revision) }
         requests[key] = task
         defer { requests.removeValue(forKey: key) }
         return try await task.value
     }
 
-    private func download(_ url: URL) async throws -> XSignRepositoryRecord {
+    private func download(_ url: URL, minimumRevision: Int?) async throws -> XSignRepositoryRecord {
         if XSignRESTSource.handles(url) {
             let data = try await XSignRESTSource.fetch(url, session: session, maximumBytes: Self.maximumBytes)
             guard !ProtectedSourcesVault.isRetiredSource(url) else { throw XSignCatalogError.invalidURL }
@@ -251,10 +256,15 @@ actor XSignCatalogIO {
         }
         for attempt in 0..<max(2, endpoints.count) {
             let requestURL = endpoints[min(attempt, endpoints.count - 1)]
-            var request = URLRequest(url: requestURL)
+            var components = URLComponents(url: requestURL, resolvingAgainstBaseURL: false)
+            if let minimumRevision {
+                components?.queryItems = [.init(name: "xsign_rev", value: String(minimumRevision)),
+                                          .init(name: "xsign_live", value: String(Int(Date().timeIntervalSince1970 / 15)))]
+            }
+            var request = URLRequest(url: components?.url ?? requestURL)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue("XSign/1.0", forHTTPHeaderField: "User-Agent")
-            if attempt == 0, FileManager.default.fileExists(atPath: destination.path),
+            if minimumRevision == nil, attempt == 0, FileManager.default.fileExists(atPath: destination.path),
                let tag = try? String(contentsOf: tagFile, encoding: .utf8), !tag.isEmpty {
                 request.setValue(tag, forHTTPHeaderField: "If-None-Match")
             }
@@ -270,6 +280,8 @@ actor XSignCatalogIO {
             guard length > 0 else { throw XSignCatalogError.invalidResponse }
             guard length <= Self.maximumBytes else { throw XSignCatalogError.tooLarge }
             let data = try Data(contentsOf: temporary, options: .mappedIfSafe)
+            if let minimumRevision,
+               ((try? JSONDecoder().decode(OwnerRevision.self, from: data).repo_revision_id) ?? 0) < minimumRevision { continue }
             let normalized = try XSignSourceAdapter.normalize(data, from: url)
             let result = try Self.decode(normalized)
             // Write only a validated source. Network/JSON failures retain the last good file.
@@ -286,6 +298,7 @@ actor XSignCatalogIO {
             }
             return result
         }
+        if minimumRevision != nil { throw XSignCatalogError.awaitingOwnerRevision }
         throw XSignCatalogError.invalidResponse
     }
 }

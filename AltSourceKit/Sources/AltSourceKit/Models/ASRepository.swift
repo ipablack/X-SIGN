@@ -86,8 +86,9 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 		)
 
 		let decodedApps = try container.decodeIfPresent([App].self, forKey: .apps)
+		let decodedGames = try? container.decodeIfPresent([App].self, forKey: .games)
 		guard
-			let apps = decodedApps
+			decodedApps != nil || decodedGames != nil
 		else {
 			throw NSError(
 				domain: "FeatherSources",
@@ -99,8 +100,8 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 		}
 		
         var categories = try container.decodeIfPresent([CatalogCategory].self, forKey: .categories) ?? []
-        let games = try container.decodeIfPresent([CatalogCategory].self, forKey: .gameCategories) ?? []
-        for var game in games {
+        let gameCategories = try container.decodeIfPresent([CatalogCategory].self, forKey: .gameCategories)
+        for var game in gameCategories ?? [] {
             game.isGame = true
             if let index = categories.firstIndex(where: { $0.id == game.id }) {
                 categories[index] = game
@@ -109,7 +110,13 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
             }
         }
         self.categories = categories.isEmpty ? nil : categories
-        self.apps = apps
+        let games = (decodedGames ?? []).map { entry -> App in
+            var game = entry
+            game.isGame = true
+            return game
+        }
+        let gameKeys = Set(games.map(\.stableCatalogIdentifier))
+        self.apps = (decodedApps ?? []).filter { !gameKeys.contains($0.stableCatalogIdentifier) } + games
 		self.featuredApps =
 			try container.decodeIfPresent([App.ID].self, forKey: .featuredApps) ?? []
 		self.news = try container.decodeIfPresent([News].self, forKey: .news) ?? []
@@ -117,7 +124,7 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 
 	public enum CodingKeys: String, CodingKey {
 		case id = "identifier"
-		case categories, gameCategories
+		case categories, gameCategories, games
         case name,
 		     subtitle,
 		     description,
@@ -319,10 +326,8 @@ extension ASRepository {
 					.flatMap { Int64($0) }
 
 			self.skipAppStoreLookup = try container.decodeIfPresent(Bool.self, forKey: .skipAppStoreLookup)
-            self.category = try container.decodeIfPresent(
-				String.self,
-				forKey: .category
-			)
+            self.category = (try? container.decodeIfPresent(String.self, forKey: .category))
+                ?? (try? container.decodeIfPresent(Int.self, forKey: .category)).map { String($0) }
 
             self.isGame = (try? container.decodeIfPresent(Bool.self, forKey: .isGame))
                 ?? (try? container.decodeIfPresent(Bool.self, forKey: .isGameSnakeCase))

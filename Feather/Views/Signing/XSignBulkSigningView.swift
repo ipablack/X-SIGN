@@ -121,7 +121,7 @@ struct XSignBulkSigningView: View {
             .sheet(isPresented: $showCertificateSetup, onDismiss: {
                 certificateIndex = UserDefaults.standard.integer(forKey: "feather.selectedCert")
             }) { CertificatesAddView() }
-            .safeAreaInset(edge: .top, spacing: 0) { XSignInstallationStatus().padding(.horizontal, 16) }
+            .safeAreaInset(edge: .bottom, spacing: 0) { XSignInstallationStatus().padding(.horizontal, 16) }
         }
         .navigationViewStyle(.stack)
         .interactiveDismissDisabled(model.queue.isRunning)

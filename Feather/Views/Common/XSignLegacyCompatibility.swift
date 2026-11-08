@@ -78,24 +78,17 @@ struct XSignPhotoPicker: UIViewControllerRepresentable {
 
 extension View {
     func xsignPageBackground() -> some View {
-        background {
-            ZStack(alignment: .top) {
-                AppStoreTheme.background
-                LinearGradient(colors: [AppStoreTheme.dynamicAccent.opacity(0.08), .clear],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 240)
-            }
-            .ignoresSafeArea()
-        }
+        background(AppStoreTheme.background.ignoresSafeArea())
     }
 
-    func xsignSurface(radius: CGFloat = 18, glass: Bool = true) -> some View {
+    @ViewBuilder func xsignSurface(radius: CGFloat = 18) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        return background {
-            if glass { shape.fill(.regularMaterial) }
-            else { shape.fill(AppStoreTheme.cardSurface) }
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            background(.regularMaterial, in: shape)
+                .overlay { shape.strokeBorder(AppStoreTheme.outline).allowsHitTesting(false) }
         }
-        .overlay { shape.strokeBorder(AppStoreTheme.outline).allowsHitTesting(false) }
     }
 
     @ViewBuilder func xsignListBackground() -> some View {

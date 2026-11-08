@@ -85,6 +85,20 @@ enum TabEnum: String, CaseIterable, Hashable {
 		]
 	}
 	
+    static func visibleTabs(for dashboard: XSignDashboardConfig?) -> [Self] {
+        guard let dashboard, let order = dashboard.tab_order else { return defaultTabs }
+        if dashboard.catalog_profile == nil, order == ["today", "apps", "games", "search", "library"] {
+            return defaultTabs
+        }
+        var seen = Set<Self>()
+        let tabs = order.compactMap { value -> Self? in
+            guard let tab = Self(rawValue: value == "apps" ? "sources" : value),
+                  defaultTabs.contains(tab), seen.insert(tab).inserted else { return nil }
+            return tab
+        }
+        return tabs.isEmpty ? defaultTabs : tabs
+    }
+
 	static var customizableTabs: [TabEnum] {
 		return []
 	}

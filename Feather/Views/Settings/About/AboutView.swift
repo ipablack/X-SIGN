@@ -46,7 +46,10 @@ struct AboutView: View {
 					
 					HStack(spacing: 4) {
 						Text(.localized("Version"))
-						Text("1.0")
+						Text(verbatim: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+                            Text("· البناء \(build)")
+                        }
 					}
 					.font(.footnote)
 					.foregroundStyle(.secondary)

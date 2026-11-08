@@ -1,6 +1,7 @@
 """Regression coverage for stable toolchain selection and fail-fast job ordering."""
 from pathlib import Path
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -15,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('xsign_xcode', ROOT / 'Tools/Select_Xcode.py')
 selector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selector)
+
+spec = importlib.util.spec_from_file_location('xsign_idevice', ROOT / 'Tools/Prepare_IDevice.py')
+idevice = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(idevice)
 
 
 class ToolchainChecks(unittest.TestCase):
@@ -76,6 +81,56 @@ class ToolchainChecks(unittest.TestCase):
         logs = next(step for step in steps if step.get('name') == 'Preserve native check and build logs')
         self.assertEqual(logs['if'], 'always()')
         self.assertIn('xsign-build.xcresult', logs['with']['path'])
+
+
+class IDeviceChecks(unittest.TestCase):
+    archive = b'reviewed IDevice archive fixture'
+    release_url = 'https://github.com/jkcoxson/idevice/releases/download/v0.1.57/IDevice.xcframework.zip'
+    asset_url = f'{idevice.ASSETS_API}/389721800'
+
+    def pin(self, package):
+        checksum = hashlib.sha256(self.archive).hexdigest()
+        (package / 'Package.swift').write_text(
+            f'let ideviceAssetID = 389721800\nlet ideviceURL = "{self.release_url}"\n'
+            f'let ideviceChecksum = "{checksum}"\n'
+        )
+        return package / 'deps/389721800/IDevice.xcframework.zip'
+
+    def test_retries_after_a_504_and_refuses_a_corrupt_response(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            package = Path(directory)
+            destination = self.pin(package)
+            calls = []
+
+            def transfer(url, candidate):
+                calls.append(url)
+                if len(calls) == 1:
+                    candidate.write_bytes(b'partial download')
+                    raise subprocess.CalledProcessError(22, ['curl'])
+                candidate.write_bytes(b'bad gateway' if len(calls) == 2 else self.archive)
+
+            with patch.object(idevice, 'download', side_effect=transfer) as download:
+                idevice.prepare(package)
+                idevice.prepare(package)
+                self.assertEqual(download.call_count, 3)
+            self.assertEqual(calls, [self.asset_url, self.release_url, self.asset_url])
+            self.assertEqual(destination.read_bytes(), self.archive)
+            self.assertEqual(list(destination.parent.iterdir()), [destination])
+
+    def test_invalid_archive_is_never_installed(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            package = Path(directory)
+            destination = self.pin(package)
+            with patch.object(idevice, 'download', side_effect=lambda _, path: path.write_bytes(b'invalid')):
+                with self.assertRaisesRegex(SystemExit, 'Could not download and verify'):
+                    idevice.prepare(package)
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(destination.parent.iterdir()), [])
+
+    def test_make_stages_verified_dependency_before_xcode(self):
+        commands = subprocess.check_output(['make', '-n', 'iphoneos'], cwd=ROOT, text=True)
+        self.assertLess(commands.index('python3 Tools/Prepare_IDevice.py'),
+                        commands.index('XSIGN_USE_PREPARED_IDEVICE=1 xcodebuild'))
 
 
 if __name__ == '__main__':

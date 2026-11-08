@@ -561,11 +561,11 @@ struct FeatherApp: App {
 
 					DownloadHeaderView(downloadManager: downloadManager)
 						.transition(.move(edge: .top).combined(with: .opacity))
-					XSignInstallationStatus().padding(.horizontal, 16)
 					VariedTabbarView()
 						.environment(\.managedObjectContext, storage.context)
 						.onOpenURL(perform: _handleURL)
 						.transition(.move(edge: .top).combined(with: .opacity))
+					XSignInstallationStatus().padding(.horizontal, 16)
 				}
 				.tint(activeTintColor)
 				.accentColor(activeTintColor)

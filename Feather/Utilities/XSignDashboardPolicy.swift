@@ -113,6 +113,48 @@ struct XSignDashboardConfig: Codable, Equatable, Sendable {
     ]
 }
 
+enum XSignCatalogKindPolicy {
+    nonisolated static func categoryKind(_ value: String?) -> Bool? {
+        let category = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if category.hasPrefix("games.") || category.hasPrefix("games-") { return true }
+        switch category {
+        case "game", "games", "6014", "ألعاب", "العاب", "الألعاب", "الالعاب",
+             "ألعاب ألغاز", "ألعاب محاكاة", "ألعاب إستراتيجية", "ألعاب تسالي", "puzzle games", "racing games", "arcade games":
+            return true
+        case "app", "apps", "applications", "تطبيقات", "التطبيقات", "social", "social networking",
+             "media", "tools", "utilities", "productivity", "business", "education", "news", "music",
+             "entertainment", "photo & video", "health & fitness", "finance", "sports", "books", "shopping",
+             "travel", "navigation", "التواصل الاجتماعي", "أدوات", "إنتاجية", "صور وفيديو", "ترفيه", "موسيقى":
+            return false
+        default: return nil
+        }
+    }
+
+    nonisolated static func recognizesGame(name: String, bundleID: String?) -> Bool {
+        let bundle = bundleKey(bundleID) ?? ""
+        let gameIDs = ["com.roblox.robloxmobile", "com.mojang.minecraftpe", "com.miniclip.eightballpool",
+                       "com.supercell.clashofclans", "com.supercell.clashroyale", "com.supercell.brawlstars",
+                       "com.tencent.ig", "com.ea.gp.fifamobile", "com.epicgames.fortnite", "com.kiloo.subwaysurfers"]
+        if gameIDs.contains(where: { bundle == $0 || bundle.hasPrefix($0 + ".") }) { return true }
+        let words = name.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        let title = words.joined(separator: " ")
+        let auxiliary: Set<String> = ["guide", "companion", "tracker", "wallpaper", "launcher", "دليل", "خلفيات"]
+        guard !words.contains(where: { auxiliary.contains(String($0)) }) else { return false }
+        let names = ["pubg mobile", "8 ball pool", "roblox", "minecraft", "call of duty", "free fire", "fortnite",
+                     "brawl stars", "clash royale", "clash of clans", "efootball", "ea sports fc mobile", "fifa mobile",
+                     "gangstar vegas", "grand theft auto", "truck simulator", "car parking multiplayer", "subway surfers", "rocket league sideswipe",
+                     "candy crush", "royal match", "gardenscapes", "homescapes", "angry birds", "temple run", "sudoku",
+                     "hill climb racing", "asphalt legends", "ludo king", "ببجي", "روبلوكس", "ماين كرافت", "فري فاير",
+                     "كلاش رويال", "براول ستارز", "محاكي الشاحنات"]
+        return names.contains { title == $0 || title.hasPrefix($0 + " ") }
+    }
+
+    nonisolated static func bundleKey(_ value: String?) -> String? {
+        guard let key = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !key.isEmpty else { return nil }
+        return key
+    }
+}
+
 enum XSignTodaySourcePolicy {
     static func allows(_ sourceURL: URL?) -> Bool {
         guard let sourceURL else { return false }

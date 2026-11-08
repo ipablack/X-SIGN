@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[2]
 contract = json.loads((root / 'Tools/Integration/contract.json').read_text())
 example = json.loads((root / 'Tools/Delivery/repo.example.json').read_text())
 assert contract['app_version'] == '1.0'
-assert contract['default_build_number'] == 1
+assert contract['default_build_number'] == 'workflow_run_number'
 assert 'FEATHER_PROJECT_VERSION=1.0' in (root / 'Feather.xcconfig').read_text()
 assert contract['minimum_ios'] == '15.0'
 assert contract['canonical_workflow'] == 'XSign_Full_Link.yml'
@@ -44,6 +44,9 @@ assert info.get('UIFileSharingEnabled') is False
 project = (root / 'Feather.xcodeproj/project.pbxproj').read_text()
 assert project.count('INFOPLIST_KEY_CFBundleDisplayName = XSign;') == 2
 template = json.loads((root / 'Tools/Delivery/workflow.template.json').read_text())
+build_steps = template['jobs']['build']['steps']
+assert 'GITHUB_RUN_NUMBER' in next(s['run'] for s in build_steps if s.get('name') == 'Build and verify the iOS application')
+assert contract['original_interface_revision'] in next(s['run'] for s in build_steps if s.get('name') == 'Record the source revision and exact build number')
 for name in ['preflight', 'build']:
     steps = template['jobs'][name]['steps']
     deps = [i for i, s in enumerate(steps) if s.get('working-directory') == 'Tools/StudioSource' and 'npm ci' in s.get('run', '')]

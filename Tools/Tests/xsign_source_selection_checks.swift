@@ -87,6 +87,20 @@ struct ApprovedSourceChecks {
         precondition(mixedApps[0]["isGame"] as? Bool == false && mixedApps[1]["isGame"] as? Bool == true)
         precondition(mixedApps[2]["isGame"] == nil)
         precondition((mixed["categories"] as! [[String: Any]])[0]["isGame"] == nil)
+        precondition(XSignCatalogKindPolicy.categoryKind("6014") == true)
+        precondition(XSignCatalogKindPolicy.categoryKind("Utilities") == false)
+        precondition(XSignCatalogKindPolicy.categoryKind("General") == nil)
+        precondition(XSignCatalogKindPolicy.bundleKey(" COM.EXAMPLE.GAME ") == "com.example.game")
+        precondition(XSignCatalogKindPolicy.recognizesGame(name: "Truck Simulator USA", bundleID: nil))
+        precondition(!XSignCatalogKindPolicy.recognizesGame(name: "Truck Route Tracker", bundleID: nil))
+        precondition(!XSignCatalogKindPolicy.recognizesGame(name: "Roblox Companion", bundleID: "com.example.guide"))
+        let split = Data(#"{"apps":[{"id":"app","name":"Utility","download_url":"https://example.test/app.ipa"}],"games":[{"id":"game","name":"Example Game","download_url":"https://example.test/game.ipa"}]}"#.utf8)
+        let splitData = try XSignSourceAdapter.normalize(split, from: URL(string: "https://example.test/catalog.json")!)
+        let splitRoot = try JSONSerialization.jsonObject(with: splitData) as! [String: Any]
+        let splitApps = splitRoot["apps"] as! [[String: Any]]
+        let gameRow = splitApps.first { $0["name"] as? String == "Example Game" }
+        precondition(splitApps.count == 2)
+        precondition(gameRow?["isGame"] as? Bool == true)
         let metadataOnly = try XSignRESTSource.normalize([publicRows[1]], allowPublishedFreeLinks: true)
         let metadataRoot = try JSONSerialization.jsonObject(with: metadataOnly) as! [String: Any]
         precondition((metadataRoot["apps"] as! [[String: Any]]).isEmpty)

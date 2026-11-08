@@ -1,21 +1,37 @@
 import SwiftUI
-import NimbleViews
 
 struct InstallationView: View {
+    @AppStorage(XSignOTAInstallMode.storageKey) private var savedMode = XSignOTAInstallMode.palera.rawValue
+
+    private var mode: Binding<XSignOTAInstallMode> {
+        Binding(
+            get: { XSignOTAInstallMode.resolve(savedMode) },
+            set: { savedMode = $0.rawValue }
+        )
+    }
+
     var body: some View {
-        NBList(.localized("Installation")) {
+        Menu {
             Section {
-                Label("التوقيع داخل XSign",systemImage:"signature")
-                Text("أضف شهادة P12 وملف MobileProvision مرة واحدة من قسم الشهادات.")
-                Label("التثبيت المباشر",systemImage:"arrow.down.app")
-                Text("بعد التوقيع اضغط تثبيت، ثم أكّد طلب التثبيت الذي يعرضه iOS.")
+                Picker("طريقة التثبيت", selection: mode) {
+                    ForEach(XSignOTAInstallMode.allCases, id: \.rawValue) { method in
+                        Text(method.title).tag(method)
+                    }
+                }
+                .pickerStyle(.inline)
+            } header: {
+                Text("الطريقة الافتراضية تستخدم خدمة Feather لملف وصف التثبيت. ملف IPA يبقى على الآيفون.")
             }
-            Section {
-                Text("يتطلب التثبيت شهادة صالحة لجهازك واتصالاً بالإنترنت.")
-                Text("تبقى شهادة التوقيع وكلمة مرورها على جهازك.")
-                    .font(.footnote).foregroundStyle(.secondary)
+        } label: {
+            HStack {
+                Label("التثبيت", systemImage: "arrow.down.circle")
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(mode.wrappedValue.title).foregroundStyle(.secondary)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
+            .contentShape(Rectangle())
         }
-        .xsignListBackground()
     }
 }

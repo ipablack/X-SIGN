@@ -13,7 +13,6 @@ import NimbleViews
 struct LibraryView: View {
     @AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
 	@StateObject var downloadManager = DownloadManager.shared
-	@StateObject var sourcesViewModel = SourcesViewModel.shared
 
 	@State private var _selectedInfoAppPresenting: AnyApp?
 	@State private var _selectedSigningAppPresenting: AnyApp?
@@ -84,11 +83,6 @@ struct LibraryView: View {
 		entity: CertificatePair.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
 	) private var _certificates: FetchedResults<CertificatePair>
-
-	@FetchRequest(
-		entity: AltSource.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
-	) private var _sources: FetchedResults<AltSource>
 
 	var body: some View {
 		NBNavigationView("التوقيع") {
@@ -300,7 +294,7 @@ struct LibraryView: View {
 				.ignoresSafeArea()
 			}
 			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
-				AppStore2026SettingsPopup(sources: _sources, viewModel: sourcesViewModel)
+				AppStore2026SettingsPopup()
 			}
 			.alert("استيراد وتوقيع من رابط مباشر", isPresented: $_isDownloadingPresenting) {
 				TextField("https://example.com/app.ipa", text: $_alertDownloadString)

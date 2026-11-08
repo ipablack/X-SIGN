@@ -26,7 +26,9 @@ function validate(input, now = Math.floor(Date.now() / 1000)) {
   const payload = text(input.payloadURL, 2048);
   let url;
   try { url = new URL(payload); } catch { throw failure(400); }
-  if (url.protocol !== 'https:' || !url.hostname.endsWith('.backloop.dev') || url.hostname.includes('*') ||
+  const local = url.protocol === 'http:' && url.hostname === '127.0.0.1';
+  const legacy = url.protocol === 'https:' && url.hostname.endsWith('.backloop.dev');
+  if (!(local || legacy) || url.href !== payload || url.hostname.includes('*') ||
       url.username || url.password || url.search || url.hash || !/^[a-z0-9.-]+$/.test(url.hostname) ||
       !/^\/ota\/[0-9a-f]{64}\/payload\.ipa$/.test(url.pathname) ||
       Number(url.port) < 49152 || Number(url.port) > 65535 || !url.port) throw failure(400);

@@ -88,10 +88,12 @@ print('Applied',len(ready),'reviewed source updates and restored',len(restored),
     (output / 'reviewed-update.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n')
     workflow = json.loads((ROOT / 'Tools/Delivery/workflow.template.json').read_text())
     step = workflow['jobs']['preflight']['steps'][1]
-    chunks = textwrap.wrap(encoded, 8192)
+    # GitHub evaluates expression openers even inside quoted env values.
+    # A period is outside the Base85 alphabet and can safely stand in for '$'.
+    chunks = textwrap.wrap(encoded.replace('$', '.'), 8192)
     step['env'] = {f'XSIGN_PAYLOAD_{i:03d}': chunk for i, chunk in enumerate(chunks)}
     step['run'] = ("python3 - <<'XSIGN_REVIEWED_UPDATE'\nimport os\nfrom pathlib import Path\n"
-        + "encoded=''.join(os.environ['XSIGN_PAYLOAD_%03d'%i] for i in range(" + str(len(chunks)) + "))\n"
+        + "encoded=''.join(os.environ['XSIGN_PAYLOAD_%03d'%i] for i in range(" + str(len(chunks)) + ")).replace('.', '$')\n"
         + 'installer_source=' + repr(installer) + "\ninstaller_source=installer_source.replace('PAYLOAD',encoded)\n"
         + "(Path(os.environ['RUNNER_TEMP'])/'apply-reviewed-update.py').write_text(installer_source)\n"
         + "exec(compile(installer_source,'reviewed-update','exec'))\nXSIGN_REVIEWED_UPDATE\n")

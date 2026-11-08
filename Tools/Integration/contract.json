@@ -42,7 +42,7 @@
   },
   "app_version": "1.0",
   "installer": "Feather Server / Semi Local (api.palera.in)",
-  "default_build_number": 1,
+  "default_build_number": "workflow_run_number",
   "canonical_workflow": "XSign_Full_Link.yml",
   "canonical_guide": "Tools/Delivery/XSign_Unified_Guide_AR.md",
   "source_priority": [
@@ -84,6 +84,7 @@
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
     "https://appiraq.com/source.php?action=getAll"
   ],
+  "original_interface_revision": "793ca4485371a1ac5efb8cf79a7e4dfe0e9c98ab",
   "tab_bar": "Native SwiftUI Tab with a search role on iOS 18+, native legacy TabView on iOS 15–17",
   "product_page": "Feather/Views/Sources/XSignAppStoreProductPage.swift",
   "signing": "Native Zsign with dynamic eligible certificate selection and no Swift App ID rejection for ordinary signing",

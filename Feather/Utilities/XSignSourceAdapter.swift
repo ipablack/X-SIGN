@@ -19,10 +19,23 @@ enum XSignSourceAdapter {
             return try sanitizedCatalogue(dictionary, fallback: data, numericTypes: knownNumericTypes)
         }
         var selected: Any? = input
-        if let path=config?.root_path, !path.isEmpty { selected=value(input,path:path) }
+        var selectedGames = false
+        var separateGames: [[String: Any]] = []
+        if let path=config?.root_path, !path.isEmpty {
+            selected=value(input,path:path)
+            selectedGames = path.split(separator: ".").last == "games"
+        }
         if config?.root_path?.isEmpty != false, !(selected is [[String:Any]]) {
-            for path in ["apps","data","items","results","list","data.apps","data.items","data.list","data.results"] {
-                if let found=value(input,path:path) as? [[String:Any]] { selected=found;break }
+            for path in ["apps","data","items","results","list","data.apps","data.items","data.list","data.results","games","data.games"] {
+                if let found=value(input,path:path) as? [[String:Any]] {
+                    selected=found
+                    selectedGames = path.split(separator: ".").last == "games"
+                    if path == "apps" || path == "data.apps" {
+                        let gamesPath = path == "apps" ? "games" : "data.games"
+                        separateGames = value(input, path: gamesPath) as? [[String: Any]] ?? []
+                    }
+                    break
+                }
             }
         }
         guard let rows=selected as? [[String:Any]] else { throw XSignCatalogError.invalidJSON }
@@ -36,7 +49,8 @@ enum XSignSourceAdapter {
             "localizedDescription":["description_ar","localizedDescription","description","desc","details"],
             "category":["category","category_id","genre"], "size":["size","file_size","size_bytes"]
         ]
-        let mapped=rows.map { row -> [String:Any] in
+        let records = separateGames.map { ($0, true) } + rows.map { ($0, selectedGames) }
+        let mapped=records.map { row, isGame -> [String:Any] in
             var result=row
             for (field,choices) in aliases {
                 let paths: [String]
@@ -46,6 +60,10 @@ enum XSignSourceAdapter {
                 }
             }
             if knownNumericTypes { applyNumericType(to: &result) }
+            if isGame {
+                result["isGame"] = true
+                result.removeValue(forKey: "is_game")
+            }
             return result
         }
         let normalized=try XSignRESTSource.normalize(mapped)
@@ -55,6 +73,7 @@ enum XSignSourceAdapter {
         root["iconURL"]=config?.icon_url ?? dictionary?["iconURL"] as? String ?? dictionary?["icon"] as? String
         if let subtitle=dictionary?["subtitle"] { root["subtitle"]=subtitle }
         if let categories=dictionary?["categories"] as? [[String:Any]] { root["categories"]=categories }
+        if let categories=dictionary?["gameCategories"] as? [[String:Any]] { root["gameCategories"]=categories }
         return try JSONSerialization.data(withJSONObject:root,options:[.sortedKeys])
     }
     // A catalogue can publish metadata without an IPA. Preserve its app/version
@@ -71,12 +90,14 @@ enum XSignSourceAdapter {
             }
             return row
         }
-        root["apps"] = apps.map { app in
+        func cleanApp(_ app: [String: Any]) -> [String: Any] {
             var item = cleanDownload(app)
             if numericTypes, applyNumericType(to: &item) { changed = true }
             if let versions = item["versions"] as? [[String: Any]] { item["versions"] = versions.map(cleanDownload) }
             return item
         }
+        root["apps"] = apps.map(cleanApp)
+        if let games = root["games"] as? [[String: Any]] { root["games"] = games.map(cleanApp) }
         return changed ? try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]) : fallback
     }
 

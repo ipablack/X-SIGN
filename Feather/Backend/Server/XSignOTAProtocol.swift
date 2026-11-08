@@ -4,16 +4,34 @@ import FoundationNetworking
 #endif
 
 enum XSignOTAError: LocalizedError {
-    case invalidPackage, sslUnavailable, unsafeAddress, domainNotReady, invalidManifest, timedOut, interrupted
+    case invalidPackage, localServerUnavailable, domainNotReady, invalidManifest, timedOut
     var errorDescription: String? {
         switch self {
         case .invalidPackage: return "ملف التثبيت أو معلومات التطبيق غير صالحة."
-        case .sslUnavailable: return "تعذّر تجهيز HTTPS المحلي. تحقق من الاتصال وإتاحة نطاق backloop.dev."
-        case .unsafeAddress: return "دومين HTTPS المحلي لا يشير إلى الجهاز؛ أوقف التثبيت لحماية الملف."
-        case .domainNotReady: return "تعذّر تجهيز ملف التثبيت من x-sign.web.app. تحقق من اتصالك وجاهزية الخدمة."
-        case .invalidManifest: return "ملف التثبيت الذي أعاده الدومين غير صالح."
+        case .localServerUnavailable: return "تعذّر تشغيل خادم التثبيت على هذا الجهاز. أعد المحاولة من قسم التوقيع."
+        case .domainNotReady: return "تعذّر تجهيز ملف وصف التثبيت. تحقّق من الاتصال أو اختر طريقة أخرى من الإعدادات."
+        case .invalidManifest: return "ملف وصف التثبيت غير صالح."
         case .timedOut: return "انتهت مهلة طلب التثبيت. النسخة الموقعة باقية في المكتبة."
-        case .interrupted: return "توقف السيرفر المحلي قبل اكتمال نقل التطبيق."
+        }
+    }
+}
+
+enum XSignOTAInstallMode: String, CaseIterable, Sendable {
+    case palera, semiLocal
+
+    static let storageKey = "XSign.installationMode"
+    static var selected: Self {
+        resolve(UserDefaults.standard.string(forKey: storageKey))
+    }
+
+    static func resolve(_ value: String?) -> Self {
+        value.flatMap(Self.init(rawValue:)) ?? .palera
+    }
+
+    var title: String {
+        switch self {
+        case .palera: return "محلي (افتراضي)"
+        case .semiLocal: return "محلي جزئي (Zsign)"
         }
     }
 }
@@ -55,14 +73,9 @@ struct XSignOTADescriptor: Codable, Sendable {
     let expiresAt: Int
 
     func validate(now: Date = Date()) throws {
-        let localHTTP=payloadURL.scheme == "http" && payloadURL.host == "127.0.0.1"
-        let localHTTPS=payloadURL.scheme == "https" && (payloadURL.host?.hasSuffix(".backloop.dev") ?? false)
-        guard localHTTP || localHTTPS,let host=payloadURL.host,!host.contains("*"),
-              host.utf8.count<=253,host.unicodeScalars.allSatisfy({ CharacterSet(charactersIn:"abcdefghijklmnopqrstuvwxyz0123456789.-").contains($0) }),
-              payloadURL.user == nil, payloadURL.password == nil,
-              payloadURL.query == nil, payloadURL.fragment == nil,
-              let port = payloadURL.port, (49152...65535).contains(port),
-              let range = XSignOTACapability.pathToken(payloadURL.path), !range.isEmpty,
+        guard let port = payloadURL.port, (49152...65535).contains(port),
+              XSignOTACapability.pathToken(payloadURL.path) != nil,
+              payloadURL.absoluteString == "http://127.0.0.1:\(port)\(payloadURL.path)",
               !bundleIdentifier.isEmpty, bundleIdentifier.utf8.count <= 255,
               bundleIdentifier.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.").contains($0) }),
               !bundleVersion.isEmpty, bundleVersion.utf8.count <= 64,
@@ -146,56 +159,62 @@ actor XSignOTATransfers {
 
 // Only metadata and the short-lived loopback URL are sent to the manifest service.
 struct XSignManifestBridge {
-    static let origin = URL(string: "https://x-sign.web.app")!
-    private static let prepareURL = origin.appendingPathComponent("native").appendingPathComponent("prepare")
-    private static let manifestPath = "/native/manifest.plist"
-    private struct Prepared: Decodable { let manifestURL: URL }
+    private static let paleraURL = URL(string: "https://api.palera.in/genPlist")!
+    private static let zsignURL = URL(string: "https://vip.appiraq.com/Zsign.php")!
 
-    static func prepare(_ descriptor: XSignOTADescriptor, session: URLSession) async throws -> URL {
+    static func prepare(_ descriptor: XSignOTADescriptor, mode: XSignOTAInstallMode, session: URLSession) async throws -> URL {
         try descriptor.validate()
-        guard descriptor.payloadURL.scheme == "https" else { throw XSignOTAError.invalidPackage }
+        let endpoint = mode == .palera ? paleraURL : zsignURL
+        var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+        let unreserved = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+        let title = descriptor.title.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let fields = [("bundleid", descriptor.bundleIdentifier), ("name", title),
+                      ("version", descriptor.bundleVersion), ("fetchurl", descriptor.payloadURL.absoluteString)]
+        components.percentEncodedQuery = fields.map { name, value in
+            // Palera inserts parameter values into XML text. Zsign performs its own XML escaping.
+            let field = mode == .palera ? escapedXMLText(value) : value
+            return name + "=" + (field.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "")
+        }.joined(separator: "&")
+        guard let manifestURL = components.url else { throw XSignOTAError.invalidManifest }
+        return try await verifiedLink(for: manifestURL, descriptor: descriptor,
+                                      title: title, timeout: 16, session: session)
+    }
 
-        var request = URLRequest(url: prepareURL)
-        request.httpMethod = "POST"
-        request.httpBody = try JSONEncoder().encode(descriptor)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+    private static func escapedXMLText(_ value: String) -> String {
+        value.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\r", with: "&#13;")
+    }
+
+    private static func verifiedLink(for manifestURL: URL, descriptor: XSignOTADescriptor, title: String,
+                                     timeout: TimeInterval, session: URLSession) async throws -> URL {
+        var request = URLRequest(url: manifestURL, timeoutInterval: timeout)
+        request.setValue("application/x-plist, application/xml, text/xml, application/octet-stream", forHTTPHeaderField: "Accept")
+        request.setValue("XSign/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
-        let (body, response) = try await XSignBoundedHTTP.fetch(request, using: session, limit: 16_384)
-        guard response.statusCode == 200, response.url == prepareURL,
-              response.mimeType?.lowercased() == "application/json",
-              let prepared = try? JSONDecoder().decode(Prepared.self, from: body),
-              let url = URLComponents(url: prepared.manifestURL, resolvingAgainstBaseURL: false),
-              url.scheme == "https", url.host == origin.host, url.path == manifestPath,
-              url.user == nil, url.password == nil, url.port == nil, url.fragment == nil,
-              let query = url.queryItems, query.count == 1, query[0].name == "ticket",
-              let ticket = query[0].value, !ticket.isEmpty, ticket.utf8.count <= 8192,
-              ticket.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) ||
-                  (97...122).contains($0) || $0 == 45 || $0 == 95 }) else {
-            throw XSignOTAError.domainNotReady
-        }
-
-        let (manifest, result) = try await XSignBoundedHTTP.fetch(URLRequest(url: prepared.manifestURL), using: session, limit: 32_768)
-        guard result.statusCode == 200, result.url == prepared.manifestURL else { throw XSignOTAError.domainNotReady }
-        try validate(manifest, expected: descriptor)
-
+        let (manifest, result) = try await XSignBoundedHTTP.fetch(request, using: session, limit: 32_768)
+        guard result.statusCode == 200, result.url == manifestURL else { throw XSignOTAError.domainNotReady }
+        try validate(manifest, expected: descriptor, title: title)
         var link = URLComponents()
         link.scheme = "itms-services"
         link.host = ""
         link.queryItems = [URLQueryItem(name: "action", value: "download-manifest"),
-                           URLQueryItem(name: "url", value: prepared.manifestURL.absoluteString)]
+                           URLQueryItem(name: "url", value: manifestURL.absoluteString)]
+        link.percentEncodedQuery = link.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let installURL = link.url else { throw XSignOTAError.invalidManifest }
         return installURL
     }
 
-    static func validate(_ data: Data, expected: XSignOTADescriptor) throws {
+    private static func validate(_ data: Data, expected: XSignOTADescriptor, title: String) throws {
         guard data.count <= 32_768,
               let root = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
               let items = root["items"] as? [[String: Any]], items.count == 1,
               let metadata = items[0]["metadata"] as? [String: Any],
               metadata["bundle-identifier"] as? String == expected.bundleIdentifier,
               metadata["bundle-version"] as? String == expected.bundleVersion,
-              metadata["title"] as? String == expected.title,
+              metadata["title"] as? String == title,
               metadata["kind"] as? String == "software",
               let assets = items[0]["assets"] as? [[String: Any]], assets.count == 1,
               assets[0]["kind"] as? String == "software-package",

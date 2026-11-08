@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const {createHandler, validate, seal, unseal, manifest} = require('../functions/core.cjs');
 const key = crypto.randomBytes(32), now = 1762350000;
-const descriptor = {payloadURL:'https://localhost.backloop.dev:52345/ota/'+'a'.repeat(64)+'/payload.ipa',
+const descriptor = {payloadURL:'http://127.0.0.1:52345/ota/'+'a'.repeat(64)+'/payload.ipa',
  bundleIdentifier:'com.ipablack.demo', bundleVersion:'1.2', title:'تجربة <X> & "توقيع"', expiresAt:now+1800};
 function invoke(handler, path, method='GET', body, headers={}) {
  let result = {statusCode:200, headers:{}, body:''};
@@ -16,7 +16,7 @@ function invoke(handler, path, method='GET', body, headers={}) {
 const handler = () => createHandler({keyProvider:()=>key.toString('hex'),clock:()=>now});
 test('opaque authenticated tickets hide the local IPA URL and preserve metadata',()=>{
  const ticket=seal(validate(descriptor,now),key);
- assert.ok(!ticket.includes('backloop') && !Buffer.from(ticket,'base64url').includes(Buffer.from('payload.ipa')));
+ assert.ok(!ticket.includes('127.0.0.1') && !Buffer.from(ticket,'base64url').includes(Buffer.from('payload.ipa')));
  assert.deepEqual(unseal(ticket,key,now),descriptor);
  assert.throws(()=>unseal(ticket,crypto.randomBytes(32),now));
  const changed=Buffer.from(ticket,'base64url'); changed[30]^=1;
@@ -28,7 +28,7 @@ test('prepare and manifest route round trip without returning a download link in
  const prepared=invoke(app,'/native/prepare','POST',Buffer.from(JSON.stringify(descriptor)),{'content-type':'application/json'});
  assert.equal(prepared.statusCode,200);
  const reply=JSON.parse(prepared.body);assert.equal(new URL(reply.manifestURL).hostname,'x-sign.web.app');
- assert.ok(!prepared.body.includes('backloop') && !prepared.body.includes('payload.ipa'));
+ assert.ok(!prepared.body.includes('127.0.0.1') && !prepared.body.includes('payload.ipa'));
  const xml=invoke(app,new URL(reply.manifestURL).pathname+new URL(reply.manifestURL).search);
  assert.equal(xml.statusCode,200);assert.match(xml.body,/software-package/);assert.match(xml.body,/&lt;X&gt; &amp;/);
  assert.equal(xml.headers['cache-control'],'no-store, max-age=0');
@@ -39,7 +39,8 @@ test('unsafe schemes, paths, credentials and arbitrary hosts are rejected; no UR
  'https://example.org:52345/ota/'+'a'.repeat(64)+'/payload.ipa',
  'https://localhost.backloop.dev.evil.test:52345/ota/'+'a'.repeat(64)+'/payload.ipa',
  descriptor.payloadURL+'?query=1',descriptor.payloadURL+'#fragment',
- descriptor.payloadURL.replace('https://','https://user:password@'),descriptor.payloadURL.replace('/ota/','/other/')]) {
+ descriptor.payloadURL.replace('http://','http://user:password@'),descriptor.payloadURL.replace('/ota/','/other/'),
+ descriptor.payloadURL.replace('127.0.0.1','127.1'), descriptor.payloadURL.replace('127.0.0.1','192.168.1.1')]) {
   assert.throws(()=>validate({...descriptor,payloadURL},now));
  }
  assert.throws(()=>validate({...descriptor,extra:'unexpected'},now));

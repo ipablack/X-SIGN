@@ -11,6 +11,7 @@ final class XSignInstallation: ObservableObject {
         let app: AppInfoPresentable
         let id: String
         let afterDismissal: Bool
+        let mode: XSignOTAInstallMode
     }
 
     @Published private(set) var status: String?
@@ -25,7 +26,7 @@ final class XSignInstallation: ObservableObject {
             return
         }
         guard let id = app.uuid, activeID != id, !pending.contains(where: { $0.id == id }) else { return }
-        pending.append(Request(app: app, id: id, afterDismissal: afterDismissal))
+        pending.append(Request(app: app, id: id, afterDismissal: afterDismissal, mode: .selected))
         resumeIfPossible()
     }
 
@@ -61,7 +62,7 @@ final class XSignInstallation: ObservableObject {
                 try Task.checkCancellation()
                 let installer = XSignOTAInstaller()
                 try await installer.install(package: package, bundleIdentifier: metadata.identifier,
-                    version: metadata.version, title: metadata.title, update: { [weak self] stage in
+                    version: metadata.version, title: metadata.title, mode: request.mode, update: { [weak self] stage in
                         self?.show(stage)
                     }, open: { link in
                         // Signing may finish as the app goes inactive or a sheet is presented.
@@ -104,7 +105,7 @@ final class XSignInstallation: ObservableObject {
 
     private func show(_ stage: XSignOTAInstaller.Stage) {
         switch stage {
-        case .preparingTLS, .preparingDomain:
+        case .preparingServer, .preparingManifest:
             status = "جاري تجهيز طلب التثبيت…"
         case .waitingForSystem:
             status = "وافق على طلب التثبيت من iOS."

@@ -161,7 +161,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
             try checkRelease(release)
             let installer=XSignOTAInstaller()
             try await installer.install(package:package,bundleIdentifier:metadata.identifier,
-                version:metadata.version,title:metadata.title,update:{ [weak self] stage in
+                version:metadata.version,title:metadata.title,mode:.selected,update:{ [weak self] stage in
                     switch stage {
                     case .waitingForSystem: self?.message="وافق على طلب التثبيت من iOS…"
                     case .delivering: self?.message="جاري تثبيت التحديث…"

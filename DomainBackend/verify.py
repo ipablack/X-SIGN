@@ -12,7 +12,7 @@ def read(request,limit=32768):
 def verify():
     status=json.loads(read(ROOT+'/native/status'))
     assert status=={'service':'xsign-native-ota','version':1,'ready':True}
-    payload='https://localhost.backloop.dev:52345/ota/'+secrets.token_hex(32)+'/payload.ipa'
+    payload='http://127.0.0.1:52345/ota/'+secrets.token_hex(32)+'/payload.ipa'
     descriptor={'payloadURL':payload,'bundleIdentifier':'com.ipablack.verification','bundleVersion':'1.0',
                 'title':'XSign Verification','expiresAt':int(time.time())+600}
     reply=json.loads(read(urllib.request.Request(ROOT+'/native/prepare',data=json.dumps(descriptor).encode(),

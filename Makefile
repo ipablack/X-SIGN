@@ -18,11 +18,12 @@ clean:
 
 deps:
 	python3 Tools/Prepare_Zsign.py
+	python3 Tools/Prepare_IDevice.py
 
 $(PLATFORMS): deps
 	rm -rf _build
 
-	xcodebuild \
+	XSIGN_USE_PREPARED_IDEVICE=1 xcodebuild \
 		-workspace Feather.xcworkspace \
 		-scheme $(SCHEME) \
 		-configuration Release \

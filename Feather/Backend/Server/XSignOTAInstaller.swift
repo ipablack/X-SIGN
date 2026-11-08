@@ -1,50 +1,36 @@
 import Foundation
 import Vapor
-import NIOSSL
 
 // A short-lived, loopback-only installation lease consumed by iOS installation. No export UI/API exists.
 actor XSignOTAInstaller {
-    enum Stage: Sendable { case preparingTLS, preparingDomain, waitingForSystem, delivering, delivered }
+    enum Stage: Sendable { case preparingServer, preparingManifest, waitingForSystem, delivering, delivered }
     typealias Update = @MainActor @Sendable (Stage) -> Void
     private var application: Application?
     private var loops: MultiThreadedEventLoopGroup?
 
-    func install(package: URL, bundleIdentifier: String, version: String, title: String,
+    func install(package: URL, bundleIdentifier: String, version: String, title: String, mode: XSignOTAInstallMode,
                  update: @escaping Update, open: @escaping @MainActor @Sendable (URL) async -> Bool) async throws {
         let session = XSignBoundedHTTP.session()
         defer { stopLocalServer(); session.invalidateAndCancel() }
         let properties = try package.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard properties.isRegularFile == true, properties.isSymbolicLink != true,
               let count = properties.fileSize, count > 0 else { throw XSignOTAError.invalidPackage }
-        await update(.preparingTLS)
+        try Task.checkCancellation()
+        await update(.preparingServer)
         let token = XSignOTACapability.token()
         let tracking = XSignOTATransfers(size: Int64(count))
         let deadline = ProcessInfo.processInfo.systemUptime + 2700
-        var readyURL: URL?
-        for attempt in 0..<2 {
-            do {
-                let identity = try await XSignOTATLS.load(session: session, forceRefresh: attempt > 0)
-                try Task.checkCancellation()
-                let payloadURL = try startLocalServer(package: package, bytes: count, identity: identity, token: token,
-                    deadline: deadline, tracking: tracking, update: update)
-                var health = URLComponents(url: payloadURL, resolvingAgainstBaseURL: false)!
-                health.path = "/ota/\(token)/health"
-                // No custom trust bypass: stale cached certificates trigger one automatic refresh.
-                let (probe, response) = try await XSignBoundedHTTP.fetch(URLRequest(url: health.url!), using: session, limit: 128)
-                guard response.statusCode == 200, probe == Data("XSign OTA".utf8) else { throw XSignOTAError.sslUnavailable }
-                readyURL = payloadURL
-                break
-            } catch {
-                stopLocalServer()
-                if Task.isCancelled { throw CancellationError() }
-                if attempt == 1 { throw XSignOTAError.sslUnavailable }
-            }
-        }
-        guard let payloadURL = readyURL else { throw XSignOTAError.sslUnavailable }
-        await update(.preparingDomain)
+        let payloadURL = try startLocalServer(package: package, bytes: count, token: token,
+            deadline: deadline, tracking: tracking, update: update)
+        var health = URLComponents(url: payloadURL, resolvingAgainstBaseURL: false)!
+        health.path = "/ota/\(token)/health"
+        let (probe, response) = try await XSignBoundedHTTP.fetch(URLRequest(url: health.url!, timeoutInterval: 5),
+                                                               using: session, limit: 128)
+        guard response.statusCode == 200, probe == Data("XSign OTA".utf8) else { throw XSignOTAError.localServerUnavailable }
+        await update(.preparingManifest)
         let descriptor = XSignOTADescriptor(payloadURL: payloadURL, bundleIdentifier: bundleIdentifier,
             bundleVersion: version, title: title, expiresAt: Int(Date().timeIntervalSince1970) + 1800)
-        let link = try await XSignManifestBridge.prepare(descriptor, session: session)
+        let link = try await XSignManifestBridge.prepare(descriptor, mode: mode, session: session)
         try Task.checkCancellation()
         await update(.waitingForSystem)
         guard await open(link) else { throw XSignOTAError.invalidManifest }
@@ -59,9 +45,9 @@ actor XSignOTAInstaller {
         await tracking.stop()
     }
 
-    func startLocalServer(package: URL, bytes: Int, identity: XSignOTATLS?, token: String, deadline: TimeInterval,
+    func startLocalServer(package: URL, bytes: Int, token: String, deadline: TimeInterval,
                        tracking: XSignOTATransfers, update: @escaping Update) throws -> URL {
-        for attempt in 0..<8 {
+        for _ in 0..<8 {
             let port = Int.random(in: 49152...65535)
             let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
             let app = Application(.production, .shared(group))
@@ -71,15 +57,13 @@ actor XSignOTAInstaller {
             app.http.server.configuration.reuseAddress = false
             app.http.server.configuration.tcpNoDelay = true
             app.http.server.configuration.backlog = 16
-            if let identity { app.http.server.configuration.tlsConfiguration = identity.configuration }
             app.http.server.configuration.supportVersions = [.one]
             app.http.server.configuration.supportPipelining = false
             app.http.server.configuration.requestDecompression = .disabled
             app.http.server.configuration.responseCompression = .disabled
             app.http.server.configuration.shutdownTimeout = .seconds(1)
             app.routes.defaultMaxBodySize = 0
-            let host = "\(identity?.hostname ?? "127.0.0.1"):\(port)"
-            let scheme=identity.map { _ in "https" } ?? "http"
+            let host = "127.0.0.1:\(port)"
             let basePath = "/ota/\(token)"
             let allowed: @Sendable (Request, String) -> Bool = { request, suffix in
                 ProcessInfo.processInfo.systemUptime < deadline && request.headers["Host"] == [host] &&
@@ -131,14 +115,13 @@ actor XSignOTAInstaller {
                 try app.server.start()
                 application = app
                 loops = group
-                return URL(string: "\(scheme)://\(host)\(basePath)/payload.ipa")!
+                return URL(string: "http://\(host)\(basePath)/payload.ipa")!
             } catch {
                 app.shutdown()
                 try? group.syncShutdownGracefully()
-                if attempt == 7 { throw XSignOTAError.sslUnavailable }
             }
         }
-        throw XSignOTAError.sslUnavailable
+        throw XSignOTAError.localServerUnavailable
     }
 
     func stopLocalServer() {

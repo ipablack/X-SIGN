@@ -139,7 +139,7 @@
           <div class="field"><label for="ownerReleaseLink">رابط الإصدار</label><input id="ownerReleaseLink" type="url" inputmode="url" dir="ltr" placeholder="https://…/app.ipa" autocomplete="off" spellcheck="false"><p class="field-hint">رابط IPA مباشر أو manifest.plist لنسخة موقعة.</p></div>
           <div class="grid-2">
             <div class="field"><label for="ownerLatest">رقم الإصدار</label><input id="ownerLatest" type="text" data-path="xsign_config.dashboard.update.latest_version" dir="ltr" placeholder="1.0" autocomplete="off" spellcheck="false"></div>
-            <div class="field"><label for="ownerReleaseMode">الحالة</label><select id="ownerReleaseMode"><option value="off">متوقف</option><option value="optional">تحديث اختياري</option><option value="required">إجباري · الإصدار والرابط</option><option value="legacy" hidden>إجباري · الإعداد السابق</option></select></div>
+            <div class="field"><label for="ownerReleaseMode">الحالة</label><select id="ownerReleaseMode"><option value="off">متوقف</option><option value="optional">تحديث اختياري</option><option value="required">إجباري · الإصدار والبناء</option><option value="legacy" hidden>إجباري · الإعداد السابق</option></select></div>
           </div>
           <div class="row wrap"><button type="button" id="fillReleaseMetadata" class="btn"><svg class="icon"><use href="#i-refresh"/></svg>جلب بيانات الرابط</button><button type="button" class="btn btn-primary" data-action="prepare-publish"><svg class="icon"><use href="#i-cloud"/></svg>مراجعة ونشر</button></div>
           <p class="field-hint" id="ownerReleaseState" role="status"></p>
@@ -149,9 +149,9 @@
       <details class="card release-options" id="releaseAdvanced">
         <summary>البصمة ورقم البناء</summary>
         <div class="card-body stack">
-          <div class="grid-2"><div class="field"><label for="ownerBuild">رقم البناء</label><input id="ownerBuild" type="text" data-path="xsign_config.dashboard.update.build_version" dir="ltr" placeholder="اختياري للـ IPA"></div><div class="field"><label for="ownerSHA">بصمة SHA-256 للـ IPA</label><input id="ownerSHA" type="text" data-path="xsign_config.dashboard.update.sha256" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false"></div></div>
+          <div class="grid-2"><div class="field"><label for="ownerBuild">رقم البناء</label><input id="ownerBuild" type="text" data-path="xsign_config.dashboard.update.build_version" dir="ltr" placeholder="إلزامي للتحديث الإجباري"></div><div class="field"><label for="ownerSHA">بصمة SHA-256 للـ IPA</label><input id="ownerSHA" type="text" data-path="xsign_config.dashboard.update.sha256" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false"></div></div>
           <div class="field"><label for="ownerLinkKind">نوع الرابط</label><select id="ownerLinkKind"><option value="ipa">ملف IPA</option><option value="manifest">ملف تثبيت manifest.plist</option></select></div>
-          <p class="field-hint">تُقرأ البصمة من GitHub Releases. للتحديث الإجباري عبر manifest، حدّد البناء ومرّر رابط الـmanifest في حقل release_url عند بناء XSign.</p>
+          <p class="field-hint">طابق رقم البناء مع الملف المنشور. رابط IPA يحتاج بصمة SHA-256. عند تبديل الملف، ارفع الإصدار أو رقم البناء حتى يصل التحديث للأجهزة.</p>
           <div class="field"><label for="expectedBundle">هوية XSign</label><input id="expectedBundle" dir="ltr" readonly></div>
           <div class="field"><label for="selfUpdateApp">إصدار XSign من الكتالوج</label><select id="selfUpdateApp"></select></div>
           <button type="button" id="adoptCatalogueUpdate" class="btn">استخدام الإصدار المحدد</button>

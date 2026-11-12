@@ -68,6 +68,10 @@ struct XSignOwnerUpdate: Codable, Equatable, Sendable {
         return SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
     }
     var installIdentity: [String?] { [latest_version, targetBuild, releaseOrigin, sha256?.lowercased()] }
+    var promptIdentity: String? {
+        guard installable else { return nil }
+        return installIdentity.map { $0 ?? "" }.joined(separator: "|")
+    }
 }
 
 struct XSignDashboardConfig: Codable, Equatable, Sendable {

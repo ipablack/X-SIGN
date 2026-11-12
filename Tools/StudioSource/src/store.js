@@ -44,15 +44,28 @@ async function repositoryFile(c,path,ref,token,optional=false){
   let encoded=file.content;if(file.encoding!=='base64'||typeof encoded!=='string'){const blob=await github(c,'git/blobs/'+encodeURIComponent(file.sha),'GET',undefined,token);if(blob?.encoding!=='base64'||typeof blob.content!=='string')throw Error('تعذر قراءة الملف بترميز مدعوم.');encoded=blob.content;}
   const source=decodeBase64(encoded);if(new TextEncoder().encode(source).length>15*1024*1024)throw Error('الملف أكبر من 15 MB.');return {sha:file.sha,source};
 }
+function isLiveAppTarget(c){
+  return c.owner.toLowerCase()==='ipablack'&&c.repo.toLowerCase()==='repo'&&
+    c.branch==='main'&&c.path==='repo.json'&&c.configPath==='xsign-config.json';
+}
 async function readCatalogueSnapshot(c,token){
   const ref=await github(c,'git/ref/heads/'+branchPath(c.branch),'GET',undefined,token);
   if(!ref?.object?.sha)throw Error('تعذر تحديد رأس الفرع المختار.');
   const commit=await github(c,'git/commits/'+encodeURIComponent(ref.object.sha),'GET',undefined,token);
   if(!commit?.tree?.sha)throw Error('تعذر قراءة شجرة المستودع.');
-  const file=await repositoryFile(c,c.path,ref.object.sha,token,true);
-  let data=null,parseError='';
+  const [file,projectionFile]=await Promise.all([
+    repositoryFile(c,c.path,ref.object.sha,token,true),
+    isLiveAppTarget(c)?repositoryFile(c,c.configPath,ref.object.sha,token,true):null
+  ]);
+  let data=null,parseError='',liveRevision=0;
   if(file){try{data=normalizeState(JSON.parse(file.source.replace(/^\uFEFF/,'')));}catch(error){parseError=error instanceof SyntaxError?'الملف الحي ليس JSON صالحاً.':error.message;}}
-  return {head:ref.object.sha,tree:commit.tree.sha,sha:file?.sha||null,data,missing:!file,parseError};
+  if(projectionFile){
+    try{
+      const projection=JSON.parse(projectionFile.source.replace(/^\uFEFF/,''));
+      if(isObject(projection)&&Number.isSafeInteger(projection.repo_revision_id)&&projection.repo_revision_id>0)liveRevision=projection.repo_revision_id;
+    }catch{}
+  }
+  return {head:ref.object.sha,tree:commit.tree.sha,sha:file?.sha||null,data,missing:!file,parseError,liveRevision};
 }
 function withRevision(data,minimum){const result=normalizeState(data);result.repo_revision_id=Math.max(safeInteger(result.repo_revision_id),safeInteger(minimum,0));return result;}
 function mergeCatalogue(base,local,remote){return withRevision(Store.merge(base,local,remote),Math.max(local.repo_revision_id||1,remote.repo_revision_id||1));}
@@ -105,7 +118,7 @@ preparePublish=async function(){
     const hasBase=remoteBaseline?.key===connectionKey(c)&&remoteBaseline.data;
     if(remote.parseError&&hasBase)throw Error(remote.parseError+' تعذر الدمج؛ لم تتغير مسودتك.');
     let snapshot=hasBase&&remote.data?mergeCatalogue(remoteBaseline.data,state,remote.data):clone(state);
-    snapshot.repo_revision_id=Math.max(safeInteger(snapshot.repo_revision_id),safeInteger(remote.data?.repo_revision_id,0))+1;
+    snapshot.repo_revision_id=Math.max(safeInteger(snapshot.repo_revision_id),safeInteger(remote.data?.repo_revision_id,0),remote.liveRevision||0)+1;
     const problems=validateState(snapshot);if(problems.length)throw Error('النسخة المدمجة تحتاج مراجعة: '+problems[0]);
     pendingPublish={connection:c,snapshot,remote,local:clone(state),localAtReview:JSON.stringify(state)};
     const review=$('publishReview');review.replaceChildren(metricRow('المستودع',c.owner+'/'+c.repo),metricRow('الفرع',c.branch),metricRow('المراجعة الجديدة',snapshot.repo_revision_id));
@@ -114,7 +127,7 @@ preparePublish=async function(){
     const warnings=[];
     if(!hasBase&&!remote.missing)warnings.push('هذه المسودة ليست مبنية على مزامنة موثوقة في الجلسة. سيستبدل النشر محتوى الملف الحالي. يفضّل جلبه أولاً.');
     if(remote.parseError)warnings.push(remote.parseError+' سيتم استبداله بملف صالح.');
-    if(connectionKey(c)!=='ipablack/repo/main/repo.json')warnings.push('وجهة النشر تختلف عن مصدر المالك الثابت؛ ربط التطبيق بهذه الوجهة يحتاج التحقق مستقلاً.');
+    if(!isLiveAppTarget(c))warnings.push('هذا البناء يقرأ repo.json وxsign-config.json من ipablack/repo على main. لن يظهر هذا النشر في التطبيق من الوجهة الحالية.');
     warnings.push('ينشر ملفا الكتالوج والإعدادات المختصرة معاً في التزام واحد.');
     $('publishWarning').textContent=warnings.join('\n');$('publishWarning').hidden=false;$('publishError').hidden=true;$('publishDialog').showModal();
   }catch(error){showConflict(error);}finally{operationBusy=false;updateStatus();}
@@ -144,7 +157,7 @@ publishNow=async function(){
         if(!error.refUpdate||![409,422].includes(error.status)||attempt===2)throw error;
         const latest=await readCatalogueSnapshot(job.connection,token);if(!latest.data||latest.parseError)throw Error('تغير الملف الحي إلى نسخة لا يمكن دمجها؛ لم تُنشر المسودة.');
         if(!remote.data)throw Error('ظهر ملف كتالوج جديد أثناء النشر. زامنه أولاً.');
-        data=mergeCatalogue(remote.data,data,latest.data);data.repo_revision_id=Math.max(data.repo_revision_id,latest.data.repo_revision_id)+1;
+        data=mergeCatalogue(remote.data,data,latest.data);data.repo_revision_id=Math.max(data.repo_revision_id,latest.data.repo_revision_id,latest.liveRevision||0)+1;
         const errors=validateState(data);if(errors.length)throw Error('تحتاج النسخة المدمجة إلى مراجعة: '+errors[0]);remote=latest;
       }
     }

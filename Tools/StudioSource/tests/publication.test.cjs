@@ -49,6 +49,18 @@ test('snapshot reads file at the exact head, including a branch containing slash
  const r=runtime(async(url)=>{if(url.includes('/git/ref/heads/'))return response(200,{object:{sha:'exact-head'}});if(url.endsWith('/git/commits/exact-head'))return response(200,{tree:{sha:'exact-tree'}});if(url.includes('/contents/repo.json?ref=exact-head'))return response(200,file({name:'حفظ عربي',apps:[]}));throw Error('Non-snapshot read '+url)});
  const snapshot=await r.run("readCatalogueSnapshot({...connection,branch:'release/v2'},'test-token')");assert.equal(snapshot.data.name,'حفظ عربي');assert.equal(snapshot.head,'exact-head');assert(r.calls[0].url.endsWith('/git/ref/heads/release/v2'));
 });
+test('live snapshot also reads the configuration revision at the same commit',async()=>{
+ const r=runtime(async(url)=>{
+  if(url.includes('/git/ref/heads/'))return response(200,{object:{sha:'head'}});
+  if(url.endsWith('/git/commits/head'))return response(200,{tree:{sha:'tree'}});
+  if(url.includes('/contents/repo.json?ref=head'))return response(200,file({repo_revision_id:20,apps:[]}));
+  if(url.includes('/contents/xsign-config.json?ref=head'))return response(200,file({repo_revision_id:25,xsign_config:{}}));
+  throw Error('Unexpected endpoint '+url);
+ });
+ const snapshot=await r.run("readCatalogueSnapshot(connection,'test-token')");
+ assert.equal(snapshot.data.repo_revision_id,20);
+ assert.equal(snapshot.liveRevision,25);
+});
 test('workflow dispatch accepts 204 and sends the chosen branch and real inputs',async()=>{
  const r=runtime(async(url,opts)=>{if(url.includes('/runs?'))return response(200,{workflow_runs:[]});if(url.endsWith('/dispatches'))return response(204,null);throw Error('Unexpected endpoint '+url)});
  r.run("preparedUpload={c:{...connection,branch:'release/v2'},mode:'url',inputs:{ipa_url:'https://example.com/a.ipa',skip_appstore:true},metadata:{}};");await r.run('sendIngest()');const request=r.calls.find(x=>x.opts.method==='POST'),body=JSON.parse(request.opts.body);assert.equal(body.ref,'release/v2');assert.equal(body.inputs.skip_appstore,true);assert.equal(r.run('preparedUpload'),null);assert(r.ctx.lastMessage.includes('أُرسلت'));
@@ -86,6 +98,7 @@ test('a local edit made while a baseline-free pull is pending is never discarded
   if(url.includes('/git/ref/heads/')){r.run("state.name='Edit while fetching'");return response(200,{object:{sha:'head'}})}
   if(url.endsWith('/git/commits/head'))return response(200,{tree:{sha:'tree'}});
   if(url.includes('/contents/repo.json?ref='))return response(200,file({name:'Remote catalogue',apps:[]}));
+  if(url.includes('/contents/xsign-config.json?ref='))return response(404,{});
   throw Error('Unexpected endpoint');
  });
  r.run('baseline=JSON.stringify(state)');await r.run('requestPull()');

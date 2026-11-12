@@ -24,6 +24,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
     private var operation: Task<Void,Never>?
     private let maximumSize: Int64=2_147_483_648
     func cancel() { operation?.cancel() }
+    func retryDelivery() { delivered = false; message = "" }
     func releaseChanged() {
         cancel(); pendingUpdate = nil; needsCertificate = false; delivered = false; progress = nil
         if !busy { message = "" }
@@ -44,7 +45,8 @@ struct XSignVerifiedSelfUpdate: Sendable {
                           let root=try PropertyListSerialization.propertyList(from:data,format:nil) as? [String:Any],
                           let items=root["items"] as? [[String:Any]],items.count == 1,
                           let metadata=items[0]["metadata"] as? [String:Any],metadata["bundle-identifier"] as? String == bundleID,
-                          metadata["bundle-version"] as? String == (update.targetBuild ?? latest),
+                          let build = metadata["bundle-version"] as? String,
+                          XSignReleaseVersion.compare(build, update.targetBuild ?? latest) == 0,
                           let assets=items[0]["assets"] as? [[String:Any]],
                           assets.contains(where:{ $0["kind"] as? String == "software-package" && XSignManagedSource.httpsURL($0["url"] as? String) != nil }) else {
                         throw failure("ملف تحديث الناشر لا يطابق هوية XSign ورقم البناء المطلوب.")
@@ -97,8 +99,8 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 defer { Storage.shared.deleteApp(for:imported) }
                 guard let appDirectory=Storage.shared.getAppDirectory(for:imported) else { throw failure("تعذّر قراءة تطبيق التحديث.") }
                 let info=try XSignOTABundleMetadata.read(from:appDirectory)
-                guard info.identifier == bundleID, info.shortVersion == latest,
-                      update.targetBuild == nil || update.targetBuild == info.version else {
+                guard info.identifier == bundleID, XSignReleaseVersion.compare(info.shortVersion, latest) == 0,
+                      update.targetBuild.map({ XSignReleaseVersion.compare($0, info.version) == 0 }) ?? true else {
                     throw failure("ملف التحديث لا يطابق هوية التطبيق أو الإصدار المنشور.")
                 }
                 try checkRelease(update)
@@ -233,10 +235,11 @@ struct XSignAppUpdateView: View {
     @ObservedObject private var remote=XSignRemoteManager.shared
     @StateObject private var updater=XSignAppUpdater()
     var isRequired = false
+    private var release: XSignOwnerUpdate? { isRequired ? remote.requiredRelease : remote.optionalRelease }
     var body: some View {
         ScrollView {
             VStack(spacing:16) {
-                if let release=remote.config?.dashboard?.update, release.installable {
+                if let release {
                     let allowed = remote.canInstall(release) && !updater.busy && !updater.delivered
                     let custom = release.html.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
                     let heading = isRequired ? "حدّث XSign للمتابعة" : "تحديث XSign"
@@ -250,6 +253,7 @@ struct XSignAppUpdateView: View {
                     if updater.busy { ProgressView(value:updater.progress) }
                     if !updater.message.isEmpty { Text(updater.message).font(.footnote).multilineTextAlignment(.center) }
                     if updater.busy { Button("إلغاء",role:.cancel) { updater.cancel() } }
+                    if updater.delivered { Button("إعادة المحاولة") { updater.retryDelivery() }.font(.footnote) }
                 } else { Label("ماكو تحديث متاح حالياً", systemImage: "checkmark.circle").font(.headline) }
                 Button("التحقق الآن") { Task { await remote.fetchRemoteConfig(force: true) } }.font(.footnote)
             }.frame(maxWidth: 480).padding(.horizontal, 16).padding(.vertical, 24)
@@ -260,7 +264,7 @@ struct XSignAppUpdateView: View {
         .sheet(isPresented:$updater.needsCertificate,onDismiss:{ updater.certificateSetupFinished() }) { CertificatesAddView() }
         .interactiveDismissDisabled(updater.busy)
         .onDisappear { updater.cancel() }
-        .onChange(of: remote.config?.dashboard?.update?.installIdentity) { _ in updater.releaseChanged() }
+        .onChange(of: release?.installIdentity) { _ in updater.releaseChanged() }
     }
 }
 

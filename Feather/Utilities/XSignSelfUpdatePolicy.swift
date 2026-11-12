@@ -4,9 +4,23 @@ import Foundation
 enum XSignReleaseVersion {
     static func matchesInstalled(version: String, build: String, origin: String?,
                                  targetVersion: String, targetBuild: String?, targetOrigin: String) -> Bool {
-        guard valid(targetVersion), version == targetVersion, origin == targetOrigin else { return false }
+        guard compare(version, targetVersion) == 0, origin == targetOrigin else { return false }
         guard let targetBuild else { return true }
-        return valid(targetBuild) && build == targetBuild
+        return compare(build, targetBuild) == 0
+    }
+
+    static func requiresUpdate(currentVersion: String, currentBuild: String, installedOrigin: String?,
+                               targetVersion: String, targetBuild: String?, targetOrigin: String) -> Bool {
+        guard let comparison = compare(currentVersion, targetVersion) else { return false }
+        if comparison != 0 { return comparison < 0 }
+        if let targetBuild {
+            guard let buildComparison = compare(currentBuild, targetBuild) else { return false }
+            if buildComparison != 0 { return buildComparison < 0 }
+        }
+        // Older builds and some externally signed releases have no origin stamp.
+        // Accept a matching version/build in that case to avoid a reinstall loop.
+        guard let installedOrigin, !installedOrigin.isEmpty else { return false }
+        return installedOrigin != targetOrigin
     }
 
     // Immutable Release URLs distinguish republished builds without inventing versions.

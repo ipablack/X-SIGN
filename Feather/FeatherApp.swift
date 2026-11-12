@@ -265,26 +265,59 @@ final class XSignRemoteManager: ObservableObject {
     var isMaintenanceActive: Bool { config?.maintenance?.enabled == true }
     var currentBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0" }
     private var installedOrigin: String? { Bundle.main.object(forInfoDictionaryKey: "XSignReleaseOrigin") as? String }
-    func matchesInstalled(_ update: XSignOwnerUpdate) -> Bool {
-        guard let version = update.latest_version, let origin = update.releaseOrigin else { return false }
-        return XSignReleaseVersion.matchesInstalled(version: currentVersion, build: currentBuild, origin: installedOrigin,
-            targetVersion: version, targetBuild: update.targetBuild, targetOrigin: origin)
-    }
-    var isForceUpdateRequired: Bool {
-        if let update = config?.dashboard?.update, let required = update.required {
-            return required && update.installable && !matchesInstalled(update)
-        }
-        guard let update=config?.force_update,update.enabled == true else { return false }
-        return XSignReleaseVersion.isNewer(currentVersion:currentVersion,currentBuild:currentBuild,
-            targetVersion:update.min_version ?? currentVersion,targetBuild:update.min_build_version)
-    }
-    func canInstall(_ update: XSignOwnerUpdate) -> Bool {
-        guard !isMaintenanceActive, update.installable, let version = update.latest_version,
-              config?.dashboard?.update?.installIdentity == update.installIdentity,
-              config?.dashboard?.update?.enabled == true else { return false }
-        if config?.dashboard?.update?.required == true { return !matchesInstalled(update) }
+    private func isNewer(_ update: XSignOwnerUpdate) -> Bool {
+        guard let version = update.latest_version else { return false }
         return XSignReleaseVersion.isNewer(currentVersion: currentVersion, currentBuild: currentBuild,
             targetVersion: version, targetBuild: update.targetBuild)
+    }
+
+    private var legacyGateIsActive: Bool {
+        guard let update = config?.force_update, update.enabled == true,
+              let minimum = update.min_version else { return false }
+        return XSignReleaseVersion.isNewer(currentVersion: currentVersion, currentBuild: currentBuild,
+            targetVersion: minimum, targetBuild: update.min_build_version.flatMap { $0.isEmpty ? nil : $0 })
+    }
+
+    var legacyUpdateURL: URL? { XSignManagedSource.httpsURL(config?.force_update?.update_url) }
+
+    private var legacyInstallableRelease: XSignOwnerUpdate? {
+        guard let release = config?.dashboard?.update, release.installable, isNewer(release),
+              let version = release.latest_version, let minimum = config?.force_update?.min_version,
+              let comparison = XSignReleaseVersion.compare(version, minimum), comparison >= 0 else { return nil }
+        if comparison == 0, let minBuild = config?.force_update?.min_build_version, !minBuild.isEmpty {
+            guard let targetBuild = release.targetBuild,
+                  (XSignReleaseVersion.compare(targetBuild, minBuild) ?? -1) >= 0 else { return nil }
+        }
+        return release
+    }
+
+    var requiredRelease: XSignOwnerUpdate? {
+        if let release = config?.dashboard?.update, let required = release.required {
+            guard required, release.installable, let version = release.latest_version, let origin = release.releaseOrigin,
+                  XSignReleaseVersion.requiresUpdate(currentVersion: currentVersion, currentBuild: currentBuild,
+                      installedOrigin: installedOrigin, targetVersion: version, targetBuild: release.targetBuild,
+                      targetOrigin: origin) else { return nil }
+            return release
+        }
+        return legacyGateIsActive ? legacyInstallableRelease : nil
+    }
+
+    var isForceUpdateRequired: Bool {
+        if config?.dashboard?.update?.required != nil { return requiredRelease != nil }
+        return legacyGateIsActive && (requiredRelease != nil || legacyUpdateURL != nil)
+    }
+
+    var optionalRelease: XSignOwnerUpdate? {
+        guard !isMaintenanceActive, !isForceUpdateRequired,
+              let release = config?.dashboard?.update, release.installable, release.required != true,
+              isNewer(release) else { return nil }
+        return release
+    }
+
+    func canInstall(_ update: XSignOwnerUpdate) -> Bool {
+        guard !isMaintenanceActive else { return false }
+        let eligible = requiredRelease ?? optionalRelease
+        return eligible?.installIdentity == update.installIdentity
     }
     nonisolated static func versionIsOlder(_ current: String, than required: String) -> Bool {
         XSignVersion.older(current, than: required)
@@ -524,6 +557,18 @@ struct FeatherApp: App {
         }
     }
 
+    @AppStorage("xsign.lastOptionalReleasePrompt") private var lastOptionalReleasePrompt = ""
+    @State private var showOptionalUpdate = false
+
+    private func presentOptionalUpdate() {
+        guard scenePhase == .active, storage.isStoreLoaded, !_showSplash,
+              !gateIsVisible, !securityEnforcer.isVPNOrProxyDetected,
+              !autoSign.showCertificateSetup, let release = remoteManager.optionalRelease,
+              let identity = release.promptIdentity, identity != lastOptionalReleasePrompt else { return }
+        lastOptionalReleasePrompt = identity
+        showOptionalUpdate = true
+    }
+
     private var gateIsVisible: Bool { remoteManager.isMaintenanceActive || remoteManager.isForceUpdateRequired }
 
 	var body: some Scene {
@@ -615,6 +660,7 @@ struct FeatherApp: App {
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel, force: true)
+                presentOptionalUpdate()
                 while !Task.isCancelled {
                     do { try await Task.sleep(nanoseconds: XSignRemoteManager.foregroundSyncInterval) } catch { break }
                     await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel)
@@ -624,6 +670,16 @@ struct FeatherApp: App {
                 guard scenePhase == .active else { return }
                 await storeCache.runAutomaticUpdates(sources: { storage.getSources() }, viewModel: sourcesViewModel)
             }
+            .sheet(isPresented: $showOptionalUpdate) {
+                XSignAppUpdateView()
+            }
+            .onChange(of: remoteManager.optionalRelease?.promptIdentity) { _ in
+                if remoteManager.optionalRelease == nil { showOptionalUpdate = false }
+                presentOptionalUpdate()
+            }
+            .onChange(of: _showSplash) { _ in presentOptionalUpdate() }
+            .onChange(of: autoSign.showCertificateSetup) { _ in presentOptionalUpdate() }
+            .onChange(of: securityEnforcer.isVPNOrProxyDetected) { _ in presentOptionalUpdate() }
             .onReceive(NotificationCenter.default.publisher(for: .xsignPolicyChanged)) { _ in
                 autoSign.applyRemotePolicy()
                 XSignInstallation.shared.applyPolicy()
@@ -631,6 +687,7 @@ struct FeatherApp: App {
                     for download in downloadManager.downloads where download.task != nil { downloadManager.cancelDownload(download) }
                 }
                 if gateIsVisible {
+                    showOptionalUpdate = false
                     autoSign.showCertificateSetup = false
                 }
             }
@@ -757,7 +814,7 @@ struct XSignRemoteGateOverlayView: View {
 
 	var body: some View {
         ZStack {
-            if !remoteManager.isMaintenanceActive, remoteManager.config?.dashboard?.update?.installable == true {
+            if !remoteManager.isMaintenanceActive, remoteManager.requiredRelease != nil {
                 XSignAppUpdateView(isRequired: true)
             } else {
 			AppStoreTheme.background.ignoresSafeArea()
@@ -782,8 +839,8 @@ struct XSignRemoteGateOverlayView: View {
 					.multilineTextAlignment(.center)
 					.padding(.horizontal, 24)
 
-                let target = remoteManager.isMaintenanceActive ? remoteManager.config?.maintenance?.button_url : remoteManager.config?.force_update?.update_url
-                if let url = xsignSafeURL(target) {
+                let target = remoteManager.isMaintenanceActive ? xsignSafeURL(remoteManager.config?.maintenance?.button_url) : remoteManager.legacyUpdateURL
+                if let url = target {
 				Button { UIApplication.shared.open(url) } label: {
 					Text(remoteManager.isMaintenanceActive ? "متابعة قناة التيليجرام" : "تحديث التطبيق الآن")
 						.font(.headline.bold())

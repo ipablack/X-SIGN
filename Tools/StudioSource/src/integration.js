@@ -63,7 +63,7 @@ normalizeState=function(parsed){const value=integrationNormalize(migrateZsignCat
   syncReleaseGate(value);
   return value;};
 const numericRelease=value=>typeof value==='string'&&/^[0-9]{1,9}(\.[0-9]{1,9}){0,3}$/.test(value);
-const nativeHTTPS=value=>httpsUrl(value)&&!new URL(value).hash;
+const nativeHTTPS=value=>typeof value==='string'&&httpsUrl(value.trim())&&!new URL(value.trim()).hash;
 function releaseLink(u){const link=u.manifest_url||u.ipa_url;return typeof link==='string'?link.trim():'';}
 function syncReleaseGate(root){
   const cfg=root.xsign_config,u=cfg?.dashboard?.update,f=cfg?.force_update;
@@ -99,11 +99,12 @@ function dashboardErrors(root){
     if(typeof u.html!=='string'||u.html.length>100000)errors.push('حد صفحة HTML هو 100000 حرف.');
     if(u.enabled){
       if(!numericRelease(u.latest_version)||u.build_version&&!numericRelease(u.build_version))errors.push('الإصدار الجديد ورقم البناء يحتاجان أرقاماً مفصولة بنقاط.');
-      if(u.manifest_url){if(!nativeHTTPS(u.manifest_url))errors.push('رابط manifest يجب أن يكون HTTPS.');
-        if(u.required===true&&!numericRelease(u.build_version))errors.push('أدخل رقم البناء للتحديث الإجباري عبر manifest.');}
+      if(u.required===true&&!numericRelease(u.build_version))errors.push('أدخل رقم البناء للتحديث الإجباري.');
+      if(u.manifest_url){if(!nativeHTTPS(u.manifest_url))errors.push('رابط manifest يجب أن يكون HTTPS.');}
       else if(!nativeHTTPS(u.ipa_url)||!/^[a-f0-9]{64}$/i.test(u.sha256||''))errors.push('التحديث الداخلي يحتاج رابط IPA وبصمة SHA-256 من الملف نفسه.');
     }
     if(f.enabled){
+      if(!nativeHTTPS(f.update_url))errors.push('رابط التحديث الإجباري يجب أن يكون HTTPS من دون جزء #.');
       if(!numericRelease(f.min_version)||f.min_build_version&&!numericRelease(f.min_build_version))errors.push('حد الإصدار الإجباري أو البناء غير صالح.');
       else if(u.enabled&&numericRelease(u.latest_version)){
         const order=compareRelease(u.latest_version,f.min_version);
@@ -195,7 +196,10 @@ function setReleaseLink(link,kind){
 }
 function setReleaseMode(mode){
   const u=state.xsign_config.dashboard.update;
-  u.enabled=mode!=='off';u.required=mode==='required';syncReleaseGate(state);
+  if(!['off','optional','required'].includes(mode))return;
+  u.enabled=mode!=='off';
+  u.required=mode==='required';
+  syncReleaseGate(state);
 }
 function releaseMetadataURL(link){
   if(!nativeHTTPS(link))return null;
@@ -232,7 +236,7 @@ async function fillReleaseMetadata(){
 let latestDeliveryProbe=0;
 async function observePublishedProjection(c,revision){
   const current=++latestDeliveryProbe,box=$('liveDeliveryStatus');
-  if(c.owner.toLowerCase()!=='ipablack'||c.repo.toLowerCase()!=='repo'||c.branch!=='main'||c.configPath!=='xsign-config.json'){
+  if(!isLiveAppTarget(c)){
     box.textContent='تم النشر إلى الوجهة المختارة. بناء XSign الحالي يقرأ ipablack/repo على main.';return;
   }
   box.textContent='تم النشر. جارٍ التحقق من ظهور المراجعة '+revision+' للأجهزة…';
@@ -258,7 +262,7 @@ function defaultInstallFragment(u,required){
 function renderUpdateHTML(){const frame=$('ownerHTMLPreview');if(!frame)return;
   const cfg=state.xsign_config,u=cfg.dashboard.update,required=u.required??cfg.force_update.enabled;
   const content=u.html||defaultInstallFragment(u,required);
-  const doc='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;;style-src &#39;unsafe-inline&#39;;img-src data:;form-action &#39;none&#39;"></head><body>'+content+'</body></html>';
+  const doc='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;;style-src &#39;unsafe-inline&#39;;img-src data:;form-action &#39;none&#39;;base-uri &#39;none&#39;"></head><body>'+content+'</body></html>';
   if(frame.srcdoc!==doc)frame.srcdoc=doc;
 }
 function renderReleaseEditor(){
@@ -266,7 +270,11 @@ function renderReleaseEditor(){
   $('ownerReleaseLink').value=releaseLink(u);$('ownerLinkKind').value=u.manifest_url?'manifest':'ipa';
   $('ownerReleaseMode').value=u.required===true?'required':u.required==null&&f.enabled?'legacy':u.enabled?'optional':'off';
   $('legacyReleaseSettings').hidden=typeof u.required==='boolean'||!f.enabled;
-  $('ownerReleaseState').textContent=u.required===true?'بعد النشر يتوقف XSign عند اختلاف الإصدار أو رابط البناء المعتمد.':u.enabled?'يمكن للمستخدم تثبيت الإصدار من داخل XSign.':'الإصدار محفوظ في المسودة. اختر حالة التحديث لتفعيله.';
+  $('ownerReleaseState').textContent=u.required===true
+    ? 'بعد النشر يظهر التحديث قبل المتجر للأجهزة التي تحتاجه. حدّد إصداراً ورقم بناء أعلى عند نشر نسخة جديدة.'
+    : u.enabled ? 'تظهر الصفحة تلقائياً مرة لكل إصدار جديد، ويمكن فتحها مجدداً من الإعدادات.'
+      : f.enabled ? 'يُستخدم حد الإصدار الإجباري من الإعداد السابق.'
+        : 'التحديث متوقف. اختر اختياري أو إجباري ثم انشر الملفين.';
   renderUpdateHTML();
 }
 function renderIntegration(){
@@ -286,7 +294,7 @@ function renderIntegration(){
   $('expectedBundle').value=XSIGN_INTEGRATION.bundle;
   $('integrationRevision').textContent=String(state.repo_revision_id);
   $('integrationIdentity').textContent=XSIGN_INTEGRATION.name+' '+XSIGN_INTEGRATION.version+' · '+XSIGN_INTEGRATION.bundle+' · iOS '+XSIGN_INTEGRATION.minimumOS+'+';
-  const c=connection;const expected=c.owner==='ipablack'&&c.repo==='repo'&&c.branch==='main'&&c.path==='repo.json'&&c.appBundle===XSIGN_INTEGRATION.bundle;
+  const expected=isLiveAppTarget(connection)&&connection.appBundle===XSIGN_INTEGRATION.bundle;
   $('integrationTarget').textContent=expected?'وجهة النشر تطابق رابط القراءة في هذا البناء':'وجهة النشر مختلفة عن رابط بناء XSign. عدّل الربط قبل الاعتماد.';
   $('integrationSource').textContent=XSIGN_INTEGRATION.source;
   $('integrationFeatures').replaceChildren(...XSIGN_INTEGRATION.features.map(([title,path])=>{const row=text('div','','entry');row.append(text('strong',title),text('small',path,'muted latin'));return row;}));

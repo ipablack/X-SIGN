@@ -76,6 +76,16 @@ test('a required ready-to-install manifest needs a build and retains its exact l
  assert.equal(r.run('validateState(state).length'),0);
  assert.equal(r.run('state.xsign_config.dashboard.update.manifest_url'),'https://example.com/install.plist');
 });
+test('required IPA needs a build and optional mode clears the legacy gate',()=>{const r=runtime();
+ r.run("Object.assign(state.xsign_config.dashboard.update,{latest_version:'1.0',ipa_url:'https://example.com/x.ipa',sha256:'a'.repeat(64)});setReleaseMode('required')");
+ assert(r.run('validateState(state)').some(e=>e.includes('رقم البناء')));
+ r.run("state.xsign_config.dashboard.update.build_version='8';syncReleaseGate(state)");
+ assert.equal(r.run('validateState(state).length'),0);
+ r.run("setReleaseMode('optional')");
+ assert.equal(r.run('Store.project(state).xsign_config.dashboard.update.enabled'),true);
+ assert.equal(r.run('Store.project(state).xsign_config.force_update.enabled'),false);
+ assert.equal(r.run("isLiveAppTarget({...connection,configPath:'elsewhere.json'})"),false);
+});
 test('the default installation preview escapes metadata and only uses the internal install action',()=>{const r=runtime();
  const html=r.run("defaultInstallFragment({latest_version:'1.0',notes:'<script>alert(1)</script>'},true)");
  assert(html.includes('xsign-update://install'));assert(html.includes('&lt;script&gt;'));assert(!html.includes('<script>'));

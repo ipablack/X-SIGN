@@ -7,6 +7,18 @@
 
 import SwiftUI
 import NimbleViews
+import UniformTypeIdentifiers // إضافة مكتبة الأنواع
+
+// إضافة الامتداد لتعريف الأنواع المفقودة وحل الخطأ
+extension UTType {
+    static var plist: UTType {
+        UTType(filenameExtension: "plist") ?? .propertyList
+    }
+    
+    static var entitlements: UTType {
+        UTType(filenameExtension: "entitlements") ?? .plainText
+    }
+}
 
 // MARK: - View
 struct SigningEntitlementsView: View {

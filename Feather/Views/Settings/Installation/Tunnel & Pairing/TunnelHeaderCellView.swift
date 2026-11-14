@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+// إضافة الامتداد لتعريف الإشعار المفقود (heartbeat) وحل الخطأ
+extension Notification.Name {
+    static let heartbeat = Notification.Name("heartbeat")
+}
+
 struct TunnelHeaderView: View {
 	@State var lastHeartbeatTime = Date()
 	

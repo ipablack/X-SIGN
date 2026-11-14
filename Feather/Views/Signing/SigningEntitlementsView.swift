@@ -7,18 +7,7 @@
 
 import SwiftUI
 import NimbleViews
-import UniformTypeIdentifiers // إضافة مكتبة الأنواع
-
-// إضافة الامتداد لتعريف الأنواع المفقودة وحل الخطأ
-extension UTType {
-    static var plist: UTType {
-        UTType(filenameExtension: "plist") ?? .propertyList
-    }
-    
-    static var entitlements: UTType {
-        UTType(filenameExtension: "entitlements") ?? .plainText
-    }
-}
+import UniformTypeIdentifiers
 
 // MARK: - View
 struct SigningEntitlementsView: View {
@@ -46,7 +35,8 @@ struct SigningEntitlementsView: View {
 		}
 		.sheet(isPresented: $_isAddingPresenting) {
 			FileImporterRepresentableView(
-				allowedContentTypes:  [.xmlPropertyList, .plist, .entitlements],
+                // تم استبدال .plist بـ .propertyList القياسية، واستخدام .entitlements المعرفة في مشروعك مسبقاً
+				allowedContentTypes:  [.xmlPropertyList, .propertyList, .entitlements],
 				onDocumentsPicked: { urls in
 					guard let selectedFileURL = urls.first else { return }
 					

@@ -37,7 +37,7 @@ jobs:
           echo '::error file=XSign_Reviewed_Update.py::Add XSign_Reviewed_Update.py to the repository root in the same commit as the workflow.'
           exit 1
         fi
-        if ! printf '%s  %s\n' '550afeb28a220549ee3d115a549690c5e8cadfdbf989dba58ede44c0b2a5197e' XSign_Reviewed_Update.py | shasum -a 256 -c; then
+        if ! printf '%s  %s\n' 'a181d0725d6b0c3fd7841d80d022f1dddba1a48dec0a63c4976e9c34b4be1050' XSign_Reviewed_Update.py | shasum -a 256 -c; then
           echo '::error file=XSign_Reviewed_Update.py::The workflow and its companion are from different releases. Commit both from the same package.'
           exit 1
         fi
@@ -183,7 +183,7 @@ jobs:
           echo '::error file=XSign_Reviewed_Update.py::Add XSign_Reviewed_Update.py to the repository root in the same commit as the workflow.'
           exit 1
         fi
-        if ! printf '%s  %s\n' '550afeb28a220549ee3d115a549690c5e8cadfdbf989dba58ede44c0b2a5197e' XSign_Reviewed_Update.py | shasum -a 256 -c; then
+        if ! printf '%s  %s\n' 'a181d0725d6b0c3fd7841d80d022f1dddba1a48dec0a63c4976e9c34b4be1050' XSign_Reviewed_Update.py | shasum -a 256 -c; then
           echo '::error file=XSign_Reviewed_Update.py::The workflow and its companion are from different releases. Commit both from the same package.'
           exit 1
         fi

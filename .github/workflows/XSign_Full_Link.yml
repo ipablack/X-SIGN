@@ -26,16 +26,23 @@ jobs:
         fetch-depth: 1
         submodules: false
         persist-credentials: false
-    - name: Apply reviewed XSign source
-      shell: bash
-      run: |
-        test -f XSign_Reviewed_Update.py
-        printf '%s  %s\n' '35bf250e46290ab61b678b46fe83b1d826666b358bd5bf437aaf2460c692fbc0' XSign_Reviewed_Update.py | sha256sum --check
-        cp XSign_Reviewed_Update.py "$RUNNER_TEMP/apply-reviewed-update.py"
-        python3 "$RUNNER_TEMP/apply-reviewed-update.py"
     - uses: actions/setup-python@v6
       with:
         python-version: '3.12'
+    - name: Apply reviewed XSign source
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ ! -f XSign_Reviewed_Update.py ]]; then
+          echo '::error file=XSign_Reviewed_Update.py::Add XSign_Reviewed_Update.py to the repository root in the same commit as the workflow.'
+          exit 1
+        fi
+        if ! printf '%s  %s\n' '550afeb28a220549ee3d115a549690c5e8cadfdbf989dba58ede44c0b2a5197e' XSign_Reviewed_Update.py | shasum -a 256 -c; then
+          echo '::error file=XSign_Reviewed_Update.py::The workflow and its companion are from different releases. Commit both from the same package.'
+          exit 1
+        fi
+        python3 -u XSign_Reviewed_Update.py
+      id: reviewed_source
     - name: Process protected IPA in private storage
       shell: bash
       if: github.event_name == 'repository_dispatch'
@@ -108,7 +115,6 @@ jobs:
       with:
         name: XSign-build-inputs
         path: |-
-          ${{ runner.temp }}/apply-reviewed-update.py
           ${{ runner.temp }}/xsign-build-settings.json
           ${{ runner.temp }}/xsign-build-icon.png
         if-no-files-found: error
@@ -124,7 +130,7 @@ jobs:
         overwrite: true
       if: github.event_name != 'repository_dispatch'
     - name: Summarize Studio validation errors
-      if: failure()
+      if: failure() && steps.reviewed_source.outcome == 'success'
       shell: bash
       run: |
         if compgen -G "$RUNNER_TEMP/xsign-local-*.log" > /dev/null; then
@@ -172,7 +178,16 @@ jobs:
     - name: Apply reviewed source to the macOS checkout
       shell: bash
       run: |
-        python3 "$RUNNER_TEMP/apply-reviewed-update.py"
+        set -euo pipefail
+        if [[ ! -f XSign_Reviewed_Update.py ]]; then
+          echo '::error file=XSign_Reviewed_Update.py::Add XSign_Reviewed_Update.py to the repository root in the same commit as the workflow.'
+          exit 1
+        fi
+        if ! printf '%s  %s\n' '550afeb28a220549ee3d115a549690c5e8cadfdbf989dba58ede44c0b2a5197e' XSign_Reviewed_Update.py | shasum -a 256 -c; then
+          echo '::error file=XSign_Reviewed_Update.py::The workflow and its companion are from different releases. Commit both from the same package.'
+          exit 1
+        fi
+        python3 -u XSign_Reviewed_Update.py
     - name: Install locked Studio dependencies
       working-directory: Tools/StudioSource
       run: npm ci --ignore-scripts --no-audit --no-fund

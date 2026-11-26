@@ -7,6 +7,11 @@ actor XSignOTAInstaller {
     typealias Update = @MainActor @Sendable (Stage) -> Void
     private var application: Application?
     private var loops: MultiThreadedEventLoopGroup?
+    private let confirmationTimeout: TimeInterval?
+
+    init(confirmationTimeout: TimeInterval? = nil) {
+        self.confirmationTimeout = confirmationTimeout
+    }
 
     func install(package: URL, bundleIdentifier: String, version: String, title: String, mode: XSignOTAInstallMode,
                  update: @escaping Update, open: @escaping @MainActor @Sendable (URL) async -> Bool) async throws {
@@ -34,9 +39,14 @@ actor XSignOTAInstaller {
         try Task.checkCancellation()
         await update(.waitingForSystem)
         guard await open(link) else { throw XSignOTAError.invalidManifest }
+        let confirmationDeadline = confirmationTimeout.map { ProcessInfo.processInfo.systemUptime + $0 }
         while !(await tracking.isDownloaded) {
             try Task.checkCancellation()
-            guard ProcessInfo.processInfo.systemUptime < deadline else { throw XSignOTAError.timedOut }
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now < deadline else { throw XSignOTAError.timedOut }
+            if let confirmationDeadline, now >= confirmationDeadline, !(await tracking.hasStarted) {
+                throw XSignOTAError.timedOut
+            }
             try await Task.sleep(nanoseconds: 250_000_000)
         }
         await update(.delivered)
@@ -106,7 +116,8 @@ actor XSignOTAInstaller {
                     await tracking.finish(range, success: false)
                     throw Abort(.internalServerError)
                 }
-                response.headers.replaceOrAdd(name: "Cache-Control", value: "no-store")
+                response.headers.replaceOrAdd(name: "Cache-Control", value: "private, no-store")
+                response.headers.replaceOrAdd(name: "Referrer-Policy", value: "no-referrer")
                 response.headers.replaceOrAdd(name: "X-Content-Type-Options", value: "nosniff")
                 response.headers.replaceOrAdd(name: "Content-Type", value: "application/octet-stream")
                 return response

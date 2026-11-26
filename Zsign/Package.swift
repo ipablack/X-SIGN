@@ -38,6 +38,9 @@ let package = Package(
 			],
 			sources: [
 				"src/archo.cpp",
+                "src/xsign_zip_reader.c",
+                "src/third-party/minizip/ioapi.c",
+                "src/third-party/minizip/unzip.c",
 				"src/bundle.cpp",
 				"src/macho.cpp",
 				"src/openssl.cpp",
@@ -60,6 +63,7 @@ let package = Package(
 			],
 			linkerSettings: [
 				.linkedFramework("OpenSSL"),
+                .linkedLibrary("z"),
 			]
 		),
 		.target(

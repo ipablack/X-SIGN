@@ -51,7 +51,7 @@ struct SigningAlternativeIconView: View {
 				}
 			}
 		}
-        .disabled(policy.locks.lock_icon_change ?? true)
+        .disabled(!policy.locks.allowsIconChanges)
 	}
 }
 

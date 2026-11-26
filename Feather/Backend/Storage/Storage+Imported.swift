@@ -10,6 +10,14 @@ import UIKit.UIImpactFeedbackGenerator
 
 // MARK: - Class extension: Imported Apps
 extension Storage {
+    @MainActor
+    func deleteInterruptedImport(uuid: String) {
+        let request = NSFetchRequest<Imported>(entityName: "Imported")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "uuid == %@", uuid)
+        if let app = (try? context.fetch(request))?.first { deleteApp(for: app) }
+    }
+
 	func addImported(
 		uuid: String,
 		source: URL? = nil,

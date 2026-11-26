@@ -20,7 +20,7 @@ struct InstallationView: View {
                 }
                 .pickerStyle(.inline)
             } header: {
-                Text("الطريقة الافتراضية تستخدم خدمة Feather لملف وصف التثبيت. ملف IPA يبقى على الآيفون.")
+                Text("XSign المباشر يستخدم x-sign.web.app لملف وصف التثبيت. عند تعذّر الاتصال يُجرّب التثبيت المحلي تلقائياً.")
             }
         } label: {
             HStack {

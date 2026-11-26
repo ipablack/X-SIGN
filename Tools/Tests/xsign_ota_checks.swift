@@ -28,12 +28,14 @@ struct OTAChecks {
         do {
             let head = try await request(session, payload, method: "HEAD")
             precondition(head.0.isEmpty && head.1.statusCode == 200)
+            let startedAfterHead = await tracking.hasStarted
             let afterHead = await tracking.isDownloaded
-            precondition(!afterHead)
+            precondition(!startedAfterHead && !afterHead)
             let first = try await request(session, payload, range: "bytes=0-7")
             precondition(first.1.statusCode == 206 && first.0 == bytes.prefix(8))
+            let startedAfterGet = await tracking.hasStarted
             let partial = await tracking.isDownloaded
-            precondition(!partial)
+            precondition(startedAfterGet && !partial)
             let (_, denied) = try await request(session, payload, origin: "https://evil.invalid")
             precondition(denied.statusCode == 404)
             let wrong = URL(string: payload.absoluteString.replacingOccurrences(of: token, with: String(repeating: "b", count: 64)))!

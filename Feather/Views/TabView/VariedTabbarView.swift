@@ -8,13 +8,13 @@
 import SwiftUI
 
 struct VariedTabbarView: View {
-	init() {}
+	@Binding var selection: TabEnum
 	
 	var body: some View {
 		if #available(iOS 18, *) {
-			ExtendedTabbarView()
+			ExtendedTabbarView(selection: $selection)
 		} else {
-			TabbarView()
+			TabbarView(selectedTab: $selection)
 		}
 	}
 }

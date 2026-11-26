@@ -36,11 +36,17 @@ func extractFile(at fileURL: inout URL) throws {
 		try fileManager.createDirectory(at: extractionDirectory, withIntermediateDirectories: true)
 		
 		for entry in tarContainer {
-			let entryPath = extractionDirectory.appendingPathComponent(entry.info.name)
+            let name = entry.info.name
+            let components = name.split(separator: "/").filter { $0 != "." }
+            guard !name.hasPrefix("/"), !name.contains("\\"), !name.contains("\0"),
+                  !components.contains("..") else { throw CocoaError(.fileReadCorruptFile) }
+            guard !components.isEmpty else { continue }
+            let entryPath = components.reduce(extractionDirectory) { $0.appendingPathComponent(String($1)) }
 			
 			if entry.info.type == .directory {
 				try fileManager.createDirectory(at: entryPath, withIntermediateDirectories: true)
 			} else if entry.info.type == .regular, let entryData = entry.data {
+                try fileManager.createDirectory(at: entryPath.deletingLastPathComponent(), withIntermediateDirectories: true)
 				try entryData.write(to: entryPath)
 			}
 		}

@@ -13,8 +13,7 @@ import OSLog
 class TweakHandler {
 	private let _fileManager = FileManager.default
 	private var _urlsToInject: [URL] = []
-	private var _directoriesToCheck: [URL] = []
-	private var _injectedDylibNames: [String] = []
+	private var _injectedPaths: [String] = []
 
 	private let _app: URL
 	private var _options: Options
@@ -35,8 +34,8 @@ class TweakHandler {
 		func addEllekit() async throws {
 			if let ellekitURL = Bundle.main.url(forResource: "ellekit", withExtension: "deb") {
 				self._urls.insert(ellekitURL, at: 0)
-			} else {
-				Logger.misc.info("ellekit.deb not found in the app bundle")
+			} else if _options.experiment_replaceSubstrateWithEllekit {
+                throw CocoaError(.fileNoSuchFile)
 			}
 			
 			try _fileManager.createDirectoryIfNeeded(at: _app.appendingPathComponent("Frameworks"))
@@ -71,35 +70,35 @@ class TweakHandler {
 
 		try await _checkEllekit()
 
-		let baseTmpDir = _fileManager.temporaryDirectory.appendingPathComponent("FeatherTweak_\(UUID().uuidString)")
-		try _fileManager.createDirectoryIfNeeded(at: baseTmpDir)
+        let baseTmpDir = XSignPrivateFiles.workDirectory(prefix: "InjectionArchive")
+        try XSignPrivateFiles.createDirectory(baseTmpDir)
+        defer { try? _fileManager.removeItem(at: baseTmpDir) }
 		
 		// check for appropriate files, if theres debs
 		// it will extract then add a url, if theres no url, i.e.
 		// you haven't added a deb, it will skip
 		for url in _urls {
+            try Task.checkCancellation()
 			switch url.pathExtension.lowercased() {
 			case "dylib":
 				try await _handleDylib(at: url)
 			case "deb":
-				try await _handleDeb(at: url, baseTmpDir: baseTmpDir)
+				let directory = try await _handleDeb(at: url, baseTmpDir: baseTmpDir)
+                _urlsToInject.removeAll(keepingCapacity: true)
+                try await _handleDirectories(at: [directory])
+                guard !_urlsToInject.isEmpty else {
+                    throw NSError(domain: "XSign.Injection", code: 4, userInfo: [NSLocalizedDescriptionKey:
+                        "حزمة \(url.lastPathComponent) لا تحتوي إضافات مدعومة لهذا المسار."])
+                }
+                try await _handleExtractedDirectoryContents(at: _urlsToInject)
+            case "framework":
+                try await _installFramework(url)
 			default:
-				Logger.misc.warning("Unsupported file type: \(url.lastPathComponent), skipping.")
+                throw CocoaError(.fileReadCorruptFile)
 			}
 		}
 		
-		// check contents of data.tar's extracted from debs
-		if !_directoriesToCheck.isEmpty {
-			try await _handleDirectories(at: _directoriesToCheck)
-			if !_urlsToInject.isEmpty {
-				try await _handleExtractedDirectoryContents(at: _urlsToInject)
-			}
-		}
-
-		// inject into all extensions if enabled
-		if _options.injectIntoExtensions && !_injectedDylibNames.isEmpty {
-			_injectIntoAllExtensions(dylibNames: _injectedDylibNames)
-		}
+        if _options.injectIntoExtensions && !_injectedPaths.isEmpty { try _injectIntoAllExtensions() }
 	}
 	
 	// finally, handle extracted contents
@@ -109,9 +108,7 @@ class TweakHandler {
 			case "dylib":
 				try await _handleDylib(at: url)
 			case "framework":
-				let destinationURL = _app.appendingPathComponent("Frameworks").appendingPathComponent(url.lastPathComponent)
-				try _fileManager.moveFileIfNeeded(from: url, to: destinationURL)
-				try await _handleDylib(framework: destinationURL)
+                try await _installFramework(url)
 			case "bundle":
 				let destinationURL = _app.appendingPathComponent(url.lastPathComponent)
 				try _fileManager.moveFileIfNeeded(from: url, to: destinationURL)
@@ -142,12 +139,13 @@ class TweakHandler {
 		
 		destinationURL = destinationURL.appendingPathComponent(url.lastPathComponent)
 		
-		
-		try _fileManager.moveFileIfNeeded(from: url, to: destinationURL)
-		
-		guard let appexe = Bundle(url: _app)?.executableURL else {
-			return
-		}
+        let type = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard type.isRegularFile == true, type.isSymbolicLink != true else { throw CocoaError(.fileReadCorruptFile) }
+        try _fileManager.createDirectoryIfNeeded(at: destinationURL.deletingLastPathComponent())
+        // Keep the selected copy available for retries if a later signing stage fails.
+        try _fileManager.copyItem(at: url, to: destinationURL)
+        guard let appexe = Bundle(url: _app)?.executableURL else { throw SigningFileHandlerError.appNotFound }
+        guard try !XSignMachOEncryption.isEncrypted(executable: destinationURL) else { throw CocoaError(.fileReadCorruptFile) }
 		
 		// change paths because some tweaks hardlink, which is not ideal.
 		// this is not a good solution, at most this would work for basic tweaks
@@ -159,22 +157,24 @@ class TweakHandler {
 			with: "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
 		)
 		// inject if there's a valid app main executable
-		_ = Zsign.injectDyLib(
-			appExecutable: appexe.path,
-			with: "\(_options.injectPath.rawValue)\(injectFolder.rawValue)\(destinationURL.lastPathComponent)"
-		)
-
-		_injectedDylibNames.append(destinationURL.lastPathComponent)
+        try addLoadCommand(to: appexe, path: "\(_options.injectPath.rawValue)\(injectFolder.rawValue)\(destinationURL.lastPathComponent)")
+        let relative = _options.injectFolder == .frameworks ? "Frameworks/" + destinationURL.lastPathComponent : destinationURL.lastPathComponent
+        _injectedPaths.append(relative)
 	}
 	
-	// Inject imported framework dir
-	private func _handleDylib(framework: URL) async throws {
+    private func _installFramework(_ imported: URL) async throws {
+        try XSignIPAExtractor.validateTree(imported)
+        let framework = _app.appendingPathComponent("Frameworks").appendingPathComponent(imported.lastPathComponent)
+        try _fileManager.createDirectoryIfNeeded(at: framework.deletingLastPathComponent())
+        try _fileManager.removeFileIfNeeded(at: framework)
+        try _fileManager.copyItem(at: imported, to: framework)
 		guard
 			let fexe = Bundle(url: framework)?.executableURL,
 			let appexe = Bundle(url: _app)?.executableURL
 		else {
-			return
+            throw CocoaError(.fileReadCorruptFile)
 		}
+        guard try !XSignMachOEncryption.isEncrypted(executable: fexe) else { throw CocoaError(.fileReadCorruptFile) }
 		
 		// change paths because some tweaks hardlink, which is not ideal.
 		// this is not a good solution, at most this would work for basic tweaks
@@ -186,35 +186,31 @@ class TweakHandler {
 			with: "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
 		)
 		// inject if there's a valid app main executable
-		_ = Zsign.injectDyLib(
-			appExecutable: appexe.path,
-			with: "@executable_path/Frameworks/\(framework.lastPathComponent)/\(fexe.lastPathComponent)"
-		)
+        let relative = "Frameworks/\(framework.lastPathComponent)/\(fexe.lastPathComponent)"
+        try addLoadCommand(to: appexe, path: "@executable_path/" + relative)
+        _injectedPaths.append(relative)
 	}
+
+    private func addLoadCommand(to executable: URL, path: String) throws {
+        guard Zsign.injectDyLib(appExecutable: executable.path, with: path) else {
+            throw NSError(domain: "XSign.Injection", code: 3, userInfo: [NSLocalizedDescriptionKey:
+                "تعذّر ربط \(URL(fileURLWithPath: path).lastPathComponent) بالملف التنفيذي \(executable.lastPathComponent)."])
+        }
+    }
 	
 	// Extracy imported deb file
-	private func _handleDeb(at url: URL, baseTmpDir: URL) async throws {
+	private func _handleDeb(at url: URL, baseTmpDir: URL) async throws -> URL {
 		let uniqueSubDir = baseTmpDir.appendingPathComponent(UUID().uuidString)
 		try _fileManager.createDirectoryIfNeeded(at: uniqueSubDir)
 		
-		// I don't particularly like this code
-		// but it somehow works well enough,
-		// do note large lzma's are slow as hell
-		
-		let handler = AR(with: url)
-		let arFiles = try await handler.extract()
-		
-		for arFile in arFiles {
-			let outputPath = uniqueSubDir.appendingPathComponent(arFile.name)
-			try arFile.content.write(to: outputPath)
-			
-			if ["data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2"].contains(arFile.name) {
-				var fileToProcess = outputPath
-				try extractFile(at: &fileToProcess)
-				try extractFile(at: &fileToProcess)
-				_directoriesToCheck.append(fileToProcess)
-			}
-		}
+        let archive = try AR(with: url).member(named: [
+            "data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2", "data.tar"
+        ])
+        var fileToProcess = uniqueSubDir.appendingPathComponent(archive.name)
+        try archive.data.write(to: fileToProcess)
+        if archive.name != "data.tar" { try extractFile(at: &fileToProcess) }
+        try extractFile(at: &fileToProcess)
+        return fileToProcess
 	}
 	
 	// Read extracted deb file, locate all neccessary contents to copy over to the .app
@@ -288,61 +284,17 @@ class TweakHandler {
 		return extensions
 	}
 
-	// Injects a dylib into an extension's executable
-	private func _injectIntoExtension(extensionURL: URL, dylibName: String) {
-		guard 
-			let extensionBundle = Bundle(url: extensionURL),
-			let extensionExecutable = extensionBundle.executableURL 
-		else {
-			Logger.misc.warning("Skipping \(extensionURL.lastPathComponent): couldn't read bundle")
-			return
-		}
-		
-		var injectFolder = _options.injectFolder
-		if _options.injectPath == .rpath && _options.injectFolder == .frameworks {
-			injectFolder = .root
-		}
-		
-		let injectPath: String
-		if _options.injectPath == .rpath {
-			injectPath = "@rpath/\(dylibName)"
-		} else {
-			if injectFolder == .frameworks {
-				injectPath = "@executable_path/../../Frameworks/\(dylibName)"
-			} else {
-				injectPath = "@executable_path/../../\(dylibName)"
-			}
-		}
-		
-		let success = Zsign.injectDyLib(
-			appExecutable: extensionExecutable.path,
-			with: injectPath
-		)
-		
-		if success {
-			Logger.misc.info("Injected \(dylibName) into extension: \(extensionURL.lastPathComponent)")
-		} else {
-			Logger.misc.warning("Failed to inject into extension: \(extensionURL.lastPathComponent)")
-		}
-	}
+    private func _injectIntoAllExtensions() throws {
+        for directory in _discoverAppExtensions() {
+            guard let executable = Bundle(url: directory)?.executableURL else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            for path in _injectedPaths {
+                try addLoadCommand(to: executable, path: "@executable_path/../../" + path)
+            }
+        }
+    }
 
-	// Injects all dylibs into all discovered extensions
-	private func _injectIntoAllExtensions(dylibNames: [String]) {
-		let extensions = _discoverAppExtensions()
-
-		guard !extensions.isEmpty else {
-			Logger.misc.info("No app extensions found for injection")
-			return
-		}
-
-		Logger.misc.info("Found \(extensions.count) app extension(s) for injection")
-
-		for extensionURL in extensions {
-			for dylibName in dylibNames {
-				_injectIntoExtension(extensionURL: extensionURL, dylibName: dylibName)
-			}
-		}
-	}
 }
 
 // MARK: - Find correct files in debs

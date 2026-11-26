@@ -156,7 +156,7 @@ def inspect_ipa(path, metadata, output):
         if not isinstance(info, dict):
             raise ValueError('Info.plist is not a dictionary.')
         bundle = str(info.get('CFBundleIdentifier', '')).strip()
-        if not re.fullmatch(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+', bundle):
+        if not re.fullmatch(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*', bundle):
             raise ValueError('IPA has no valid, real Bundle ID.')
         version = str(info.get('CFBundleShortVersionString') or info.get('CFBundleVersion') or '').strip()
         if not version:
@@ -224,16 +224,46 @@ def snapshot():
     file = content('repo.json', head)
     data = json.loads(file['data'].decode('utf-8-sig')) if file else {'name': 'IPA BLACK', 'identifier': 'xsign.core.owned', 'apps': [], 'categories': [], 'news': []}
     if not isinstance(data, dict) or not isinstance(data.get('apps'), list): raise ValueError('repo.json must contain an apps list.')
+    projection = content('xsign-config.json', head)
+    if projection:
+        live = json.loads(projection['data'].decode('utf-8-sig'))
+        revision = live.get('repo_revision_id') if isinstance(live, dict) else None
+        if type(revision) is not int or revision < 0 or not isinstance(live.get('xsign_config'), dict):
+            raise ValueError('xsign-config.json needs a valid revision and configuration.')
+        current = data.get('repo_revision_id', 0)
+        if type(current) is not int or current < 0:
+            raise ValueError('Invalid repo_revision_id.')
+        if revision >= current:
+            for key in ('name', 'identifier', 'subtitle', 'description', 'iconURL',
+                        'tintColor', 'repo_revision_id', 'xsign_config', 'categories'):
+                if key in live:
+                    data[key] = live[key]
     return {'head': head, 'tree': tree, 'data': data}
 
 
 def match_app(apps, info, metadata):
-    matches = [app for app in apps if app.get('bundleIdentifier') == info['bundleIdentifier']]
+    matches = [app for app in apps if isinstance(app.get('bundleIdentifier'), str)
+               and app['bundleIdentifier'].lower() == info['bundleIdentifier'].lower()]
     if len(matches) > 1:
         exact = [app for app in matches if app.get('name') == (metadata.get('name') or info['name'])]
         if len(exact) != 1: raise ValueError('Several catalogue variants share this Bundle ID; supply the exact custom name to select one.')
         return exact[0]
     return matches[0] if matches else None
+
+
+def choose_category(data, metadata):
+    selected = metadata.get('category')
+    if not selected:
+        return
+    definitions = data.get('categories', [])
+    exact = next((row for row in definitions if isinstance(row, dict) and row.get('id') == selected), None)
+    if exact is not None:
+        return
+    aliases = [row['id'] for row in definitions if isinstance(row, dict) and isinstance(row.get('id'), str)
+               and isinstance(row.get('aliases'), list) and selected in row['aliases']]
+    if len(aliases) != 1:
+        raise ValueError('Selected category does not exist or has ambiguous aliases in repo.json.')
+    metadata['category'] = aliases[0]
 
 
 def duplicate(existing, info, metadata):
@@ -316,7 +346,6 @@ def prepare_jobs(inputs):
         jobs.append({'ipa': ipa, 'metadata': metadata, 'folder': folder, 'cleanup': {}})
     else:
         files = sorted(Path('uploads').glob('*.ipa'))
-        if not files: raise ValueError('No IPA queued: provide ipa_url or commit uploads/*.ipa plus its JSON metadata.')
         if len(files) > 10: raise ValueError('At most 10 queued IPA files are processed per run.')
         for index, path in enumerate(files):
             if path.is_symlink() or path.resolve().parent != (Path.cwd() / 'uploads').resolve(): raise ValueError('Unsafe upload path.')
@@ -433,7 +462,7 @@ def publish_release(job, repository):
     notes = '## IPA BLACK\n\n' + '\n'.join('- **'+key+'**: '+html.escape(str(info[key])).replace('\n',' ') for key in ['name','bundleIdentifier','version','buildVersion','minOSVersion','size','sha256']) + '\n'
     release = find_release(tag)
     if release is None:
-        release = api('releases', 'POST', {'tag_name':tag, 'target_commitish':os.environ['GITHUB_SHA'],
+        release = api('releases', 'POST', {'tag_name':tag, 'target_commitish':job.get('release_commit') or os.environ['GITHUB_SHA'],
                       'name':info['name'][:140]+' · '+info['version'][:40], 'body':notes, 'draft':True, 'make_latest':'false'})
     release_id = str(int(release['id']))
     if release.get('tag_name') != tag: raise ValueError('GitHub returned a different release tag.')
@@ -477,8 +506,7 @@ def commit_catalogue(jobs):
                 if not duplicate(match_app(data['apps'], job['info'], job['metadata']), job['info'], job['metadata']):
                     raise ValueError('The previously published app changed or was removed. Queue was retained; sync and retry.')
                 continue
-            if job['metadata'].get('category') and not any(c.get('id')==job['metadata']['category'] for c in data.get('categories',[])):
-                raise ValueError('Selected category no longer exists in repo.json.')
+            choose_category(data, job['metadata'])
             update_app(data['apps'], job)
         changed = any(not j.get('duplicate') for j in jobs)
         entries = []
@@ -524,12 +552,22 @@ def main():
     repository=api('')
     if repository.get('private'):
         print('::warning::Releases are private. Their download URLs require GitHub authentication and are not public source links.')
-    jobs=prepare_jobs(inputs); initial=snapshot()['data']
+    jobs = prepare_jobs(inputs)
+    summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
+    if not jobs:
+        message = ('No IPA files to process. Send a direct IPA URL from Studio, enter ipa_url in Run workflow, '
+                   'or commit the IPA and its JSON sidecar under uploads/.')
+        print(message)
+        with summary_path.open('a') as output:
+            output.write('## IPA BLACK — No files queued\n\n' + message + '\n')
+        return
+    initial = snapshot()['data']
     seen=set()
     for job in jobs:
-        if job['info']['bundleIdentifier'] in seen: raise ValueError('Queue one IPA per Bundle ID in each batch.')
-        seen.add(job['info']['bundleIdentifier'])
-        if job['metadata'].get('category') and not any(c.get('id')==job['metadata']['category'] for c in initial.get('categories',[])): raise ValueError('Selected category does not exist in repo.json.')
+        bundle = job['info']['bundleIdentifier'].lower()
+        if bundle in seen: raise ValueError('Queue one IPA per Bundle ID in each batch.')
+        seen.add(bundle)
+        choose_category(initial, job['metadata'])
         existing=match_app(initial['apps'],job['info'],job['metadata']);job['base']=copy.deepcopy(existing)
         job['duplicate']=duplicate(existing,job['info'],job['metadata'])
     for job in jobs:
@@ -540,7 +578,7 @@ def main():
         info=job['info'];name=html.escape(info['name']).replace('|','&#124;').replace('\n',' ')
         result='Already published: identical file and metadata' if job['duplicate'] else '[Release]('+info['releaseURL']+')'
         summary.append('| '+name+' | `'+info['bundleIdentifier']+'` | '+html.escape(info['version']).replace('|','&#124;')+' | '+result+' |')
-    with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as output:
+    with summary_path.open('a') as output:
         output.write('\n'.join(summary)+'\n')
     print('IPA extraction, Releases and catalogue processing completed.')
 

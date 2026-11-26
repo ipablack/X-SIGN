@@ -12,7 +12,7 @@ import UIKit
 
 // MARK: - Extension: View (Enil)
 extension SourceAppsView {
-	enum SortOption: String, CaseIterable {
+	enum SortOption: String, CaseIterable, Sendable {
 		case `default` = "default"
 		case name
 		case date
@@ -35,8 +35,6 @@ struct SourceAppsView: View {
 	@State private var _sortOption: SortOption = .default
 	@State private var _selectedRoute: SourceAppRoute?
 
-	@State var isLoading = true
-	@State var hasLoadedOnce = false
 	@State private var _searchText = ""
 
 	private var _navigationTitle: String {
@@ -49,15 +47,18 @@ struct SourceAppsView: View {
 
 	var object: [AltSource]
 	@ObservedObject var viewModel: SourcesViewModel
-	@State private var _sourceContexts: [SourceRepositoryContext]?
+    private var _sourceContexts: [SourceRepositoryContext] {
+        object.compactMap { source in
+            viewModel.sources[source].map {
+                SourceRepositoryContext(sourceURL: source.sourceURL, repository: $0, fingerprint: viewModel.fingerprint(for: source))
+            }
+        }
+    }
 
 	// MARK: Body
 	var body: some View {
 		ZStack {
-			if
-				let _sourceContexts,
-				!_sourceContexts.isEmpty
-			{
+            if _sourceContexts.contains(where: { !$0.repository.apps.isEmpty }) {
 				SourceAppsTableRepresentableView(
 					sourceContexts: _sourceContexts,
 					searchText: $_searchText,
@@ -66,17 +67,18 @@ struct SourceAppsView: View {
 					onSelect: {self._selectedRoute = $0}
 				)
 				.ignoresSafeArea()
-			} else {
-				ProgressView()
-			}
+            } else if let error = object.compactMap({ viewModel.errors[$0] }).first {
+                Text(xsignText(error)).foregroundStyle(.secondary)
+            } else if !_sourceContexts.isEmpty {
+                Text(xsignText("لا توجد تطبيقات في المصادر المفعّلة.")).foregroundStyle(.secondary)
+            } else {
+                ProgressView()
+            }
 		}
 		.navigationTitle(_navigationTitle)
 		.searchable(text: $_searchText, placement: .platform())
 		.xsignToolbarTitleMenu {
-			if
-				let _sourceContexts,
-				_sourceContexts.count == 1
-			{
+            if _sourceContexts.count == 1 {
 				if let url = _sourceContexts[0].repository.website {
 					Button {
 						UIApplication.open(url)
@@ -104,16 +106,7 @@ struct SourceAppsView: View {
 				_sortActions()
 			}
 		}
-		.onAppear {
-			if !hasLoadedOnce, viewModel.isFinished {
-				_load()
-				hasLoadedOnce = true
-			}
-			_sortOption = SortOption(rawValue: _sortOptionRawValue) ?? .default
-		}
-		.onChange(of: viewModel.isFinished) { _ in
-			_load()
-		}
+        .onAppear { _sortOption = SortOption(rawValue: _sortOptionRawValue) ?? .default }
 		.onChange(of: _sortOption) { newValue in
 			_sortOptionRawValue = newValue.rawValue
 		}
@@ -126,32 +119,15 @@ struct SourceAppsView: View {
 		}
 	}
 
-	private func _load() {
-		isLoading = true
-
-		Task {
-			let loadedSources = object.compactMap { source -> SourceRepositoryContext? in
-				guard let repository = viewModel.sources[source] else { return nil }
-				return SourceRepositoryContext(sourceURL: source.sourceURL, repository: repository)
-			}
-			_sourceContexts = loadedSources
-			withAnimation(.easeIn(duration: 0.2)) {
-				isLoading = false
-			}
-		}
-	}
 
 	struct SourceRepositoryContext: Equatable {
 		let sourceURL: URL?
-		let repository: ASRepository
+        let repository: ASRepository
+        let fingerprint: Data?
 
-		static func == (lhs: SourceRepositoryContext, rhs: SourceRepositoryContext) -> Bool {
-			lhs.sourceURL == rhs.sourceURL &&
-			lhs.repository.id == rhs.repository.id &&
-			lhs.repository.name == rhs.repository.name &&
-			lhs.repository.apps.map { "\($0.currentUniqueId)|\($0.currentVersion ?? "")" } ==
-			rhs.repository.apps.map { "\($0.currentUniqueId)|\($0.currentVersion ?? "")" }
-		}
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.sourceURL == rhs.sourceURL && lhs.fingerprint == rhs.fingerprint
+        }
 	}
 
 	struct SourceAppRoute: Identifiable, Hashable {

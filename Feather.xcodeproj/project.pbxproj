@@ -15,7 +15,6 @@
 		3346F5C22DC329A200C7D508 /* Zsign in Frameworks */ = {isa = PBXBuildFile; productRef = 3346F5C12DC329A200C7D508 /* Zsign */; };
 		3346F83B2DC6C6D100C7D508 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3346F83A2DC6C6D100C7D508 /* NukeUI */; };
 		3346F8492DC6D64800C7D508 /* NimbleJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 3346F8482DC6D64800C7D508 /* NimbleJSON */; };
-		3349E7672DEFB46F00E317ED /* IDeviceSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3349E7662DEFB46F00E317ED /* IDeviceSwift */; };
 		33693A082DC8BF5B00730215 /* AltSourceKit in Frameworks */ = {isa = PBXBuildFile; productRef = 33693A072DC8BF5B00730215 /* AltSourceKit */; };
 		3371F7322DA9ECDD00281AC6 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 3371F7312DA9ECDD00281AC6 /* ZIPFoundation */; };
 		33CF13392DB5ACFB0021D4C5 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = 33CF13382DB5ACFB0021D4C5 /* SWCompression */; };
@@ -70,7 +69,6 @@
 				3346F5C22DC329A200C7D508 /* Zsign in Frameworks */,
 				3346F8492DC6D64800C7D508 /* NimbleJSON in Frameworks */,
 				330F69012DC03DF500D8C35D /* NimbleExtensions in Frameworks */,
-				3349E7672DEFB46F00E317ED /* IDeviceSwift in Frameworks */,
 				33CF13392DB5ACFB0021D4C5 /* SWCompression in Frameworks */,
 				33693A082DC8BF5B00730215 /* AltSourceKit in Frameworks */,
 				3371F7322DA9ECDD00281AC6 /* ZIPFoundation in Frameworks */,
@@ -139,7 +137,6 @@
 				3346F83A2DC6C6D100C7D508 /* NukeUI */,
 				3346F8482DC6D64800C7D508 /* NimbleJSON */,
 				33693A072DC8BF5B00730215 /* AltSourceKit */,
-				3349E7662DEFB46F00E317ED /* IDeviceSwift */,
 			);
 			productName = Feather;
 			productReference = 3379C1B92DA869A1004372DA /* XSign.app */;
@@ -166,8 +163,10 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				Base,
-				de,
+                Base,
+                ar,
+                ckb,
+                de,
 				fr,
 				ru,
 				es,
@@ -189,7 +188,6 @@
 				330F68FF2DC03DF400D8C35D /* XCLocalSwiftPackageReference "NimbleKit" */,
 				3346F8372DC6C68300C7D508 /* XCRemoteSwiftPackageReference "Nuke" */,
 				33693A062DC8BF5B00730215 /* XCLocalSwiftPackageReference "AltSourceKit" */,
-				3349E7652DEFB46F00E317ED /* XCLocalSwiftPackageReference "IDeviceKitten" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3379C1BA2DA869A1004372DA /* Products */;
@@ -366,7 +364,8 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Feather/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = XSign;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(XSIGN_APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleName = "$(XSIGN_APP_DISPLAY_NAME)";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2024 Samara M";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -384,7 +383,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Feather/Resources",
-					"$(PROJECT_DIR)/Feather/Resources/idevice",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = "$(FEATHER_PROJECT_VERSION)-debug";
@@ -431,7 +429,8 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Feather/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = XSign;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(XSIGN_APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleName = "$(XSIGN_APP_DISPLAY_NAME)";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2024 Samara M";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -449,7 +448,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Feather/Resources",
-					"$(PROJECT_DIR)/Feather/Resources/idevice",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = "$(FEATHER_PROJECT_VERSION)";
@@ -500,10 +498,6 @@
 		330F68FF2DC03DF400D8C35D /* XCLocalSwiftPackageReference "NimbleKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = NimbleKit;
-		};
-		3349E7652DEFB46F00E317ED /* XCLocalSwiftPackageReference "IDeviceKitten" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = IDeviceKitten;
 		};
 		33693A062DC8BF5B00730215 /* XCLocalSwiftPackageReference "AltSourceKit" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -584,10 +578,6 @@
 		3346F8482DC6D64800C7D508 /* NimbleJSON */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NimbleJSON;
-		};
-		3349E7662DEFB46F00E317ED /* IDeviceSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = IDeviceSwift;
 		};
 		33693A072DC8BF5B00730215 /* AltSourceKit */ = {
 			isa = XCSwiftPackageProductDependency;

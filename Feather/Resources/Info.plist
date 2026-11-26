@@ -59,7 +59,7 @@
 			<key>CFBundleURLIconFile</key>
 			<string>feather_extension</string>
 			<key>CFBundleURLName</key>
-			<string>com.ipablack.xsign</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>xsign</string>
@@ -149,13 +149,6 @@
 		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>claration.dev</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
 			<key>127.0.0.1</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
@@ -163,11 +156,15 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>XSignStudioBuildRequest</key>
+	<string>$(XSIGN_STUDIO_BUILD_REQUEST)</string>
+	<key>XSignStudioRelease</key>
+	<true/>
 	<key>XSignReleaseOrigin</key>
 	<string>$(XSIGN_RELEASE_ORIGIN)</string>
 	<key>CFBundleDisplayName</key>
-	<string>XSign</string>
+	<string>$(XSIGN_APP_DISPLAY_NAME)</string>
 	<key>CFBundleName</key>
-	<string>XSign</string>
+	<string>$(XSIGN_APP_DISPLAY_NAME)</string>
 </dict>
 </plist>

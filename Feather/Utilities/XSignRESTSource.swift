@@ -6,7 +6,6 @@ import FoundationNetworking
 /// Converts a public JSON table into the same catalog model used by XSign.
 /// No provider credentials, browser impersonation or hidden API keys are supplied.
 enum XSignRESTSource {
-    static let primaryURL = "https://supapi.trystore.net/rest/v1/plus_library_apps"
     static let identifier = "xsign.core.primary"
     static let pageSize = 250
 
@@ -21,11 +20,6 @@ enum XSignRESTSource {
             case .http(let status): return "تعذّر جلب السورس (HTTP \(status))."
             }
         }
-    }
-
-    static func handles(_ url: URL) -> Bool {
-        url.scheme?.lowercased() == "https" && url.host?.lowercased() == "supapi.trystore.net" &&
-        url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "rest/v1/plus_library_apps"
     }
 
     static func rows(in data: Data) throws -> [[String: Any]] {
@@ -54,10 +48,49 @@ enum XSignRESTSource {
         return url.absoluteString
     }
 
-    static func normalize(_ rows: [[String: Any]], allowPublishedFreeLinks: Bool = false) throws -> Data {
+    static func gameFlag(_ row: [String: Any]) -> Bool? {
+        for key in ["isGame", "is_game"] {
+            switch text(row, [key])?.lowercased() {
+            case "1", "true", "yes": return true
+            case "0", "false", "no": return false
+            default: continue
+            }
+        }
+        for key in ["type", "contentType"] {
+            switch text(row, [key])?.lowercased() {
+            case "game", "games", "gaming": return true
+            case "app", "apps", "application": return false
+            default: continue
+            }
+        }
+        return nil
+    }
+
+    static func usesNumericTypes(_ configuration: XSignManagedSource?) -> Bool {
+        configuration?.numeric_types ?? (configuration?.id.hasPrefix("xsign.iosboom.") == true)
+    }
+
+    @discardableResult
+    static func applyNumericType(to item: inout [String: Any]) -> Bool {
+        guard gameFlag(item) == nil, let type = text(item, ["type"]).flatMap(Int.init), type == 1 || type == 2 else { return false }
+        item["isGame"] = type == 2
+        let categoryFields = ["category", "categories", "categoryId", "category_id", "category_name", "primaryGenre", "primaryGenreName", "genre", "primaryGenreId", "genreId", "genres", "genreIds"]
+        let hasCategory = categoryFields.contains { key in
+            guard let value = item[key], !(value is NSNull) else { return false }
+            if let values = value as? [Any] { return !values.isEmpty }
+            if let fields = value as? [String: Any] { return !fields.isEmpty }
+            return text(item, [key]) != nil
+        }
+        if type == 2, !hasCategory {
+            item["category"] = "games"
+        }
+        return true
+    }
+
+    static func normalize(_ rows: [[String: Any]], allowPublishedFreeLinks: Bool = false, numericTypes: Bool = false) throws -> Data {
         var apps: [[String: Any]] = []
         var categories: [[String: Any]] = []
-        var categoryIndices: [String: Int] = [:]
+        var categoryNames: [String: Int] = [:]
         var seen = Set<String>()
         let links = ["downloadURL", "download_url", "ipa_url", "ipaUrl", "ipa_link", "download_link", "downloadLink", "down", "link", "url"]
         func excluded(_ row: [String: Any]) -> Bool {
@@ -69,8 +102,9 @@ enum XSignRESTSource {
             return row["allow_ipa_download"] as? Bool == false &&
                 !(allowPublishedFreeLinks && row["purchase_required"] as? Bool == false)
         }
-        for row in rows {
+        for var row in rows {
             if excluded(row) { continue }
+            if numericTypes { applyNumericType(to: &row) }
             guard let name = text(row, ["name_ar", "name", "app_name", "title"]) else { continue }
             var versions: [[String: Any]] = []
             for version in row["versions"] as? [[String: Any]] ?? [] {
@@ -95,15 +129,25 @@ enum XSignRESTSource {
             if let size = text(row, ["size", "file_size", "size_bytes"]), let bytes = Int64(size), bytes >= 0 { app["size"] = bytes }
             if let skipped = row["skipAppStoreLookup"] as? Bool { app["skipAppStoreLookup"] = skipped }
             else if bundle == nil { app["skipAppStoreLookup"] = true }
-            app["isGame"] = row["is_game"] as? Bool ?? row["isGame"] as? Bool
-            if let category = text(row, ["category", "category_id", "category_name", "genre"]) {
-                app["category"] = category
-                if categoryIndices[category] == nil {
-                    categoryIndices[category] = categories.count
-                    var entry: [String: Any] = ["id": category, "name": text(row, ["category_name"]) ?? category]
-                    if ["game", "games", "ألعاب", "العاب", "الألعاب"].contains(category.lowercased()) {
-                        entry["isGame"] = true
+            app["isGame"] = gameFlag(row)
+            for key in ["category", "categories", "categoryId", "category_id", "genre", "genres", "genreId", "genreIds", "primaryGenre", "primaryGenreName", "primaryGenreId", "type"] {
+                if let value = row[key], !(value is NSNull) { app[key] = value }
+            }
+            if let artwork = webURL(text(row, ["artworkURL", "bannerURL", "headerURL", "banner_url", "header_url"])) {
+                app["artworkURL"] = artwork
+            }
+            if let category = text(row, ["category", "categoryId", "category_id", "category_name", "genre", "genreId", "primaryGenreId"]),
+               let key = XSignCatalogKindPolicy.categoryKey(category) {
+                if !(app["category"] is [String: Any]), !(app["category"] is [Any]) { app["category"] = category }
+                let name = text(row, ["category_name"])
+                if let index = categoryNames[key] {
+                    if let name, categories[index]["name"] as? String == categories[index]["id"] as? String {
+                        categories[index]["name"] = name
                     }
+                } else {
+                    categoryNames[key] = categories.count
+                    var entry: [String: Any] = ["id": category, "name": name ?? category]
+                    if ["game", "games", "ألعاب", "العاب", "الألعاب"].contains(category.lowercased()) { entry["isGame"] = true }
                     categories.append(entry)
                 }
             }
@@ -139,18 +183,22 @@ enum XSignRESTSource {
         }
     }
 
-    static func fetch(_ url: URL, session: URLSession, maximumBytes: Int) async throws -> Data {
-        guard handles(url) else { throw Failure.schema }
+    static func fetch(_ url: URL, session: URLSession, maximumBytes: Int, configuration: XSignManagedSource) async throws -> Data {
+        guard url.scheme?.lowercased() == "https", url.host != nil,
+              url.user == nil, url.password == nil, url.fragment == nil else { throw Failure.schema }
         var rows: [[String: Any]] = []
         var offset = 0, bytes = 0
-        let ordered = true // The live table has an id column; always page in stable id order.
+        let numericTypes = usesNumericTypes(configuration)
+        func finish() throws -> Data {
+            try normalize(rows, allowPublishedFreeLinks: true, numericTypes: numericTypes)
+        }
         var expectedTotal: Int?
         var identities = Set<String>()
         for _ in 0..<500 {
             try Task.checkCancellation()
             var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)
             var query = parts?.queryItems?.filter { !["limit", "offset"].contains($0.name) } ?? []
-            if ordered && !query.contains(where: { $0.name == "order" }) { query.append(URLQueryItem(name: "order", value: "id.asc")) }
+            if !query.contains(where: { $0.name == "order" }) { query.append(URLQueryItem(name: "order", value: "id.asc")) }
             query += [URLQueryItem(name: "limit", value: String(pageSize)), URLQueryItem(name: "offset", value: String(offset))]
             parts?.queryItems = query
             guard let next = parts?.url else { throw Failure.schema }
@@ -163,7 +211,7 @@ enum XSignRESTSource {
             guard let response = response as? HTTPURLResponse else { throw Failure.schema }
             if response.statusCode == 401 || response.statusCode == 403 { throw Failure.permissionDenied }
             if response.statusCode == 416, let range = response.value(forHTTPHeaderField: "Content-Range"),
-               range == "*/\(offset)", expectedTotal == nil || expectedTotal == offset { return try normalize(rows, allowPublishedFreeLinks: true) }
+               range == "*/\(offset)", expectedTotal == nil || expectedTotal == offset { return try finish() }
             guard (200..<300).contains(response.statusCode) else { throw Failure.http(response.statusCode) }
             let size = (try file.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? maximumBytes + 1
             guard size <= maximumBytes - bytes else { throw Failure.tooLarge }
@@ -172,7 +220,7 @@ enum XSignRESTSource {
             let page = try Self.rows(in: data)
             if page.isEmpty {
                 guard expectedTotal == nil || expectedTotal == offset else { throw Failure.pagination }
-                return try normalize(rows, allowPublishedFreeLinks: true)
+                return try finish()
             }
             guard let range = PageRange(response.value(forHTTPHeaderField: "Content-Range")),
                   range.start == offset, range.end - range.start + 1 == page.count else { throw Failure.pagination }
@@ -189,7 +237,7 @@ enum XSignRESTSource {
             rows.append(contentsOf: page)
             guard rows.count <= 50_000 else { throw Failure.tooLarge }
             offset += page.count
-            if !hasMore { return try normalize(rows, allowPublishedFreeLinks: true) }
+            if !hasMore { return try finish() }
         }
         throw Failure.pagination
     }

@@ -2,8 +2,7 @@
     'use strict';
     // All application behavior is contained in this file. No external JavaScript.
     const PRIMARY_SOURCE_URL = 'https://appiraq.com/source.php?action=getAll';
-    const SECONDARY_SOURCE_URL = 'https://appiraq.com/han.json';
-    const IOSBOOM_PUBLIC_SOURCES = [{"id":"xsign.iosboom.ucerts","name":"uCerts","url":"https://repo.ucerts.io","enabled":false,"format":"auto"},{"id":"xsign.iosboom.apptesters","name":"AppTesters","url":"https://repository.apptesters.org/","enabled":true,"format":"auto"},{"id":"xsign.iosboom.nabzclan","name":"Nabzclan","url":"https://appstore.nabzclan.vip/repos/scarlet.php","enabled":false,"format":"auto"},{"id":"xsign.iosboom.ipaomtk","name":"IPAOMTK Apps","url":"https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json","enabled":true,"format":"auto"},{"id":"xsign.iosboom.buildstore","name":"Build Store","url":"https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json","enabled":false,"format":"auto"},{"id":"xsign.iosboom.minoa","name":"Minoa’s Combined","url":"https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json","enabled":true,"format":"auto"}];
+    const IPA_SOON_SNAPSHOT = 'https://raw.githubusercontent.com/ipablack/repo/main/public/sources/ipasoon.json';
     const OWNED_CANONICAL_URL = 'https://raw.githubusercontent.com/ipablack/repo/main/repo.json';
     const STORAGE_KEY = 'xsign.studio.state.v3';
     const LEGACY_STORAGE_KEY = 'xsign.studio.state.v2';
@@ -29,10 +28,10 @@
         xsign_config:{
           splash_screen:{engine:'vector',animation_style:'laser_draw',show_sign_feather:true,duration_seconds:3.2,custom_code:'',size_px:225,stroke_width:8,glow_radius:18,subtitle:'IPA BLACK'},
           theme:{app_tint_hex:'#005BBB',splash_bg_top_hex:'#002B66',splash_bg_bottom_hex:'#00183B',splash_logo_hex:'#FFFFFF'},
-          maintenance:{enabled:false,title:'التطبيق قيد الصيانة',message:'نقوم حالياً بتحديث الخدمات، يرجى المحاولة لاحقاً.',button_url:'https://x-sign.web.app'},
+          maintenance:{enabled:false,title:'التطبيق قيد الصيانة',title_i18n:{},message_i18n:{},message:'نقوم حالياً بتحديث الخدمات، يرجى المحاولة لاحقاً.',button_url:'https://x-sign.web.app'},
           force_update:{enabled:false,min_version:'1.0.0',update_url:'https://x-sign.web.app',message:'يتوفر تحديث جديد ومهم لتطبيق X-SIGN.'},
-          security_locks:{allow_app_metadata_editing:true,lock_bundle_rename:false,lock_icon_change:false,lock_dylib_injection:false,anti_vpn_proxy:false,require_online_handshake:false,vpn_warning_message:'عذراً، لا يمكن استخدام تطبيق X-Sign أو تحميل التطبيقات أثناء تشغيل VPN أو برامج مراقبة الشبكة (Proxy).'},
-          app_control:{top_banner_enabled:false,top_banner_text:'',top_banner_url:'https://x-sign.web.app',cache_flush_id:1,purge_sources_id:1,core_sources:[]}
+          security_locks:{allow_app_metadata_editing:true,lock_bundle_rename:false,lock_icon_change:false,lock_dylib_injection:false,anti_vpn_proxy:true,require_online_handshake:false,vpn_warning_message:'عذراً، لا يمكن استخدام تطبيق X-Sign أو تحميل التطبيقات أثناء تشغيل VPN أو برامج مراقبة الشبكة (Proxy).'},
+          app_control:{top_banner_enabled:false,top_banner_text:'',top_banner_text_i18n:{},top_banner_url:'https://x-sign.web.app',cache_flush_id:1,purge_sources_id:1,core_sources:[]}
         }
       };
     }
@@ -60,9 +59,7 @@
       const configured=target.xsign_config.dashboard?.sources;
       const sources=Array.isArray(configured)?configured.filter(s=>isObject(s)&&s.enabled!==false):[
         {name:'IPA BLACK',id:'xsign.core.owned',url:OWNED_CANONICAL_URL},
-        {name:'ipasoon',id:'xsign.core.primary',url:PRIMARY_SOURCE_URL},
-        {name:'متجر Zsign الرسمي',id:'xsign.core.zsign',url:SECONDARY_SOURCE_URL},
-        ...IOSBOOM_PUBLIC_SOURCES.filter(s=>s.enabled!==false)
+        {name:'IPA SOON',id:'xsign.core.primary',url:PRIMARY_SOURCE_URL},
       ];
       target.xsign_config.app_control.core_sources=sources.map(s=>({name:s.name,id:s.id,url:s.url}));
       return target;
@@ -75,9 +72,14 @@
       const base=createDefaultState();
       if(own(parsed,'xsign_config')) {
         if(!isObject(parsed.xsign_config))throw new Error('xsign_config يجب أن يكون كائناً.');
-        for(const key of Object.keys(base.xsign_config))if(own(parsed.xsign_config,key)&&!isObject(parsed.xsign_config[key]))throw new Error('التكوين '+key+' يجب أن يكون كائناً.');
+        for(const key of Object.keys(base.xsign_config))if(key!=='push_endpoint'&&own(parsed.xsign_config,key)&&!isObject(parsed.xsign_config[key]))throw new Error('التكوين '+key+' يجب أن يكون كائناً.');
       }
       const next=mergeSafe(base,parsed);
+      for(const [group,key] of [['app_control','top_banner_text_i18n'],['maintenance','title_i18n'],['maintenance','message_i18n']]){
+        const section=next.xsign_config[group];
+        if(section[key]==null)section[key]={};
+        if(!isObject(section[key]))throw new Error('ترجمات الإشعار يجب أن تكون كائن JSON.');
+      }
       for(const key of ['apps','news','categories'])if(next[key].some(item=>!isObject(item)))throw new Error('يوجد عنصر غير صالح في '+key+'.');
       for(const app of next.apps)if(own(app,'versions')&&(!Array.isArray(app.versions)||app.versions.some(v=>!isObject(v))))throw new Error('قائمة إصدارات أحد التطبيقات غير صالحة.');
       next.repo_revision_id=safeInteger(next.repo_revision_id);
@@ -96,6 +98,54 @@
     function httpImage(value) {
       if(typeof value!=='string')return '';
       try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}
+    }
+    function categoryKey(value) {
+      if(typeof value!=='string')return '';
+      return value.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().match(/[\p{L}\p{N}]+/gu)?.join('-')||'';
+    }
+    const categoryFields=['category','categoryId','category_id','primaryGenre','primaryGenreName','genre','primaryGenreId','genreId','categories','genres','genreIds'];
+    const categoryReferenceFields=['id','value','categoryId','category_id','slug','name','label','title'];
+    function categoryToken(raw){return typeof raw==='string'?raw.trim():Number.isSafeInteger(raw)?String(raw):'';}
+    function categoryReference(value) {
+      if(!isObject(value))return categoryToken(value);
+      const field=categoryReferenceFields.find(key=>categoryToken(value[key]));
+      return field?categoryToken(value[field]):'';
+    }
+    function appCategoryReferences(app) {
+      return categoryFields.flatMap(field=>(Array.isArray(app[field])?app[field]:[app[field]]).map(categoryReference).filter(Boolean));
+    }
+    function categoryIndex() {
+      const index=new Map();
+      for(const cat of state.categories){const key=categoryKey(cat.id);if(key&&!index.has(key))index.set(key,cat);}
+      for(const cat of state.categories){
+        for(const value of [cat.name,...(Array.isArray(cat.aliases)?cat.aliases:[])]){
+          const key=categoryKey(value);if(key&&!index.has(key))index.set(key,cat);
+        }
+      }
+      return index;
+    }
+    function rewriteAppCategoryReferences(app,replace) {
+      const rewrite=value=>{
+        const ref=categoryReference(value);
+        if(!ref)return value;
+        const next=replace(ref);
+        if(next===ref||next===undefined||!isObject(value))return next===ref?value:next;
+        const field=categoryReferenceFields.find(key=>categoryToken(value[key])===ref);
+        return {...value,[field]:next};
+      };
+      for(const field of categoryFields){
+        if(!own(app,field))continue;
+        const value=app[field];
+        if(Array.isArray(value))app[field]=value.map(rewrite).filter(item=>item!==undefined);
+        else {const next=rewrite(value);if(next===undefined)delete app[field];else app[field]=next;}
+      }
+    }
+    function setAppCategory(app,id,index) {
+      const current=appCategoryReferences(app)[0]||'';
+      const resolved=index.get(categoryKey(current))?.id||current,previous=categoryKey(resolved);
+      if(id===resolved)return;
+      if(previous)rewriteAppCategoryReferences(app,ref=>categoryKey(index.get(categoryKey(ref))?.id||ref)===previous?undefined:ref);
+      if(id)app.category=id;
     }
     function validateState(data) {
       const errors=[];
@@ -116,7 +166,17 @@
       for(const [label,obj,key] of [['الشريط العلوي',cfg.app_control,'top_banner_enabled'],['الصيانة',cfg.maintenance,'enabled'],['التحديث الإجباري',cfg.force_update,'enabled']])if(typeof obj[key]!=='boolean')errors.push('حالة '+label+' يجب أن تكون true أو false.');
       for(const key of ['allow_app_metadata_editing','lock_bundle_rename','lock_icon_change','lock_dylib_injection','anti_vpn_proxy','require_online_handshake'])if(typeof cfg.security_locks[key]!=='boolean')errors.push('قيمة '+key+' يجب أن تكون true أو false.');
       if(typeof splash.show_sign_feather!=='boolean')errors.push('حالة إظهار Sign غير صالحة.');
-      if(cfg.app_control.top_banner_enabled&&!String(cfg.app_control.top_banner_text||'').trim())errors.push('الشريط العلوي مفعّل دون نص.');
+      for(const [label,legacy,translations,limit] of [
+        ['نص الشريط',cfg.app_control.top_banner_text,cfg.app_control.top_banner_text_i18n,200],
+        ['عنوان الصيانة',cfg.maintenance.title,cfg.maintenance.title_i18n,200],
+        ['رسالة الصيانة',cfg.maintenance.message,cfg.maintenance.message_i18n,1000]
+      ]){
+        if(legacy!=null&&(typeof legacy!=='string'||legacy.length>limit))errors.push(label+' يجب أن يكون نصاً من '+limit+' حرفاً أو أقل.');
+        if(translations!=null&&(!isObject(translations)||Object.values(translations).some(value=>typeof value!=='string'||value.length>limit))){
+          errors.push('ترجمات '+label+' يجب أن تكون نصوصاً من '+limit+' حرفاً أو أقل.');
+        }
+      }
+      if(cfg.app_control.top_banner_enabled&&!String(cfg.app_control.top_banner_text||'').trim())errors.push('أدخل نص الشريط بالعربية ليظهر للنسخ التي تقرأ النص الأساسي.');
       if(cfg.app_control.top_banner_enabled&&!httpsUrl(cfg.app_control.top_banner_url,true))errors.push('رابط الشريط العلوي يجب أن يكون HTTPS.');
       if(cfg.maintenance.enabled&&(!String(cfg.maintenance.title||'').trim()||!String(cfg.maintenance.message||'').trim()))errors.push('أكمل عنوان ورسالة الصيانة.');
       if(cfg.maintenance.enabled&&!httpsUrl(cfg.maintenance.button_url,true))errors.push('رابط الصيانة يجب أن يكون HTTPS.');
@@ -125,12 +185,24 @@
         if(!httpsUrl(cfg.force_update.update_url))errors.push('أدخل رابط HTTPS للتحديث الإجباري.');
       }
       const catIds=new Set();
-      data.categories.forEach((cat,i)=>{if(typeof cat.id!=='string'||!cat.id.trim()||typeof cat.name!=='string'||!cat.name.trim())errors.push('التصنيف '+(i+1)+' يحتاج اسماً ومعرفاً.');if(catIds.has(cat.id))errors.push('معرف تصنيف مكرر: '+cat.id);catIds.add(cat.id);if(typeof cat.isGame!=='boolean')errors.push('قيمة isGame غير صالحة للتصنيف '+(i+1)+'.');});
+      data.categories.forEach((cat,i)=>{
+        const key=categoryKey(cat.id);
+        if(!key||typeof cat.name!=='string'||!cat.name.trim())errors.push('التصنيف '+(i+1)+' يحتاج اسماً ومعرفاً.');
+        if(catIds.has(key))errors.push('معرف تصنيف مكرر '+cat.id);
+        catIds.add(key);
+        const svg=cat.icon_svg??cat.iconSVG;
+        if(svg!=null&&!validCategorySVG(svg))errors.push('أيقونة التصنيف '+(i+1)+' تحتاج SVG صالحاً.');
+        if(typeof cat.isGame!=='boolean')errors.push('نوع التصنيف '+(i+1)+' غير صالح.');
+        if(cat.aliases!==undefined&&(!Array.isArray(cat.aliases)||cat.aliases.length>20||
+           cat.aliases.some(alias=>typeof alias!=='string'||!categoryKey(alias)||alias.length>100))){
+          errors.push('مرادفات التصنيف '+(i+1)+' يجب أن تكون أسماء أو معرفات نصية.');
+        }
+      });
       const catalogs=new Set();
       data.apps.forEach((app,i)=>{
         const prefix='التطبيق '+(typeof app.name==='string'?app.name.slice(0,65):i+1)+': ';
         if(typeof app.name!=='string'||!app.name.trim())errors.push(prefix+'الاسم مطلوب.');
-        if(typeof app.bundleIdentifier!=='string'||!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(app.bundleIdentifier))errors.push(prefix+'معرف الحزمة غير صالح.');
+        if(typeof app.bundleIdentifier!=='string'||!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(app.bundleIdentifier))errors.push(prefix+'معرف الحزمة غير صالح.');
         if(own(app,'versions')&&!Array.isArray(app.versions))errors.push(prefix+'versions يجب أن تكون قائمة.');
         const versions=Array.isArray(app.versions)?app.versions:[];
         if(!httpsUrl(app.downloadURL||versions[0]?.downloadURL))errors.push(prefix+'رابط التنزيل يجب أن يكون HTTPS.');
@@ -140,7 +212,7 @@
         for(const version of versions)if(!isObject(version)||!String(version.version||'').trim()||!httpsUrl(version.downloadURL)) {errors.push(prefix+'أحد الإصدارات له بيانات أو رابط غير صالح.');break;}
         if(app.catalogID){if(catalogs.has(app.catalogID))errors.push(prefix+'catalogID مكرر.');catalogs.add(app.catalogID);}
       });
-      data.news.forEach((item,i)=>{if(typeof item.title!=='string'||!item.title.trim())errors.push('عنوان الخبر '+(i+1)+' مفقود.');if(item.url&&!httpsUrl(item.url))errors.push('رابط الخبر '+(i+1)+' يجب أن يكون HTTPS.');});
+      data.news.forEach((item,i)=>{if(typeof item.title!=='string'||!item.title.trim())errors.push('عنوان الخبر '+(i+1)+' مفقود.');if(item.url&&!httpsUrl(item.url))errors.push('رابط الخبر '+(i+1)+' يجب أن يكون HTTPS.');if(item.imageURL&&!httpsUrl(item.imageURL))errors.push('صورة غلاف الخبر '+(i+1)+' تحتاج رابط HTTPS.');});
       return errors;
     }
     function getPath(target,path){return path.split('.').reduce((obj,key)=>obj?.[key],target);}
@@ -151,12 +223,15 @@
     let activity=[],baseline='',remoteBaseline=null,lastPublishedAt=null,operationBusy=false,pendingPublish=null,storageError=false;
     let saveTimer=null,previewAnimation=null;
     const PAGE_META={
-      overview:['نظرة عامة','YOUR WORKSPACE, AT A GLANCE','كل ما تحتاجه لإدارة X-SIGN، في مساحة واحدة.'],
+      overview:['نظرة عامة','YOUR WORKSPACE, AT A GLANCE','أدر إصدارات XSign وتطبيقات المتجر من لوحة واحدة.'],
       apps:['مكتبة التطبيقات','YOUR APPS, PERFECTLY ORGANIZED','أضف تطبيقاتك وأدر تفاصيلها وإصداراتها بسهولة.'],
       sources:['المصادر والاتصال','CONNECTED TO YOUR WORKFLOW','مصادرك المعتمدة ووجهة النشر، من مكان واحد.'],
       appearance:['المظهر والإقلاع','MAKE IT DISTINCTLY YOURS','هوية X-SIGN، بالتفاصيل التي تختارها.'],
       controls:['التحكم والحماية','EVERY DETAIL, UNDER CONTROL','اضبط الصلاحيات وحالة التطبيق ورسائل المستخدمين.'],
-      editorial:['الأخبار والتصنيفات','CONTENT WITH A CLEAR PURPOSE','أبقِ محتواك واضحاً، منظماً، ومحدثاً.'],
+      editorial:['الأخبار','','أضف بطاقات الأخبار التي تظهر داخل XSign.'],
+      categories:['التصنيفات','','رتّب تطبيقات الكتالوج وألعابه حسب التصنيف.'],
+      notifications:['الإشعارات','','جهّز رسالة بثلاث لغات وأرسلها للأجهزة المسجّلة.'],
+      analytics:['الإحصاءات','','راجع عدد التثبيتات والنشاط وتوزيع البلدان.'],
       publish:['المراجعة والنشر','READY WHEN YOU ARE','راجع ملف التكوين، ثم انشره بثقة إلى مستودعك.']
     };
     function toast(message,variant='success') {
@@ -166,8 +241,11 @@
       $('toasts').append(el);while($('toasts').children.length>4)$('toasts').firstElementChild.remove();
       setTimeout(()=>el.remove(),6500);
     }
-    function confirmAction(title,message,action,label='تأكيد',danger=true) {
+    function confirmAction(title,message,action,label='تأكيد',danger=true,offerExport=false) {
       $('confirmTitle').textContent=title;$('confirmMessage').textContent=message;
+      const exportButton=$('confirmExportDraft');
+      exportButton.hidden=!offerExport;
+      exportButton.onclick=offerExport?()=>downloadJson(false):null;
       $('confirmAction').textContent=label;$('confirmAction').className=danger?'btn btn-danger':'btn btn-primary';
       $('confirmAction').onclick=()=>{$('confirmDialog').close();action();};$('confirmDialog').showModal();
     }
@@ -175,14 +253,24 @@
     function openPage(name, updateHash=true) {
       if(!PAGE_META[name])name='overview';activePage=name;
       $$('[data-panel]').forEach(el=>el.hidden=el.dataset.panel!==name);
-      $$('[data-page]').forEach(el=>{const selected=el.dataset.page===name;el.classList.toggle('active',selected);if(selected)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
+      $$('[data-page]').forEach(el=>{
+        const selected=el.dataset.page===name;
+        el.classList.toggle('active',selected);
+        if(selected){
+          el.setAttribute('aria-current','page');
+        }else el.removeAttribute('aria-current');
+      });
       const [title,eyebrow,description]=PAGE_META[name];$('pageTitle').textContent=title;$('breadcrumbCurrent').textContent=title;$('pageEyebrow').textContent=eyebrow;$('pageDescription').textContent=description;
       const actions=$('pageActions');actions.replaceChildren();
       if(name==='apps'){actions.append(button('رفع IPA',()=>openPage('ingest'),'download','btn'));actions.append(button('إضافة تطبيق',()=>openAppEditor(),'plus','btn btn-primary'));}
       else if(name==='sources')actions.append(button('جلب الملف الحي',requestPull,'refresh','btn'));
       else if(name==='publish')actions.append(button('استيراد',()=>$('importFile').click(),'download','btn'));
-      else {const badge=text('span','', 'tag '+(isDirty()?'tag-yellow':'tag-green'));const dot=text('span','', 'dot');badge.append(dot,document.createTextNode(isDirty()?'مسودة محلية':'مساحة العمل جاهزة'));actions.append(badge);}
-      if(name==='apps')renderApps();if(name==='editorial')renderEditorial();if(name==='publish')renderPublish();if(name==='appearance')renderPreview(true);if(name==='ingest')renderIngestContext();if(name==='operations')renderRuns();$$('.mobile-dock [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===name));
+      else if(name!=='overview'){const badge=text('span','', 'tag '+(isDirty()?'tag-yellow':'tag-green'));const dot=text('span','', 'dot');badge.append(dot,document.createTextNode(isDirty()?'مسودة محلية':'مساحة العمل جاهزة'));actions.append(badge);}
+      if(name==='apps')renderApps();if((name==='editorial'||name==='categories'))renderEditorial();if(name==='publish')renderPublish();if(name==='appearance')renderPreview(true);if(name==='ingest')renderIngestContext();if(name==='operations')renderRuns();$$('.mobile-dock [data-go]').forEach(b=>{
+        const selected=b.dataset.go===name;
+        b.classList.toggle('active',selected);
+        if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+      });
       if(name!=='appearance'&&previewAnimation)previewAnimation.cancel();
       setMenu(false);if(updateHash&&location.hash!=='#'+name)history.replaceState(null,'','#'+name);window.scrollTo({top:0,behavior:'instant'});
     }
@@ -208,7 +296,7 @@
       if(JSON.stringify(state)===before)return;
       if(bump)state.repo_revision_id=safeInteger(state.repo_revision_id)+1;
       if(label)addActivity(label);persist();renderOverview();
-      if(activePage==='apps')renderApps();if(activePage==='editorial')renderEditorial();if(activePage==='publish')renderPublish();
+      if(activePage==='apps')renderApps();if((activePage==='editorial'||activePage==='categories'))renderEditorial();if(activePage==='publish')renderPublish();
     }
     function updateStatus() {
       const dirty=isDirty();$('navAppsCount').textContent=state.apps.length;$('navDirtyBadge').hidden=!dirty;
@@ -251,8 +339,15 @@
         state.categories.forEach(cat=>{const option=text('option',cat.name||cat.id||'تصنيف');option.value=String(cat.id||'');select.append(option);});
         if([...select.options].some(opt=>opt.value===old))select.value=old;
       }
+      const categoryIDs=$('studioCategoryIDs');
+      if(categoryIDs)categoryIDs.replaceChildren(...state.categories.map(cat=>{
+        const option=text('option',cat.name);
+        option.value=cat.id;
+        option.label=cat.name;
+        return option;
+      }));
     }
-    function renderAll(){syncInputs();renderOverview();if(activePage==='apps')renderApps();if(activePage==='editorial')renderEditorial();if(activePage==='publish')renderPublish();if(activePage==='appearance')renderPreview(true);updateStatus();}
+    function renderAll(){syncInputs();renderOverview();if(activePage==='apps')renderApps();if((activePage==='editorial'||activePage==='categories'))renderEditorial();if(activePage==='publish')renderPublish();if(activePage==='appearance')renderPreview(true);updateStatus();}
     function fieldInput(el, final=false) {
       let value=el.type==='checkbox'?el.checked:el.value;
       if(el.dataset.number) {
@@ -304,10 +399,11 @@
       if(replay&&activePage==='appearance'&&progress.animate)previewAnimation=progress.animate([{width:'0%'},{width:'100%'}],{duration:seconds*1000,fill:'forwards',easing:'linear'});
     }
     function bytes(value){if(!Number.isFinite(Number(value))||Number(value)<=0)return '—';const units=['B','KB','MB','GB'];const power=Math.min(3,Math.floor(Math.log(Number(value))/Math.log(1024)));return (Number(value)/1024**power).toFixed(power<2?0:1)+' '+units[power];}
-    function categoryName(id){return state.categories.find(cat=>cat.id===id)?.name||id||'دون تصنيف';}
+    function categoryName(app,index){const ref=appCategoryReferences(app)[0];return index.get(categoryKey(ref))?.name||ref||'دون تصنيف';}
     function renderApps() {
-      const query=$('appSearch').value.trim().toLocaleLowerCase(),cat=$('categoryFilter').value;
-      const filtered=state.apps.filter(app=>(!cat||app.category===cat)&&(!query||[app.name,app.bundleIdentifier,app.category].some(value=>String(value||'').toLocaleLowerCase().includes(query))));
+      const query=$('appSearch').value.trim().toLocaleLowerCase(),cat=$('categoryFilter').value,index=categoryIndex();
+      const filtered=state.apps.filter(app=>(!cat||appCategoryReferences(app).some(ref=>index.get(categoryKey(ref))?.id===cat))&&
+        (!query||[app.name,app.bundleIdentifier,categoryName(app,index)].some(value=>String(value||'').toLocaleLowerCase().includes(query))));
       const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));appPage=Math.min(pages,Math.max(1,appPage));
       $('appsTotal').textContent=state.apps.length;$('appsResultText').textContent=filtered.length+' من '+state.apps.length+' تطبيق';$('pageNumber').textContent=appPage+' / '+pages;
       $('previousPage').disabled=appPage<=1;$('nextPage').disabled=appPage>=pages;
@@ -318,18 +414,23 @@
         const row=text('div','','app-row'),identity=text('div','','app-identity'),appIcon=text('div',String(app.name||'A').charAt(0).toUpperCase(),'app-icon');
         const src=httpImage(app.iconURL);if(src){const img=document.createElement('img');img.src=src;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.remove(),{once:true});appIcon.append(img);}
         const info=text('div','');info.style.minWidth='0';info.append(text('h3',app.name||'دون اسم'),text('p',app.bundleIdentifier||'—'));
-        identity.append(appIcon,info);row.append(identity,text('div',categoryName(app.category),'app-cell app-category-cell'),text('div','v'+(app.version||app.versions?.[0]?.version||'—'),'app-cell latin app-version-cell'),text('div',bytes(app.size||app.versions?.[0]?.size),'app-cell latin app-size-cell'));
+        identity.append(appIcon,info);row.append(identity,text('div',categoryName(app,index),'app-cell app-category-cell'),text('div','v'+(app.version||app.versions?.[0]?.version||'—'),'app-cell latin app-version-cell'),text('div',bytes(app.size||app.versions?.[0]?.size),'app-cell latin app-size-cell'));
         const actions=text('div','','app-actions');const edit=button('',()=>openAppEditor(app),'edit'),del=button('',()=>deleteApp(app),'trash');edit.setAttribute('aria-label','تعديل '+app.name);edit.title='تعديل';del.setAttribute('aria-label','حذف '+app.name);del.title='حذف';actions.append(edit,del);row.append(actions);fragment.append(row);
       });box.append(fragment);
     }
     function openAppEditor(app=null) {
       editingApp=app;$('appForm').reset();$('appFormError').hidden=true;
       $('appDialogTitle').textContent=app?'تعديل التطبيق':'إضافة تطبيق';renderCategoryOptions();
-      const values={appName:'name',appBundle:'bundleIdentifier',appVersion:'version',appDownload:'downloadURL',appIcon:'iconURL',appSize:'size',appDeveloper:'developerName',appSubtitle:'subtitle',appDescription:'localizedDescription',appCategory:'category'};
+      const values={appName:'name',appBundle:'bundleIdentifier',appVersion:'version',appDownload:'downloadURL',appIcon:'iconURL',appSize:'size',appDeveloper:'developerName',appSubtitle:'subtitle',appDescription:'localizedDescription'};
       for(const [id,key] of Object.entries(values)){
         let value=app?.[key]??'';if(app&&['version','downloadURL','size'].includes(key)&&!value)value=app.versions?.[0]?.[key]??'';
-        if(id==='appCategory'&&value&&![...$(id).options].some(opt=>opt.value===value)){const option=text('option',String(value));option.value=String(value);$(id).append(option);}
         $(id).value=typeof value==='string'||typeof value==='number'?value:'';
+      }
+      if(app){
+        const ref=appCategoryReferences(app)[0]||'', category=categoryIndex().get(categoryKey(ref))?.id||ref;
+        const select=$('appCategory');
+        if(category&&![...select.options].some(opt=>opt.value===category)){const option=text('option',category);option.value=category;select.append(option);}
+        select.value=category;
       }
       if(!app){$('appDeveloper').value='IPA BLACK';$('appCategory').value=state.categories[0]?.id||'';}
       $('appSkipLookup').checked=app?.skipAppStoreLookup===true;
@@ -341,7 +442,7 @@
       const name=$('appName').value.trim(),bundleIdentifier=$('appBundle').value.trim(),version=$('appVersion').value.trim(),downloadURL=$('appDownload').value.trim(),iconURL=$('appIcon').value.trim(),sizeRaw=$('appSize').value.trim();
       let error='';
       if(!name||!bundleIdentifier||!version||!downloadURL)error='أكمل الاسم ومعرف الحزمة والإصدار ورابط التنزيل.';
-      else if(!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(bundleIdentifier))error='معرف الحزمة يجب أن يكون مثل com.example.app.';
+      else if(!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(bundleIdentifier))error='معرف الحزمة يجب أن يكون مثل com.example.app.';
       else if(!httpsUrl(downloadURL))error='رابط تنزيل IPA يجب أن يبدأ بـ https:// ويكون رابطاً صالحاً.';
       else if(iconURL&&!httpsUrl(iconURL))error='رابط الأيقونة يجب أن يكون HTTPS.';
       else if(sizeRaw&&(!Number.isSafeInteger(Number(sizeRaw))||Number(sizeRaw)<0))error='الحجم يجب أن يكون عدداً صحيحاً غير سالب بالبايت.';
@@ -353,7 +454,8 @@
       const date=previous?.date||(existing.version===version?existing.versionDate:'')||dateToday();
       const latest={...(previous||{}),version,date,downloadURL,localizedDescription:description||subtitle||name};
       if(sizeRaw!=='')latest.size=Number(sizeRaw);else delete latest.size;
-      const entry={...existing,name,bundleIdentifier,catalogID:existing.catalogID||'xsign.owned.'+uid(),version,versionDate:date,downloadURL,developerName:$('appDeveloper').value.trim()||'IPA BLACK',category:$('appCategory').value,subtitle,localizedDescription:description,skipAppStoreLookup:$('appSkipLookup').checked,versions:[latest,...versions.filter(v=>v.version!==version)]};
+      const entry={...existing,name,bundleIdentifier,catalogID:existing.catalogID||'xsign.owned.'+uid(),version,versionDate:date,downloadURL,developerName:$('appDeveloper').value.trim()||'IPA BLACK',subtitle,localizedDescription:description,skipAppStoreLookup:$('appSkipLookup').checked,versions:[latest,...versions.filter(v=>v.version!==version)]};
+      setAppCategory(entry,$('appCategory').value,categoryIndex());
       if(iconURL)entry.iconURL=iconURL;else delete entry.iconURL;
       if(sizeRaw!=='')entry.size=Number(sizeRaw);else delete entry.size;
       const edit=editingApp;
@@ -370,33 +472,106 @@
         edit.setAttribute('aria-label','تعديل الخبر '+item.title);del.setAttribute('aria-label','حذف الخبر '+item.title);actions.append(edit,del);row.append(info,actions);newsBox.append(row);
       });
       $('categoriesCount').textContent=state.categories.length;const catBox=$('categoriesList');catBox.replaceChildren();
-      state.categories.forEach(cat=>{
-        const row=text('div','','editorial-row'),info=text('div','');info.append(text('strong',cat.name),text('p',cat.id+(cat.isGame?' · ألعاب':''),'mono'));
-        const actions=text('div','','row'),edit=button('',()=>editCategory(cat),'edit'),del=button('',()=>deleteCategory(cat),'trash');edit.setAttribute('aria-label','تعديل التصنيف '+cat.name);del.setAttribute('aria-label','حذف التصنيف '+cat.name);actions.append(edit,del);row.append(info,actions);catBox.append(row);
+      state.categories.forEach((cat,index)=>{
+        const row=text('div','','editorial-row'),info=text('div','');
+        info.append(text('strong',cat.name),text('p',cat.id+(cat.isGame?' · ألعاب':' · تطبيقات'),'mono'));
+        if(cat.aliases?.length)info.append(text('small',cat.aliases.join('، '),'muted'));
+        const actions=text('div','','row');
+        const up=button('↑',()=>moveCategory(cat,-1)),down=button('↓',()=>moveCategory(cat,1));
+        up.disabled=index===0;down.disabled=index===state.categories.length-1;
+        up.setAttribute('aria-label','رفع التصنيف '+cat.name);
+        down.setAttribute('aria-label','خفض التصنيف '+cat.name);
+        const edit=button('',()=>editCategory(cat),'edit'),del=button('',()=>deleteCategory(cat),'trash');
+        edit.setAttribute('aria-label','تعديل التصنيف '+cat.name);
+        del.setAttribute('aria-label','حذف التصنيف '+cat.name);
+        actions.append(up,down,edit,del);
+        row.append(info,actions);catBox.append(row);
       });
     }
-    function openNewsEditor(item=null){editingNews=item;$('newsForm').reset();$('newsFormError').hidden=true;$('newsDialogTitle').textContent=item?'تعديل بطاقة خبر':'إضافة بطاقة خبر';for(const [id,key] of Object.entries({newsTitle:'title',newsCaption:'caption',newsUrl:'url',newsAppId:'appID'}))$(id).value=item?.[key]||'';$('newsDialog').showModal();}
+    function moveCategory(category,direction) {
+      const index=state.categories.indexOf(category),destination=index+direction;
+      if(index<0||destination<0||destination>=state.categories.length)return;
+      mutate(()=>{
+        state.categories.splice(index,1);
+        state.categories.splice(destination,0,category);
+      },'ترتيب التصنيفات');
+      renderCategoryOptions();
+    }
+    function openNewsEditor(item=null){editingNews=item;$('newsForm').reset();$('newsFormError').hidden=true;$('newsDialogTitle').textContent=item?'تعديل بطاقة خبر':'إضافة بطاقة خبر';for(const [id,key] of Object.entries({newsTitle:'title',newsCaption:'caption',newsUrl:'url',newsAppId:'appID',newsArtwork:'imageURL',newsBadge:'badge'}))$(id).value=item?.[key]||'';$('newsDialog').showModal();}
     function saveNews(event) {
-      event.preventDefault();const title=$('newsTitle').value.trim(),url=$('newsUrl').value.trim();
-      if(!title||!httpsUrl(url,true)){$('newsFormError').textContent=!title?'عنوان الخبر مطلوب.':'رابط الخبر يجب أن يكون HTTPS.';$('newsFormError').hidden=false;return;}
+      event.preventDefault();
+      const title=$('newsTitle').value.trim(),url=$('newsUrl').value.trim(),imageURL=$('newsArtwork').value.trim();
+      if(!title||!httpsUrl(url,true)||!httpsUrl(imageURL,true)){
+        $('newsFormError').textContent=!title?'عنوان الخبر مطلوب.':'روابط الخبر وصورة الغلاف تحتاج HTTPS.';
+        $('newsFormError').hidden=false;return;
+      }
       const existing=editingNews,entry={...(existing||{}),identifier:existing?.identifier||'news_'+uid(),title,caption:$('newsCaption').value.trim()||title,date:existing?.date||dateToday(),notify:existing?.notify??true};
-      if(url)entry.url=url;else delete entry.url;const appID=$('newsAppId').value.trim();if(appID)entry.appID=appID;else delete entry.appID;
+      for(const [key,value] of Object.entries({url,imageURL,appID:$('newsAppId').value.trim(),badge:$('newsBadge').value.trim()})){
+        if(value)entry[key]=value;else delete entry[key];
+      }
       mutate(()=>{if(existing&&state.news.includes(existing))state.news[state.news.indexOf(existing)]=entry;else state.news.unshift(entry);},existing?'تحديث بطاقة خبر':'إضافة بطاقة خبر');$('newsDialog').close();editingNews=null;toast('تم حفظ بطاقة الخبر.');
     }
-    function editCategory(cat){editingCategory=cat;$('categoryId').value=cat.id;$('categoryName').value=cat.name;$('categoryIsGame').checked=cat.isGame===true;$('cancelCategoryEdit').hidden=false;$('categoryName').focus();}
+    function validCategorySVG(svg) {
+      if(!svg)return true;
+      if(typeof svg!=='string'||new TextEncoder().encode(svg).length>8192||/<\s*[!?]/.test(svg))return false;
+      const allowed=new Set('svg g path circle ellipse rect line polyline polygon title desc defs linearGradient radialGradient stop clipPath mask'.split(' '));
+      const doc=new DOMParser().parseFromString(svg,'image/svg+xml');
+      return doc.documentElement.localName==='svg'&&[...doc.querySelectorAll('*')].every(element=>
+        allowed.has(element.localName)&&!element.prefix&&
+        [...element.attributes].every(attribute=>!(/^(on|href$|xlink:|src$|style$|xml:base$)/i.test(attribute.name)))
+      );
+    }
+    function editCategory(cat) {
+      editingCategory=cat;
+      $('categoryId').value=cat.id;$('categoryName').value=cat.name;$('categoryIsGame').checked=cat.isGame===true;
+      $('categoryAliases').value=(cat.aliases||[]).join('، ');
+      $('categorySVG').value=cat.icon_svg||cat.iconSVG||'';
+      $('cancelCategoryEdit').hidden=false;$('categoryName').focus();
+    }
     function resetCategoryEditor(){editingCategory=null;$('categoryForm').reset();$('cancelCategoryEdit').hidden=true;}
     function saveCategory(event) {
-      event.preventDefault();const id=$('categoryId').value.trim().toLowerCase(),name=$('categoryName').value.trim(),isGame=$('categoryIsGame').checked;
-      if(!/^[a-z0-9_-]+$/.test(id)||!name){toast('أدخل اسماً ومعرفاً إنجليزياً صالحاً للتصنيف.','error');return;}
-      const duplicate=state.categories.find(cat=>cat.id===id);
-      if(editingCategory&&duplicate&&duplicate!==editingCategory){toast('هذا المعرف مستخدم لتصنيف آخر.','error');return;}
-      const old=editingCategory||duplicate,entry={...(old||{}),id,name,isGame};
-      mutate(()=>{if(old){state.categories[state.categories.indexOf(old)]=entry;if(old.id!==id)state.apps.forEach(app=>{if(app.category===old.id)app.category=id;});}else state.categories.push(entry);},'حفظ التصنيف: '+name);
+      event.preventDefault();
+      const old=editingCategory,inputID=$('categoryId').value.trim();
+      const id=inputID===old?.id?inputID:inputID.toLowerCase(),name=$('categoryName').value.trim(),isGame=$('categoryIsGame').checked;
+      const aliases=$('categoryAliases').value.split(/[,،]/).map(s=>s.trim()).filter(Boolean);
+      if(old&&old.id!==id&&categoryKey(old.id)!==categoryKey(id)&&!aliases.some(alias=>categoryKey(alias)===categoryKey(old.id)))aliases.push(old.id);
+      const distinctAliases=[...new Map(aliases.map(alias=>[categoryKey(alias),alias])).values()];
+      if((id!==old?.id&&!/^[a-z0-9_-]+$/.test(id))||!categoryKey(id)||!name){toast('أدخل اسماً ومعرفاً صالحاً للتصنيف.','error');return;}
+      if(distinctAliases.length>20||distinctAliases.some(alias=>!categoryKey(alias)||alias.length>100)){
+        toast('الحد الأقصى 20 مرادفاً صالحاً لكل تصنيف.','error');return;
+      }
+      if(state.categories.some(cat=>cat!==old&&categoryKey(cat.id)===categoryKey(id))){
+        toast('هذا المعرف مستخدم لتصنيف آخر.','error');return;
+      }
+      const entryKeys=new Set([id,...distinctAliases].map(categoryKey));
+      if(state.categories.some(cat=>cat!==old&&[cat.id,...(Array.isArray(cat.aliases)?cat.aliases:[])].some(value=>entryKeys.has(categoryKey(value))))){
+        toast('أحد معرّفات التصنيف أو مرادفاته مستخدم في تصنيف آخر.','error');return;
+      }
+      const svg=($('categorySVG').value||'').trim();
+      if(!validCategorySVG(svg)){toast('ألصق كود SVG بسيطاً بلا عناصر تفاعلية أو روابط.','error');return;}
+      const entry={...(old||{}),id,name,isGame};
+      delete entry.iconSVG;
+      if(svg)entry.icon_svg=svg;else delete entry.icon_svg;
+      if(distinctAliases.length)entry.aliases=distinctAliases;else delete entry.aliases;
+      mutate(()=>{
+        if(!old){state.categories.push(entry);return;}
+        state.categories[state.categories.indexOf(old)]=entry;
+        if(old.id===id)return;
+        const oldKey=categoryKey(old.id);
+        state.apps.forEach(app=>rewriteAppCategoryReferences(app,ref=>categoryKey(ref)===oldKey?id:ref));
+        state.xsign_config.dashboard?.sections.forEach(section=>{
+          if(categoryKey(section.category_id)===oldKey)section.category_id=id;
+        });
+      },'حفظ التصنيف '+name);
       resetCategoryEditor();renderCategoryOptions();toast('تم حفظ التصنيف.');
     }
     function deleteCategory(cat) {
-      const used=state.apps.filter(app=>app.category===cat.id).length;
+      const index=categoryIndex();
+      const used=state.apps.filter(app=>appCategoryReferences(app).some(ref=>index.get(categoryKey(ref))===cat)).length;
       if(used){toast('التصنيف مستخدم في '+used+' تطبيق. غيّر تصنيفها أولاً ثم احذفه.','error');return;}
+      if(state.xsign_config.dashboard?.sections.some(section=>index.get(categoryKey(section.category_id))===cat)){
+        toast('التصنيف مستخدم في ترتيب المتجر. عدّل فلتر القسم أولاً.','error');return;
+      }
       confirmAction('حذف التصنيف','حذف تصنيف «'+cat.name+'» من المسودة؟',()=>{mutate(()=>{const index=state.categories.indexOf(cat);if(index>=0)state.categories.splice(index,1);},'حذف التصنيف: '+cat.name);if(editingCategory===cat)resetCategoryEditor();renderCategoryOptions();});
     }
     function readinessRow(label,ok) {const row=text('div','','checkline'),left=text('div','','row');left.append(icon(ok?'check':'info'),text('span',label));left.firstChild.classList.add(ok?'check-ok':'check-bad');row.append(left,text('span',ok?'جاهز':'يحتاج مراجعة','tiny '+(ok?'muted':'')));return row;}
@@ -415,8 +590,8 @@
       return c;
     }
     function renderTargetWarning() {
-      const differs=connectionKey()!=='ipablack/repo/main/repo.json';$('targetWarning').hidden=!differs;
-      if(differs)$('targetWarning').textContent='وجهة النشر مختلفة عن مصدر المالك المعتمد. تغييرها هنا لا يغيّر رابط المصدر الذي يقرأه التطبيق.';
+      const differs=connection.branch!=='main'||connection.path!=='repo.json'||connection.configPath!=='xsign-config.json';$('targetWarning').hidden=!differs;
+      if(differs)$('targetWarning').textContent='خدمة Xsign المحمية تقرأ repo.json وxsign-config.json من فرع main.';
       $('reviewTarget').textContent=connection.owner+'/'+connection.repo;$('reviewBranch').textContent=connection.branch;
     }
     async function fetchTimed(url,options={}) {
@@ -506,17 +681,25 @@
     async function testSource(kind) {
       const primary=kind==='primary',btn=$(primary?'testPrimarySource':'testOwnedSource'),status=$(primary?'primarySourceStatus':'ownedSourceStatus');btn.disabled=true;status.textContent='جارٍ فحص الاستجابة…';
       try {
-        const url=primary?PRIMARY_SOURCE_URL+'?order=id.asc&limit=1&offset=0':OWNED_CANONICAL_URL+'?t='+Date.now();
-        const response=await fetchTimed(url,{headers:{Accept:'application/json'}});
-        if(!response.ok)throw new Error('HTTP '+response.status+(response.status===401||response.status===403?' · الخادم يطلب صلاحية قراءة.':' · لم ينجح طلب القراءة.'));
-        const parsed=await response.json();
-        if(primary&&!Array.isArray(parsed))throw new Error('استجاب الخادم، لكن المحتوى ليس قائمة تطبيقات.');
-        if(!primary&&(!isObject(parsed)||!Array.isArray(parsed.apps)))throw new Error('الاستجابة لا تحتوي على قائمة apps صالحة.');
-        status.textContent=primary?'استجابة JSON صالحة · HTTP '+response.status:'ملف صالح · '+parsed.apps.length+' تطبيق · مراجعة '+(parsed.repo_revision_id??'—');status.style.color='var(--green)';toast('نجح فحص '+(primary?'المصدر الأساسي.':'مصدر IPA BLACK.'));
+        if(primary){
+          const response=await fetchTimed(PRIMARY_SOURCE_URL+'?order=id.asc&limit=1&offset=0',{headers:{Accept:'application/json'}});
+          if(!response.ok)throw Error('استجاب المصدر برمز HTTP '+response.status+'.');
+          if(!Array.isArray(await response.json()))throw Error('استجاب الخادم، لكن المحتوى ليس قائمة تطبيقات.');
+          status.textContent='استجابة JSON صالحة · HTTP '+response.status;
+        }else{
+          const c=validateConnection({...connection}),token=requireToken();
+          const repo=await github(c,'','GET',undefined,token),snapshot=await readCatalogueSnapshot(c,token);
+          if(!snapshot.data)throw Error(snapshot.parseError||'ملف الكتالوج غير موجود في المستودع المحدد.');
+          status.textContent=(repo?.private?'مستودع خاص':'مستودع عام')+' · '+snapshot.data.apps.length+' تطبيق · مراجعة '+snapshot.data.repo_revision_id;
+        }
+        status.style.color='var(--green)';toast('نجح فحص '+(primary?'المصدر الأساسي.':'مصدر IPA BLACK.'));
       }catch(error){status.textContent=error.message;status.style.color='var(--yellow)';toast('لم يكتمل فحص المصدر. راجع نتيجة الاتصال.','error');}
       finally{btn.disabled=false;}
     }
-    function downloadJson(){enforceCoreSources(state);persist();const blob=new Blob([JSON.stringify(state,null,2)+'\n'],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='repo.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تجهيز repo.json للتنزيل.');}
+    function downloadJson(saveBeforeDownload=true){
+      if(saveBeforeDownload!==false){enforceCoreSources(state);persist();}
+      const blob=new Blob([JSON.stringify(state,null,2)+'\n'],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='repo.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تجهيز repo.json للتنزيل.');
+    }
     async function copyJson(){const json=JSON.stringify(state,null,2);try{if(!navigator.clipboard?.writeText)throw new Error();await navigator.clipboard.writeText(json);toast('تم نسخ repo.json بالكامل.');}catch{const area=text('textarea','');area.value=json;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();let copied=false;try{copied=document.execCommand('copy');}catch{}area.remove();toast(copied?'تم نسخ repo.json بالكامل.':'تعذر النسخ. استخدم زر التنزيل.',copied?'success':'error');}}
     async function importFile(file) {
       if(!file)return;

@@ -5,7 +5,7 @@ out=Path(os.environ['RUNNER_TEMP'])/'xsign-local-server-checks'
 (out/'Sources').mkdir(parents=True,exist_ok=True)
 for source in ['Feather/Backend/Server/XSignLocalSigningServer.swift',
  'Feather/Backend/Server/XSignLocalSigningJobs.swift','Feather/Backend/Server/XSignLocalRequestAuthentication.swift',
- 'Feather/Utilities/XSignPrivateFiles.swift', 'Feather/Utilities/XSignIPAExtractor.swift','Tools/Tests/xsign_local_signing_server_checks.swift',
+ 'Feather/Utilities/ARDecompression/AR.swift', 'Feather/Utilities/XSignPrivateFiles.swift', 'Feather/Utilities/XSignIPAExtractor.swift','Tools/Tests/xsign_local_signing_server_checks.swift',
  'Tools/Tests/xsign_ipa_extraction_checks.swift', 'Tools/Tests/xsign_ota_checks.swift', 'Tools/Tests/xsign_feather_manifest_checks.swift',
  'Feather/Backend/Server/XSignBoundedHTTP.swift', 'Feather/Backend/Server/XSignOTAProtocol.swift',
  'Feather/Backend/Server/XSignOTAInstaller.swift']:

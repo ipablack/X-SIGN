@@ -18,20 +18,18 @@ struct SourceAppProvenance: Equatable {
 	let sourceAppVersion: String?
 	let sourceAppVersionDate: Date?
 	let sourceAppDownloadURL: URL?
-	
-	var sourceVersionID: String {
-		[
-			sourceRepositoryIdentifier ?? sourceRepositoryURL.absoluteString,
-			sourceAppIdentifier,
-			sourceAppVersion ?? "",
-			sourceAppDownloadURL?.absoluteString ?? ""
-		].joined(separator: "|")
-	}
 }
 
 enum SourceLinkedAppKind: String {
 	case imported
 	case signed
+}
+
+extension AppSourceMetadata {
+    var downloadFingerprint: String? {
+        if let sourceVersionID, sourceVersionID.hasPrefix("sha256:") { return sourceVersionID }
+        return XSignReleaseVersion.downloadFingerprint(sourceAppDownloadURL)
+    }
 }
 
 extension SourceAppProvenance {
@@ -85,7 +83,14 @@ extension Storage {
 		let request: NSFetchRequest<AppSourceMetadata> = AppSourceMetadata.fetchRequest()
 		request.sortDescriptors = [NSSortDescriptor(key: "updatedAt", ascending: true)]
 		do {
-			return try context.fetch(request)
+			let metadata = try context.fetch(request)
+			let legacy = metadata.filter { $0.sourceAppDownloadURL != nil }
+			for row in legacy {
+				row.sourceVersionID = row.downloadFingerprint ?? ""
+				row.sourceAppDownloadURL = nil
+			}
+			if !legacy.isEmpty { saveContext() }
+			return metadata
 		} catch {
 			return []
 		}
@@ -112,8 +117,8 @@ extension Storage {
 		metadata.sourceAppName = provenance.sourceAppName
 		metadata.sourceAppVersion = provenance.sourceAppVersion
 		metadata.sourceAppVersionDate = provenance.sourceAppVersionDate
-		metadata.sourceAppDownloadURL = provenance.sourceAppDownloadURL
-		metadata.sourceVersionID = provenance.sourceVersionID
+		metadata.sourceAppDownloadURL = nil
+		metadata.sourceVersionID = XSignReleaseVersion.downloadFingerprint(provenance.sourceAppDownloadURL) ?? ""
 		metadata.updatedAt = now
 		
 		saveContext()
@@ -136,8 +141,7 @@ extension Storage {
 		
 		guard
 			let repositoryURL = source.sourceRepositoryURL,
-			let appIdentifier = source.sourceAppIdentifier,
-			let versionID = source.sourceVersionID
+			let appIdentifier = source.sourceAppIdentifier
 		else {
 			return
 		}
@@ -156,8 +160,8 @@ extension Storage {
 		metadata.sourceAppName = source.sourceAppName
 		metadata.sourceAppVersion = source.sourceAppVersion
 		metadata.sourceAppVersionDate = source.sourceAppVersionDate
-		metadata.sourceAppDownloadURL = source.sourceAppDownloadURL
-		metadata.sourceVersionID = versionID
+		metadata.sourceAppDownloadURL = nil
+		metadata.sourceVersionID = source.downloadFingerprint ?? ""
 		metadata.updatedAt = now
 		
 		saveContext()

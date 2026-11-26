@@ -105,9 +105,10 @@ final class UpdateManager: ObservableObject {
 			
 			let sourceAppIdentifier: String
 			let sourceAppVersion: String?
-			let sourceDownloadURL: URL?
+			let sourceDownloadFingerprint: String?
             let sourceAppName: String?
 			let storedSourceURL: URL
+			let storedSourceID: String?
 			if let directMetadata = metadataByUUID[localUUID] {
 				guard
 					let metadataSourceAppIdentifier = directMetadata.sourceAppIdentifier,
@@ -118,9 +119,10 @@ final class UpdateManager: ObservableObject {
 				
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = directMetadata.sourceAppVersion
-				sourceDownloadURL = directMetadata.sourceAppDownloadURL
+				sourceDownloadFingerprint = directMetadata.downloadFingerprint
                 sourceAppName = directMetadata.sourceAppName
 				storedSourceURL = metadataSourceURL
+				storedSourceID = directMetadata.sourceRepositoryIdentifier
 			} else if let fallback = _fallbackMetadataCandidate(
 				for: localApp,
 				localUUID: localUUID,
@@ -135,9 +137,10 @@ final class UpdateManager: ObservableObject {
 				
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = fallback.metadata.sourceAppVersion
-				sourceDownloadURL = fallback.metadata.sourceAppDownloadURL
+				sourceDownloadFingerprint = fallback.metadata.downloadFingerprint
                 sourceAppName = fallback.metadata.sourceAppName
 				storedSourceURL = metadataSourceURL
+				storedSourceID = fallback.metadata.sourceRepositoryIdentifier
 				Storage.shared.copySourceMetadata(
 					from: fallback.appUUID,
 					to: localUUID,
@@ -149,9 +152,10 @@ final class UpdateManager: ObservableObject {
 			{
 				sourceAppIdentifier = localIdentifier
 				sourceAppVersion = localApp.version
-				sourceDownloadURL = nil
+				sourceDownloadFingerprint = nil
                 sourceAppName = localApp.name
 				storedSourceURL = localSourceURL
+				storedSourceID = nil
 			} else {
 				continue
 			}
@@ -161,7 +165,9 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				guard _matchesStoredRepository(storedSourceURL: storedSourceURL, sourceURL: sourceURL) else {
+				let migratedOwner = sourceURL == XSignCatalogueEndpoint.ownerURL &&
+					storedSourceID == XSignCatalogueEndpoint.ownerID
+				guard migratedOwner || _matchesStoredRepository(storedSourceURL: storedSourceURL, sourceURL: sourceURL) else {
 					continue
 				}
 				
@@ -179,7 +185,8 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
                 guard XSignReleaseVersion.catalogNeedsUpdate(currentVersion:sourceAppVersion,targetVersion:remoteVersion,
-                    currentURL:sourceDownloadURL,targetURL:downloadURL) else { continue }
+                    currentFingerprint:sourceDownloadFingerprint, targetURL:downloadURL,
+                    isProtectedPackage:false) else { continue }
 				
 				guard let provenance = SourceAppProvenance(
 					sourceURL: sourceURL,

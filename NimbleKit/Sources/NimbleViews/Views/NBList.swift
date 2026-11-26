@@ -13,6 +13,7 @@ public struct NBList<Content>: View where Content: View {
 		case form
 	}
 	
+    @Environment(\.colorScheme) private var scheme
 	private var _title: String
 	private var _mode: NavigationBarItem.TitleDisplayMode
 	private var _type: NBListType
@@ -31,7 +32,7 @@ public struct NBList<Content>: View where Content: View {
 	}
 	
 	public var body: some View {
-		Group {
+		let list = Group {
 			switch _type {
 			case .form:
 				Form {
@@ -45,5 +46,11 @@ public struct NBList<Content>: View where Content: View {
 		}
 		.navigationTitle(_title)
 		.navigationBarTitleDisplayMode(_mode)
+        if #available(iOS 16, *) {
+            list.scrollContentBackground(.hidden)
+                .background((scheme == .dark ? Color.black : Color(uiColor: .systemGroupedBackground)).ignoresSafeArea())
+        } else {
+            list
+        }
 	}
 }

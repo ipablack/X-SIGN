@@ -20,6 +20,7 @@ extension AboutView {
 
 // MARK: - View
 struct AboutView: View {
+    private static let foundersChannel = URL(string: "https://t.me/hl00ss")!
 	@State private var _credits: [CreditsModel] = [
 		.init(
 			name: "IPA BLACK",
@@ -35,21 +36,18 @@ struct AboutView: View {
 	
 	// MARK: Body
 	var body: some View {
-		NBList(.localized("About")) {
+        NBList(xsignText("حول XSign")) {
 			Section {
 				VStack {
 					FRAppIconView(size: 72)
 					
-					Text("XSign")
+					Text(verbatim: Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "XSign")
 						.font(.largeTitle.bold())
 						.foregroundStyle(Color.accentColor)
 					
 					HStack(spacing: 4) {
 						Text(.localized("Version"))
-						Text(verbatim: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                            Text("· البناء \(build)")
-                        }
+						Text(verbatim: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
 					}
 					.font(.footnote)
 					.foregroundStyle(.secondary)
@@ -58,9 +56,11 @@ struct AboutView: View {
 			.frame(maxWidth: .infinity)
 			.listRowBackground(EmptyView())
 			
-			NBSection(.localized("Credits")) {
+            NBSection(xsignText("المؤسسون")) {
 				ForEach(_credits, id: \.name) { credit in
-					_credit(name: credit.name, desc: credit.desc, imageUrl: credit.imageUrl)
+                    Link(destination: Self.foundersChannel) {
+                        _credit(name: credit.name, desc: xsignText(credit.desc), imageUrl: credit.imageUrl)
+                    }
 				}
 				.transition(.slide)
 			}

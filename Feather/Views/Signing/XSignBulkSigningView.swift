@@ -98,7 +98,7 @@ struct XSignBulkSigningView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(entry.item.name ?? "تطبيق").font(.headline)
-                                Text(status(entry.state)).font(.caption).foregroundStyle(.secondary)
+                                Text(xsignText(status(entry.state))).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             if case .working = entry.state { ProgressView() }
@@ -108,6 +108,7 @@ struct XSignBulkSigningView: View {
                                         XSignInstallation.shared.install(signed)
                                     } else { model.errorMessage = "لم تعد النسخة الموقعة موجودة في المكتبة." }
                                 }
+                                .buttonStyle(XSignInstallButtonStyle())
                             }
                         }
                     }
@@ -125,7 +126,7 @@ struct XSignBulkSigningView: View {
         }
         .navigationViewStyle(.stack)
         .interactiveDismissDisabled(model.queue.isRunning)
-        .environment(\.layoutDirection, .rightToLeft)
+
     }
 
     private func status(_ state: XSignBatchQueue<any AppInfoPresentable>.State) -> String {

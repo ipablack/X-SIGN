@@ -24,16 +24,40 @@ def merge_missing(defaults, current):
     return copy.deepcopy(current)
 
 
+PROJECTION_FIELDS = ('name', 'identifier', 'subtitle', 'description', 'iconURL',
+                     'tintColor', 'repo_revision_id', 'xsign_config', 'categories')
+
+
 def canonical_source_url(value):
-    if not isinstance(value, str):
-        return value
-    parsed = urlsplit(value)
+    parsed = urlsplit(value.strip())
     parts = parsed.path.split('/')
-    if parsed.hostname == 'github.com' and len(parts) >= 6 and parts[3] in ['raw', 'blob']:
-        parsed = parsed._replace(netloc='raw.githubusercontent.com', path='/'.join(parts[:3] + parts[4:]))
+    if parsed.hostname == 'github.com' and len(parts) >= 6 and parts[3] in ('raw', 'blob'):
+        parsed = parsed._replace(netloc='raw.githubusercontent.com', path='/'.join(parts[:3] + parts[4:]),
+                                 query='&'.join(item for item in parsed.query.split('&') if item.split('=', 1)[0] != 'raw'))
     if parsed.hostname == 'raw.githubusercontent.com':
         parsed = parsed._replace(path=parsed.path.replace('/refs/heads/', '/'))
+    if parsed.scheme == 'https' and parsed.port in (None, 443) and parsed.username is None and parsed.hostname:
+        parsed = parsed._replace(netloc=parsed.hostname if ':' not in parsed.hostname else '[' + parsed.hostname + ']')
+    if (parsed.scheme, parsed.netloc, parsed.fragment) == ('https', 'raw.githubusercontent.com', '') and re.fullmatch(
+            r'/(?i:ipablack/repo)/main/repo\.json/?', parsed.path):
+        return 'https://raw.githubusercontent.com/ipablack/repo/main/repo.json'
     return urlunsplit(parsed)
+
+
+def revision_of(data):
+    value = data.get('repo_revision_id', 0)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError('Invalid repo_revision_id.')
+    return value
+
+
+def reconcile_projection(catalogue, projection):
+    if not isinstance(projection, dict) or not isinstance(projection.get('xsign_config'), dict):
+        raise ValueError('Review the invalid xsign-config.json before replacing it.')
+    if revision_of(projection) < revision_of(catalogue):
+        return catalogue
+    merged = {**catalogue, **{key: projection[key] for key in PROJECTION_FIELDS if key in projection}}
+    return catalogue if merged == catalogue else merged
 
 
 def normalize_catalogue(current, defaults, priority):
@@ -43,69 +67,74 @@ def normalize_catalogue(current, defaults, priority):
     config = result.get('xsign_config')
     if not isinstance(config, dict) or not isinstance(config.get('dashboard'), dict):
         raise ValueError('Invalid xsign_config/dashboard; it was not overwritten.')
+    previous_config = current.get('xsign_config', {})
+    previous_dashboard = previous_config.get('dashboard', {})
     dashboard = config['dashboard']
     if dashboard.get('schema_version') != 2 or not isinstance(dashboard.get('sources'), list):
         raise ValueError('Review the unsupported dashboard schema before initializing the source repo.')
-    if current.get('xsign_config', {}).get('dashboard', {}).get('experience_version', 0) < 2:
-        dashboard['experience_version'] = 2
+    experience = previous_dashboard.get('experience_version', 0)
+    if not isinstance(experience, int) or isinstance(experience, bool):
+        raise ValueError('Invalid dashboard experience_version.')
+    if experience < 2:
         dashboard['allow_user_sources'] = True
-    previous_profile = current.get('xsign_config', {}).get('dashboard', {}).get('catalog_profile')
-    if previous_profile != 'iosboom-public-v1':
-        migrated = []
-        for source in dashboard['sources']:
-            if isinstance(source, dict) and source.get('id') == 'xsign.core.primary' and source.get('url') == 'https://supapi.trystore.net/rest/v1/plus_library_apps':
-                for replacement in defaults['xsign_config']['dashboard']['sources'][1:3]:
-                    migrated.append({**copy.deepcopy(replacement), 'enabled': source.get('enabled', True)})
-            else:
-                migrated.append(source)
-        dashboard['sources'] = migrated
-        if migrated:
-            ids = {source.get('id') for source in migrated if isinstance(source, dict)}
-            urls = {canonical_source_url(source.get('url')) for source in migrated if isinstance(source, dict)}
-            for source in defaults['xsign_config']['dashboard']['sources'][3:]:
-                if source['id'] not in ids and canonical_source_url(source['url']) not in urls:
-                    dashboard['sources'].append(copy.deepcopy(source))
-        if dashboard.get('tab_order') == ['today', 'apps', 'games', 'search', 'library']:
-            dashboard['tab_order'] = ['today', 'games', 'apps', 'library', 'search']
-        if any(item.get('id') == 'apps-sources' and item.get('kind') == 'sources' for item in dashboard.get('sections', []) if isinstance(item, dict)):
-            replacements = {item['id']: item for item in defaults['xsign_config']['dashboard']['sections']}
-            layout = []
-            for item in dashboard['sections']:
-                if item['id'] == 'apps-sources':
-                    layout.append(copy.deepcopy(replacements['apps-featured']))
-                else:
-                    if item['id'] == 'games-list':
-                        layout.append(copy.deepcopy(replacements['games-featured']))
-                    layout.append(item)
-            dashboard['sections'] = layout
-        dashboard['catalog_profile'] = 'iosboom-public-v1'
-    aliases = {
-        'https://github.com/ipablack/repo/raw/refs/heads/main/repo.json': priority[0],
-        'https://github.com/ipablack/repo/blob/main/repo.json': priority[0],
-        'https://raw.githubusercontent.com/ipablack/repo/refs/heads/main/repo.json': priority[0]}
+    dashboard['experience_version'] = max(3, experience)
+    defaults_dashboard = defaults['xsign_config']['dashboard']
+    layout = dashboard.get('sections', [])
+    if not isinstance(layout, list) or not all(isinstance(row, dict) for row in layout):
+        raise ValueError('Review the invalid dashboard sections before initializing the source repo.')
+    by_id = {row['id']: row for row in defaults_dashboard['sections']}
+    today = [row for row in layout if row.get('page') == 'today']
+    if experience < 3 and today and not any(row.get('kind') in ('apps', 'featured') for row in today):
+        layout += [copy.deepcopy(by_id[key]) for key in ('today-featured', 'today-apps')]
+    dashboard['sections'] = layout
+
     sources = dashboard['sources']
-    if len(sources) > 50:
-        raise ValueError('The dashboard supports at most 50 managed sources.')
+    legacy_sources = previous_config.get('app_control', {}).get('core_sources')
+    if 'sources' not in previous_dashboard and isinstance(legacy_sources, list):
+        sources = legacy_sources
+    owned = copy.deepcopy(defaults_dashboard['sources'][0])
+    if owned['url'] != priority[0]:
+        raise ValueError('The permanent IPA BLACK source is inconsistent.')
+    ordered = [owned]
+    ids, urls = {owned['id']}, {owned['url']}
     for item in sources:
-        if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k] for k in ['id', 'name', 'url']):
+        if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k] for k in ('id', 'name', 'url')):
             raise ValueError('Review a malformed managed source before publishing.')
-    fixed_priority = priority[:3]
-    sources.sort(key=lambda item: fixed_priority.index(aliases.get(item['url'], item['url']))
-                 if aliases.get(item['url'], item['url']) in fixed_priority else len(fixed_priority))
-    # A real [] stays []; the compatibility projection cannot resurrect defaults.
+        url = canonical_source_url(item['url'])
+        url_key = url.removesuffix('/')
+        if item['id'] == owned['id'] or url_key == owned['url']:
+            continue
+        parsed = urlsplit(url)
+        if parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None or parsed.fragment:
+            raise ValueError('A managed source must use HTTPS without credentials or fragments.')
+        if item['id'] in ids or url_key in urls:
+            raise ValueError('A managed source ID or URL is duplicated.')
+        ordered.append({**item, 'url': url})
+        ids.add(item['id'])
+        urls.add(url_key)
+    if len(ordered) > 50:
+        raise ValueError('The dashboard supports at most 50 managed sources.')
+    dashboard['sources'] = ordered
     config['app_control']['core_sources'] = [
-        {key: source[key] for key in ['name', 'id', 'url']}
-        for source in sources if source.get('enabled') is not False]
+        {key: source[key] for key in ('name', 'id', 'url')}
+        for source in ordered if source.get('enabled') is not False]
     locks = config['security_locks']
+    if 'allow_app_metadata_editing' not in previous_config.get('security_locks', {}):
+        old_value = previous_config.get('security_locks', {}).get('lock_bundle_rename')
+        if isinstance(old_value, bool):
+            locks['allow_app_metadata_editing'] = not old_value
     locks['lock_bundle_rename'] = not locks['allow_app_metadata_editing']
-    if result['apps'] != current['apps']:
-        raise ValueError('Catalogue initialization cannot modify or remove existing apps.')
-    revision = current.get('repo_revision_id', 0)
-    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 0:
-        raise ValueError('Invalid repo_revision_id.')
-    result['repo_revision_id'] = revision
+    update = dashboard.get('update', {})
+    if isinstance(update.get('required'), bool):
+        force = config['force_update']
+        force['enabled'] = update.get('enabled') is True and update['required']
+        if force['enabled']:
+            force.update(min_version=update.get('latest_version', ''),
+                         min_build_version=update.get('build_version', ''),
+                         update_url=update.get('manifest_url') or update.get('ipa_url', ''))
+    result['repo_revision_id'] = revision_of(current)
     if result != current:
-        result['repo_revision_id'] = revision + 1
+        result['repo_revision_id'] += 1
     return result
 
 
@@ -153,11 +182,14 @@ def bootstrap(root, token, preview=False, call=github_api):
         return data
 
     old = read_file(contract['catalogue_path'])
+    old_projection = read_file(contract['projection_path'])
     defaults = json.loads((root / 'Tools/Delivery/repo.example.json').read_text())
     current = json.loads(old.decode('utf-8-sig')) if old is not None else {'apps': []}
-    catalogue = normalize_catalogue(current, defaults, contract['source_priority'])
-    projection = {key: catalogue[key] for key in ['name', 'identifier', 'subtitle', 'description', 'iconURL',
-        'tintColor', 'repo_revision_id', 'xsign_config', 'categories'] if key in catalogue}
+    authoritative = reconcile_projection(current, json.loads(old_projection.decode('utf-8-sig'))) if old_projection else current
+    catalogue = normalize_catalogue(authoritative, defaults, contract['source_priority'])
+    if authoritative is not current and catalogue['repo_revision_id'] == authoritative['repo_revision_id']:
+        catalogue['repo_revision_id'] += 1
+    projection = {key: catalogue[key] for key in PROJECTION_FIELDS if key in catalogue}
     targets = {
         contract['catalogue_path']: encode(catalogue),
         contract['projection_path']: encode(projection),
@@ -166,7 +198,12 @@ def bootstrap(root, token, preview=False, call=github_api):
     known = json.loads((root / 'Tools/Delivery/source-asset-hashes.json').read_text())
     changes = []
     for path, content in targets.items():
-        existing = old if path == contract['catalogue_path'] else read_file(path)
+        if path == contract['catalogue_path']:
+            existing = old
+        elif path == contract['projection_path']:
+            existing = old_projection
+        else:
+            existing = read_file(path)
         if existing == content:
             continue
         if path in known and existing is not None and hashlib.sha256(existing).hexdigest() not in known[path]:

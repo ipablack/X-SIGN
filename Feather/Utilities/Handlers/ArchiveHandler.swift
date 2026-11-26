@@ -1,21 +1,14 @@
 import Foundation
-import SwiftUI
 import ZIPFoundation
-import IDeviceSwift
 
 // Creates a private, temporary IPA for the iOS installer. There is no export or share API.
-final class ArchiveHandler: NSObject {
-    @ObservedObject var viewModel: InstallerStatusViewModel
-    private let fileManager = FileManager.default
+final class ArchiveHandler {
     private let app: AppInfoPresentable
     private let work = XSignPrivateFiles.workDirectory(prefix: "Install")
     private var payload: URL?
-    private(set) var installationMetadata: XSignOTABundleMetadata?
 
-    init(app: AppInfoPresentable, viewModel: InstallerStatusViewModel) {
+    init(app: AppInfoPresentable) {
         self.app = app
-        self.viewModel = viewModel
-        super.init()
     }
 
     @discardableResult
@@ -27,9 +20,8 @@ final class ArchiveHandler: NSObject {
         let payload = work.appendingPathComponent("Payload")
         try XSignPrivateFiles.createDirectory(payload)
         let copied = payload.appendingPathComponent(original.lastPathComponent)
-        try fileManager.copyItem(at: original, to: copied)
+        try XSignPrivateFiles.copyToWork(original, to: copied)
         let metadata = try XSignOTABundleMetadata.read(from: copied)
-        installationMetadata = metadata
         self.payload = payload
         return metadata
     }
@@ -43,9 +35,8 @@ final class ArchiveHandler: NSObject {
             try FileManager.default.zipItem(at: payload, to: package, shouldKeepParent: true, compressionMethod: compress ? .deflate : .none)
             try XSignPrivateFiles.protect(package)
         }.value
-        await MainActor.run { self.viewModel.packageProgress = 1 }
         return package
     }
 
-    func clean() { try? fileManager.removeItem(at: work) }
+    func clean() { try? FileManager.default.removeItem(at: work) }
 }

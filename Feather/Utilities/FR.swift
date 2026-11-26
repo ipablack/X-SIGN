@@ -5,17 +5,20 @@
 //  Created by samara on 22.04.2025.
 //
 
-import Foundation.NSURL
+import Foundation
+import OSLog
 import UIKit.UIImage
 import ZsignC
 import NimbleJSON
+import NimbleExtensions
 import AltSourceKit
-import IDeviceSwift
 import CryptoKit
 
 // MARK: - Serial package work gate
-private actor FRPackageWorkGate {
+actor FRPackageWorkGate {
     static let shared = FRPackageWorkGate()
+    // A private import workspace never needs the native signing engine.
+    static let imports = FRPackageWorkGate()
     private var busy = false
     private var waiting: [CheckedContinuation<Void, Never>] = []
 
@@ -52,29 +55,39 @@ enum FR {
         }
     }
 
+    @discardableResult
     static func importPackageFile(
         _ ipa: URL,
         download: Download? = nil,
         sourceProvenance: SourceAppProvenance? = nil,
         consumeTemporaryFile: Bool = false,
         completion: @escaping @MainActor (Result<String, Error>) -> Void
-    ) {
-        Task.detached {
-            await FRPackageWorkGate.shared.acquire()
+    ) -> Task<Void, Never> {
+        Task.detached(priority: .userInitiated) {
+            let enqueued = ProcessInfo.processInfo.systemUptime
+            await FRPackageWorkGate.imports.acquire()
+            let started = ProcessInfo.processInfo.systemUptime
             let handler = AppFileHandler(file: ipa, download: download, sourceProvenance: sourceProvenance, consumeTemporaryFile: consumeTemporaryFile)
             do {
+                try Task.checkCancellation()
                 try await handler.copy()
-                try await handler.extract()
+                let staged = ProcessInfo.processInfo.systemUptime
+                try handler.extract()
+                let extracted = ProcessInfo.processInfo.systemUptime
+                try Task.checkCancellation()
                 try await handler.move()
+                try Task.checkCancellation()
                 try await handler.addToDatabase()
                 try? await handler.clean()
                 let uuid = handler.resultUUID
-                await FRPackageWorkGate.shared.release()
+                let finished = ProcessInfo.processInfo.systemUptime
+                Logger.misc.info("IPA import timings (s): queue=\(started - enqueued) stage=\(staged - started) unpack=\(extracted - staged) save=\(finished - extracted)")
+                await FRPackageWorkGate.imports.release()
                 await MainActor.run { completion(.success(uuid)) }
             } catch {
                 try? await handler.clean()
                 try? FileManager.default.removeItem(at: FileManager.default.unsigned(handler.resultUUID))
-                await FRPackageWorkGate.shared.release()
+                await FRPackageWorkGate.imports.release()
                 await MainActor.run { completion(.failure(error)) }
             }
         }
@@ -102,12 +115,15 @@ enum FR {
         certificate: CertificatePair?,
         preserveBundleForBatch: Bool = false,
         selfUpdatePermit: XSignVerifiedSelfUpdate? = nil,
+        requireRequestedEdits: Bool = false,
+        preserveEditedBundleID: Bool = false,
         completion: @escaping @MainActor (Result<String, Error>) -> Void
     ) {
         // Same signing engine path as Feather: native Zsign handler under the
         // existing serial package gate. Installation is a separate server step.
         signPackageFileLocally(app,using:options,icon:icon,certificate:certificate,
-            preserveBundleForBatch:preserveBundleForBatch,selfUpdatePermit:selfUpdatePermit,completion:completion)
+            preserveBundleForBatch:preserveBundleForBatch,selfUpdatePermit:selfUpdatePermit,
+            requireRequestedEdits:requireRequestedEdits,preserveEditedBundleID:preserveEditedBundleID,completion:completion)
     }
 
     private static func signPackageFileLocally(
@@ -117,20 +133,38 @@ enum FR {
         certificate: CertificatePair?,
         preserveBundleForBatch: Bool = false,
         selfUpdatePermit: XSignVerifiedSelfUpdate? = nil,
+        requireRequestedEdits: Bool,
+        preserveEditedBundleID: Bool,
         completion: @escaping @MainActor (Result<String, Error>) -> Void
     ) {
-        Task.detached {
+        Task.detached(priority: .userInitiated) {
             await FRPackageWorkGate.shared.acquire()
+            @Sendable func finish(_ result: Result<String, Error>) async {
+                await FRPackageWorkGate.shared.release()
+                await MainActor.run { completion(result) }
+            }
+
             let permittedSelfUpdate = await MainActor.run { selfUpdatePermit?.permits(app) ?? false }
             if !permittedSelfUpdate, let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
-                await FRPackageWorkGate.shared.release()
-                await MainActor.run { completion(.failure(NSError(domain: "XSign.Policy", code: 403,
-                    userInfo: [NSLocalizedDescriptionKey: reason]))) }
+                await finish(.failure(NSError(domain: "XSign.Policy", code: 403,
+                    userInfo: [NSLocalizedDescriptionKey: reason])))
                 return
             }
             let locks = await MainActor.run { XSignSecurityEnforcer.shared.locks }
+            if requireRequestedEdits {
+                let deniedMetadata = !locks.allowsAppMetadataEditing &&
+                    (options.appName != nil || options.appIdentifier != nil || options.appVersion != nil)
+                let deniedIcon = !locks.allowsIconChanges && icon != nil
+                let deniedInjection = !locks.allowsLibraryInjection && !options.injectionFiles.isEmpty
+                if deniedMetadata || deniedIcon || deniedInjection {
+                    await finish(.failure(NSError(domain: "XSign.Policy", code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "تغيّرت صلاحيات التخصيص. حدّث الصلاحيات وراجع التعديلات قبل التوقيع."])))
+                    return
+                }
+            }
             var permittedOptions = options
             var signingCertificate = certificate
+            if preserveEditedBundleID { permittedOptions.matchCertificateAppID = false }
             if !locks.allowsAppMetadataEditing {
                 permittedOptions.appName = nil
                 permittedOptions.appIdentifier = nil
@@ -145,21 +179,20 @@ enum FR {
             permittedOptions.appName = permittedOptions.appName?.trimmingCharacters(in: .whitespacesAndNewlines)
             permittedOptions.appIdentifier = permittedOptions.appIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
             permittedOptions.appVersion = permittedOptions.appVersion?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if locks.lock_dylib_injection ?? true {
+            if !locks.allowsLibraryInjection {
                 permittedOptions.injectionFiles = []
                 permittedOptions.experiment_replaceSubstrateWithEllekit = false
             }
+            let container = await MainActor.run { Storage.shared.getUuidDirectory(for: app) }
+            guard let container, let appDirectory = FileManager.default.getPath(in: container, for: "app") else {
+                await finish(.failure(SigningFileHandlerError.appNotFound))
+                return
+            }
             if permittedOptions.signingOption == .default {
                 do {
-                    let original = try await MainActor.run { () throws -> String in
-                        guard let directory = Storage.shared.getAppDirectory(for: app) else {
-                            throw SigningFileHandlerError.appNotFound
-                        }
-                        let info = try XSignAppMetadata.readInfo(at: directory.appendingPathComponent("Info.plist"))
-                        guard let identifier = info["CFBundleIdentifier"] as? String, !identifier.isEmpty else {
-                            throw NSError(domain: "XSign.Metadata", code: 400, userInfo: [NSLocalizedDescriptionKey: "ملف معلومات التطبيق لا يحتوي على بندل صالح."])
-                        }
-                        return identifier
+                    let info = try XSignAppMetadata.readInfo(at: appDirectory.appendingPathComponent("Info.plist"))
+                    guard let original = info["CFBundleIdentifier"] as? String, !original.isEmpty else {
+                        throw NSError(domain: "XSign.Metadata", code: 400, userInfo: [NSLocalizedDescriptionKey: "ملف معلومات التطبيق لا يحتوي على بندل صالح."])
                     }
                     let current = permittedOptions.appIdentifier ?? original
                     let protectedID = selfUpdatePermit == nil ? Bundle.main.bundleIdentifier : nil
@@ -169,7 +202,12 @@ enum FR {
                     if selfUpdatePermit == nil {
                         signingCertificate = await Storage.shared.signingCertificate(for: current, preferred: certificate)
                     }
-                    guard let selectedCertificate = signingCertificate else { throw SigningFileHandlerError.missingCertifcate }
+                    guard let selectedCertificate = signingCertificate else {
+                        if preserveEditedBundleID, certificate != nil {
+                            throw XSignProvisioningProfile.ProfileError.mismatch
+                        }
+                        throw SigningFileHandlerError.missingCertifcate
+                    }
                     if permittedOptions.matchCertificateAppID == true, locks.allowsAppMetadataEditing, selfUpdatePermit == nil,
                        let url = await MainActor.run(body: { Storage.shared.getFile(.provision, from: selectedCertificate) }),
                        let profile = try? XSignProvisioningProfile.read(at: url),
@@ -182,26 +220,23 @@ enum FR {
                         }
                     }
                 } catch {
-                    await FRPackageWorkGate.shared.release()
-                    await MainActor.run { completion(.failure(error)) }
+                    await finish(.failure(error))
                     return
                 }
             }
             let handler = SigningHandler(app: app, options: permittedOptions, isVerifiedSelfUpdate: permittedSelfUpdate)
             handler.appCertificate = signingCertificate
-            handler.appIcon = (locks.lock_icon_change ?? true) ? nil : icon
+            handler.appIcon = locks.allowsIconChanges ? icon : nil
             do {
-                try await handler.copy()
+                try handler.copy(from: appDirectory)
                 try await handler.modify()
                 try? await handler.clean()
                 let uuid = handler.resultUUID
-                await FRPackageWorkGate.shared.release()
-                await MainActor.run { completion(.success(uuid)) }
+                await finish(.success(uuid))
             } catch {
                 try? await handler.clean()
                 try? FileManager.default.removeItem(at: FileManager.default.signed(handler.resultUUID))
-                await FRPackageWorkGate.shared.release()
-                await MainActor.run { completion(.failure(error)) }
+                await finish(.failure(error))
             }
         }
     }

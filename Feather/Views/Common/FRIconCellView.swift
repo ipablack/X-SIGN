@@ -21,7 +21,7 @@ struct FRIconCellView: View {
 	var body: some View {
 		HStack(spacing: 18) {
 			if let iconURL = iconUrl {
-				LazyImage(url: iconURL) { state in
+				LazyImage(request: xsignImageRequest(iconURL)) { state in
 					if let image = state.image {
 						image.appIconStyle(size: size, isCircle: isCircle)
 					} else {

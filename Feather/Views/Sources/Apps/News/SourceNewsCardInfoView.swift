@@ -25,7 +25,7 @@ struct SourceNewsCardInfoView: View {
 						}()
 
 						if let iconURL = new.imageURL {
-							LazyImage(url: iconURL) { state in
+							LazyImage(request: xsignImageRequest(iconURL)) { state in
 								if let image = state.image {
 									Color.clear.overlay(
 										image
@@ -87,7 +87,7 @@ struct SourceNewsCardInfoView: View {
 				)
 				.padding()
 			}
-			.background(Color(uiColor: .systemBackground))
+			.xsignPageBackground()
 			.toolbar {
 				NBToolbarButton(role: .close)
 			}

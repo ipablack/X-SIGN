@@ -15,6 +15,12 @@ actor XSignLocalSigningServer {
     private var port: Int?
     private var activeCalls = 0
     private var idleShutdown: Task<Void, Never>?
+    private final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+            completionHandler(nil)
+        }
+    }
     private let idleSeconds: UInt64
     private lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
@@ -23,7 +29,7 @@ actor XSignLocalSigningServer {
         configuration.connectionProxyDictionary = [:]
         configuration.timeoutIntervalForRequest = 10
         configuration.timeoutIntervalForResource = 15
-        return URLSession(configuration: configuration)
+        return URLSession(configuration: configuration, delegate: NoRedirects(), delegateQueue: nil)
     }()
 
     init(idleSeconds: UInt64 = 30, jobs: XSignLocalSigningJobs = XSignLocalSigningJobs(),

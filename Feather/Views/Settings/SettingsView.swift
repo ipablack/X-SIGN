@@ -9,16 +9,18 @@ import SwiftUI
 import NimbleViews
 import UIKit
 import Darwin
-import IDeviceSwift
 
 // MARK: - View
 struct SettingsView: View {
-
 	// MARK: Body
 	var body: some View {
-		NBNavigationView(.localized("Settings")) {
+		NBNavigationView(xsignText("Settings")) {
 			Form {
-				_feedback()
+                _feedback()
+                Section {
+                    XSignLanguageMenu()
+                    XSignImportNoticeToggle()
+                }
 
 				Section {
 					NavigationLink(destination: AppearanceView()) {
@@ -67,7 +69,7 @@ extension SettingsView {
 		Section {
 			NavigationLink(destination: AboutView()) {
 				Label {
-					Text(verbatim: .localized("About %@", arguments: Bundle.main.name))
+					Text("حول XSign")
 				} icon: {
 					FRAppIconView(size: 23)
 				}

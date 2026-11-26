@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 // taken from skykit
 // MARK: - Make Color conform to codable
@@ -41,7 +46,7 @@ extension Color: Codable {
 		
 		// had to use this shim
 		let (r, g, b, a) = {
-			if #available(iOS 17.0, *) {
+			if #available(iOS 17.0, macOS 14.0, *) {
 				
 				let resolved = resolve(in: EnvironmentValues())
 				
@@ -124,23 +129,23 @@ extension Color: @retroactive RawRepresentable {
 // taken from meret
 public extension Color {
 	var components: (red: CGFloat, green: CGFloat, blue: CGFloat, opacity: CGFloat) {
-		
 		#if canImport(UIKit)
-			typealias NativeColor = UIColor
-		#elseif canImport(AppKit)
-			typealias NativeColor = NSColor
-		#endif
-		
 		var r: CGFloat = 0
 		var g: CGFloat = 0
 		var b: CGFloat = 0
 		var o: CGFloat = 0
 		
-		guard NativeColor(self).getRed(&r, green: &g, blue: &b, alpha: &o) else {
-			// You can handle the failure here as you want
+		guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &o) else {
 			return (0, 0, 0, 0)
 		}
-		
 		return (r, g, b, o)
+		#elseif canImport(AppKit)
+		guard let rgba = NSColor(self).usingColorSpace(.sRGB)?.cgColor.components, rgba.count == 4 else {
+			return (0, 0, 0, 0)
+		}
+		return (rgba[0], rgba[1], rgba[2], rgba[3])
+		#else
+		return (0, 0, 0, 0)
+		#endif
 	}
 }

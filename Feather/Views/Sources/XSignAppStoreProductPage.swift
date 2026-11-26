@@ -5,6 +5,7 @@ import AltSourceKit
 
 struct XSignAppStoreProductPage: View {
     let item: AppStoreAppItem
+    let importsToLibrary: Bool
     @State private var metadata: AppleStoreRichMetadata?
     @State private var loading = true
     @State private var versionsPresented = false
@@ -12,6 +13,11 @@ struct XSignAppStoreProductPage: View {
     @State private var screenshot: XSignProductScreenshot?
     @State private var notesExpanded = false
     @AppStorage("Feather.userTintColor") private var tintHex = "#005BBB"
+
+    init(item: AppStoreAppItem, importsToLibrary: Bool = false) {
+        self.item = item
+        self.importsToLibrary = importsToLibrary
+    }
 
     private var screens: [URL] {
         let urls = metadata?.screenshots.isEmpty == false ? metadata!.screenshots : item.screenshots
@@ -21,7 +27,7 @@ struct XSignAppStoreProductPage: View {
     private var developer: String { metadata?.sellerName ?? item.app.developer ?? "—" }
     private var description: String {
         if let value = item.app.currentDescription, !value.isEmpty, !AppStoreBilingualEngine.isInternalSourceNote(value) { return value }
-        return metadata?.description ?? "لا يتوفر وصف لهذا الإصدار."
+        return metadata?.description ?? xsignText("لا يتوفر وصف لهذا الإصدار.")
     }
     private var notes: String? {
         if let value = item.app.currentAppVersion?.localizedDescription, !value.isEmpty,
@@ -36,9 +42,11 @@ struct XSignAppStoreProductPage: View {
     }
     private var languages: String? {
         guard let codes = metadata?.languageCodes, !codes.isEmpty else { return nil }
-        let locale = Locale(identifier: "ar")
-        return codes.prefix(5).map { locale.localizedString(forLanguageCode: $0) ?? $0 }.joined(separator: "، ")
-            + (codes.count > 5 ? " و\(codes.count - 5) أخرى" : "")
+        let locale = XSignLanguage.current.locale
+        let names = codes.prefix(5).map { locale.localizedString(forLanguageCode: $0) ?? $0 }
+        let list = names.joined(separator: XSignLanguage.current == .english ? ", " : "، ")
+        return codes.count > 5
+            ? String(format: xsignText("%@ و%lld أخرى"), list, Int64(codes.count - 5)) : list
     }
 
     var body: some View {
@@ -61,7 +69,7 @@ struct XSignAppStoreProductPage: View {
                 information.padding(.horizontal, 18).padding(.bottom, 36)
             }
         }
-        .background(AppStoreTheme.background.ignoresSafeArea())
+        .xsignPageBackground()
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarHidden(false)
         .sheet(isPresented: $versionsPresented) { versionHistory }
@@ -71,7 +79,7 @@ struct XSignAppStoreProductPage: View {
         .fullScreenCover(item: $screenshot) { selected in
             XSignProductScreenshots(urls: screenshots, selected: selected.url)
         }
-        .environment(\.layoutDirection, .rightToLeft)
+
         .task(id: item.id) {
             loading = true
             metadata = await AppStoreLiveMetadataBridge.shared.fetchMetadata(bundleID: item.app.id,
@@ -88,11 +96,11 @@ struct XSignAppStoreProductPage: View {
                 .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.app.currentName).font(.title2.bold()).lineLimit(2)
-                Text(item.arabicSubtitle).font(.system(size: 14, weight: .medium))
+                Text(xsignText(item.arabicSubtitle)).font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 8)
                 HStack {
-                    AppStore2026DownloadButton(app: item.app)
+                    packageButton(for: item.app, provenance: item.downloadProvenance())
                     Spacer()
                     if metadata?.storeURL != nil {
                         Button { sharing = true } label: { Image(systemName: "square.and.arrow.up").font(.title3) }
@@ -112,7 +120,7 @@ struct XSignAppStoreProductPage: View {
                 Divider().frame(height: 36)
                 AppStoreStatBadge(topTitle: "العمر", mainValue: metadata?.contentRating ?? "—", bottomText: "سنة")
                 Divider().frame(height: 36)
-                AppStoreStatBadge(topTitle: "الفئة", mainValue: item.category.rawValue, bottomText: "التصنيف")
+                AppStoreStatBadge(topTitle: "الفئة", mainValue: xsignText(item.categoryTitle), bottomText: "التصنيف")
                 Divider().frame(height: 36)
                 AppStoreStatBadge(topTitle: "الحجم", mainValue: size, bottomText: "iOS")
             }.padding(.horizontal, 18)
@@ -124,7 +132,7 @@ struct XSignAppStoreProductPage: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("ما الجديد").font(.title2.weight(.bold))
                 Spacer()
-                if item.app.versions?.isEmpty == false {
+                if !item.catalogueVersions.isEmpty {
                     Button("سجل الإصدارات") { versionsPresented = true }.font(.subheadline)
                 }
             }
@@ -172,7 +180,7 @@ struct XSignAppStoreProductPage: View {
                 AppStoreInfoRow(label: "المطور", value: developer)
             }
             AppStoreInfoRow(label: "الحجم", value: size)
-            AppStoreInfoRow(label: "الفئة", value: item.category.rawValue)
+            AppStoreInfoRow(label: "الفئة", value: item.categoryTitle)
             if let minimum = metadata?.minimumOSVersion { AppStoreInfoRow(label: "التوافق", value: "يتطلب iOS \(minimum) أو أحدث") }
             if let languages { AppStoreInfoRow(label: "اللغات", value: languages) }
             if let age = metadata?.contentRating { AppStoreInfoRow(label: "التصنيف العمري", value: age) }
@@ -183,15 +191,41 @@ struct XSignAppStoreProductPage: View {
     private var versionHistory: some View {
         XSignNavigationView {
             List {
-                ForEach(Array((item.app.versions ?? []).enumerated()), id: \.offset) { _, version in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(version.version).font(.headline)
-                        if let text = version.localizedDescription { Text(text).font(.subheadline) }
+                ForEach(Array(item.catalogueVersions.enumerated()), id: \.offset) { _, version in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(version.version).font(.headline)
+                            if let build = version.build, !build.isEmpty {
+                                Text("البناء \(build)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            if let text = version.localizedDescription, !text.isEmpty {
+                                Text(text).font(.subheadline)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        if let url = version.downloadURL, XSignManagedSource.httpsURL(url.absoluteString) != nil {
+                            packageButton(for: app(for: version), provenance: item.downloadProvenance(version: version))
+                        }
                     }.padding(.vertical, 8)
                 }
             }.navigationTitle("سجل الإصدارات").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("تم") { versionsPresented = false } } }
         }
+    }
+
+    @ViewBuilder private func packageButton(for app: ASRepository.App, provenance: SourceAppProvenance?) -> some View {
+        if importsToLibrary {
+            DownloadButtonView(url: app.currentDownloadUrl, provenance: provenance)
+        } else {
+            AppStore2026DownloadButton(app: app, provenance: provenance)
+        }
+    }
+
+    private func app(for version: ASRepository.App.Version) -> ASRepository.App {
+        var app = item.app
+        app.versions = [version]
+        app.downloadURL = version.downloadURL
+        app.size = version.size.flatMap { Int64(exactly: $0) }
+        return app
     }
 }
 
@@ -203,7 +237,7 @@ private struct XSignProductScreenshot: Identifiable {
 private struct XSignProductScreenshotImage: View {
     let url: URL
     var body: some View {
-        LazyImage(url: url) { state in
+        LazyImage(request: xsignImageRequest(url)) { state in
             if let image = state.image { image.resizable().scaledToFit() }
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         }.processors([.resize(size: CGSize(width: 700, height: 1400))])

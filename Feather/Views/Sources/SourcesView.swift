@@ -22,9 +22,14 @@ import UIKit
 enum AppStoreTheme {
     nonisolated static let oceanBlue = Color.accentColor
     nonisolated static let deepOcean = Color(red: 0.02, green: 0.16, blue: 0.36)
-    nonisolated static let background = Color(uiColor: .systemGroupedBackground)
+    nonisolated static let baseUIColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .black : .systemGroupedBackground
+    }
+    nonisolated static let background = Color(uiColor: baseUIColor)
     nonisolated static let pureBlack = background
-    nonisolated static let cardSurface = Color(uiColor: .secondarySystemGroupedBackground)
+    nonisolated static let cardSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.075, alpha: 1) : .secondarySystemGroupedBackground
+    })
     nonisolated static let controlSurface = Color(uiColor: .tertiarySystemFill)
     nonisolated static let outline = Color.primary.opacity(0.08)
 
@@ -50,45 +55,16 @@ enum AppStoreTheme {
 
 // MARK: - Protected Sources Vault (IPA BLACK and live providers)
 enum ProtectedSourcesVault {
-    nonisolated static let primaryURLString = "https://appiraq.com/source.php?action=getAll"
-    nonisolated static let secondaryURLString = "https://appiraq.com/han.json"
-    nonisolated static let defaultOwnedURLString = "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
-    nonisolated static let defaultOwnedGitHubRawURLString = "https://github.com/ipablack/repo/raw/refs/heads/main/repo.json"
-    nonisolated static let ownedIdentifier = "xsign.core.owned"
-    nonisolated static let ownedURLKey = "xsign.ownedSourceURL.v1"
-    nonisolated static let legacyURLs = [
-        "https://raw.githubusercontent.com/ipa-black/IPABLACK/main/repo.json",
-        "https://raw.githubusercontent.com/ipa-black/store-api/main/public/repo.json",
-        "https://raw.githubusercontent.com/ipa-black/X-SIGN/main/Feather/Resources/XSignCatalogReference.json",
-        "https://supapi.trystore.net/rest/v1/plus_library_apps",
-        "https://raw.githubusercontent.com/ipa-black/X-SIGN/main/public/sources/ipaomtk.json"
-    ]
-
-    nonisolated static func validOwnedURL(_ text: String?) -> URL? {
-        guard let text, let raw = URL(string: text), raw.scheme?.lowercased() == "https",
-              raw.host != nil, raw.user == nil, raw.password == nil, raw.fragment == nil else { return nil }
-        let url = XSignCatalogIO.canonicalURL(raw)
-        guard url.absoluteString != primaryURLString,
-              !legacyURLs.contains(where: { URL(string: $0).map(XSignCatalogIO.canonicalURL) == url }) else { return nil }
-        return url
-    }
-
-    nonisolated static var ownedURL: URL? { validOwnedURL(defaultOwnedURLString) }
-    nonisolated static var coreURLs: [String] { (ownedURL.map { [$0.absoluteString] } ?? []) + [primaryURLString, secondaryURLString] + XSignDashboardSources.iosboomSources.filter { $0.enabled != false }.map(\.url) }
+    nonisolated static var ownedURL: URL? { XSignCatalogueEndpoint.ownerURL }
+    nonisolated static var coreURLs: [String] { [XSignCatalogueEndpoint.ownerURL.absoluteString] }
 
     nonisolated static func isRetiredSource(_ sourceURL: URL?, identifier: String? = nil) -> Bool {
         guard let sourceURL else { return true }
-        guard XSignManagedSource.httpsURL(sourceURL.absoluteString) != nil else { return true }
-        let legacy=legacyURLs.contains { URL(string:$0).map(XSignCatalogIO.canonicalURL) == XSignCatalogIO.canonicalURL(sourceURL) }
-        // An explicit dashboard source may reuse any valid HTTPS endpoint. Old
-        // cached sources alone cannot re-enable a provider that the owner removed.
-        return legacy && XSignDashboardSources.configuration(for:sourceURL) == nil && !XSignDashboardSources.isExplicitUserSource(sourceURL)
+        return !isIPABlackSource(sourceURL) && XSignManagedSource.httpsURL(sourceURL.absoluteString) == nil
     }
+
     nonisolated static func isIPABlackSource(_ sourceURL: URL?, identifier: String? = nil) -> Bool {
-        sourceURL.map(XSignCatalogIO.canonicalURL) == ownedURL.map(XSignCatalogIO.canonicalURL)
-    }
-    nonisolated static func isHiddenCoreSource(_ source: AltSource) -> Bool {
-        source.sourceURL.map(XSignCatalogIO.canonicalURL).map { coreURLs.contains($0.absoluteString) } ?? false
+        sourceURL.map(XSignDashboardSources.sourceKey) == XSignCatalogueEndpoint.ownerURL.absoluteString
     }
 
     nonisolated static func migrateOldSourceCaches() {
@@ -165,7 +141,8 @@ actor AppStoreLiveMetadataBridge {
 			return nil
 		}
 
-		let cacheKey = "\(bundleID ?? "")_\(appName)".lowercased()
+        let language = XSignLanguage.current
+		let cacheKey = "\(language.rawValue)_\(bundleID ?? "")_\(appName)".lowercased()
 			.replacingOccurrences(of: "[^a-z0-9_]", with: "", options: .regularExpression)
 
 		if negativeCache.contains(cacheKey) {
@@ -200,19 +177,19 @@ actor AppStoreLiveMetadataBridge {
 				return nil
 			}
 
-			if let found = await Self.queryiTunes(
-				urlString: "https://itunes.apple.com/lookup?bundleId=\(encodedID)&country=SA"
-			) {
-				return found
-			}
-
-			if let foundUS = await Self.queryiTunes(
-				urlString: "https://itunes.apple.com/lookup?bundleId=\(encodedID)&country=US"
-			) {
-				return foundUS
-			}
-
-			// التطبيق محذوف من متجر أبل -> لا نجلب أي صور من أبل
+            let storefronts = language == .arabic ? ["SA", "US"] : ["US", "SA"]
+            let preference: String
+            switch language {
+            case .arabic: preference = "ar, en;q=0.8"
+            case .english: preference = "en"
+            case .kurdish: preference = "ckb, en;q=0.8"
+            }
+            for storefront in storefronts {
+                let lookup = "https://itunes.apple.com/lookup?bundleId=\(encodedID)&country=\(storefront)"
+                if let metadata = await Self.queryiTunes(urlString: lookup, preferredLanguage: preference) {
+                    return metadata
+                }
+            }
 			return nil
 		}
 
@@ -243,12 +220,12 @@ actor AppStoreLiveMetadataBridge {
         memoryCache[key] = metadata
     }
 
-	private nonisolated static func queryiTunes(urlString: String) async -> AppleStoreRichMetadata? {
+	private nonisolated static func queryiTunes(urlString: String, preferredLanguage: String) async -> AppleStoreRichMetadata? {
 		guard let url = URL(string: urlString) else { return nil }
 		do {
 			var request = URLRequest(url: url)
 			request.timeoutInterval = 6
-			request.setValue("ar-SA,ar;q=0.9", forHTTPHeaderField: "Accept-Language")
+			request.setValue(preferredLanguage, forHTTPHeaderField: "Accept-Language")
 			let (data, response) = try await URLSession.shared.data(for: request)
 			guard let http = response as? HTTPURLResponse,
 			      (200..<300).contains(http.statusCode) else { return nil }
@@ -460,50 +437,89 @@ enum AppStoreBilingualEngine {
 }
 
 struct AppStoreAppItem: Identifiable, Hashable, Sendable {
-	let id: String
+	private(set) var id: String
 	let sourceURL: URL?
+    private(set) var sourceURLs: Set<URL>
+    private(set) var sourceCatalogIDs: Set<String>
     let sourceName: String
-    let sourceCategories: [ASRepository.CatalogCategory]
+    private(set) var categoryKeys: Set<String>
+    private(set) var declaredCategories: [XSignCategoryLabel]
+    private(set) var catalogueVersions: [ASRepository.App.Version] = []
 	let app: ASRepository.App
 	private(set) var category: AppStore2026Category
-	private(set) var isGame: Bool?
-    let declaredGame: Bool?
+	private(set) var isGame: Bool
+    let typeEvidence: XSignCatalogKindPolicy.TypeEvidence?
+    let initialGame: Bool
+    let inferredCategory: AppStore2026Category
 	private(set) var arabicSubtitle: String
 	let searchIndexTokens: String
     let searchDocument: XSignSearchDocument
 	let screenshots: [URL]
 
-	init(id: String, sourceURL: URL?, repository: ASRepository, app: ASRepository.App) {
+    var categoryTitle: String { declaredCategories.first?.title ?? category.rawValue }
+
+    init(id: String, sourceURL: URL?, sourceName: String?, taxonomy: XSignCategoryLookup,
+         studioTaxonomy: XSignCategoryLookup, ownsCategory: Bool, app: ASRepository.App) {
 		self.id = id
 		self.sourceURL = sourceURL
-        self.sourceName = repository.name ?? "المصدر"
-        self.sourceCategories = repository.categories ?? []
+        self.sourceURLs = Set([sourceURL].compactMap { $0 })
+        self.sourceCatalogIDs = Set([app.id, app.catalogID].compactMap { $0 })
+        self.sourceName = sourceName ?? "المصدر"
 		self.app = app
 
+        let match = taxonomy.match(app.categoryReferences, namesFrom: studioTaxonomy, owned: ownsCategory)
+        self.categoryKeys = match.keys
+        self.declaredCategories = match.labels.filter { label in
+            let key = XSignCatalogKindPolicy.categoryKey(label.title) ?? label.key
+            if XSignStoreCategory.allLabels.contains(key) { return false }
+            let broad = ["game", "games", "gaming", "6014", "العاب", "الالعاب"].contains(key) ||
+                ["games", "6014"].contains(label.key)
+            return !broad || studioTaxonomy.definition(for: label.key) != nil
+        }
         let inferred = AppStore2026Category.strictlyClassify(app: app)
-        let declaredGame = AppStore2026Category.declaredKind(app: app, categories: sourceCategories)
-        self.declaredGame = declaredGame
-        let kind = declaredGame ?? Self.inferredKind(app: app, category: inferred)
-        self.isGame = kind
-        let category = kind == true && !inferred.isGameCategory ? .casualGames
-            : kind != true && inferred.isGameCategory ? .productivity : inferred
+        self.inferredCategory = inferred
+        let declared = match.kind.map { XSignCatalogKindPolicy.TypeEvidence(game: $0, priority: match.explicit ? 4 : 2) }
+        let mapped = match.studioKind.map { XSignCatalogKindPolicy.TypeEvidence(game: $0, priority: 3) }
+        let recognised = XSignCatalogKindPolicy.recognizesGame(name: app.currentName, bundleID: app.id)
+            ? XSignCatalogKindPolicy.TypeEvidence(game: true, priority: 1) : nil
+        let sourceEvidence = match.explicit ? declared : (mapped ?? declared)
+        let ownerKind = ownsCategory ? (match.primaryStudioKind ?? app.isGame) : nil
+        let knownGame = XSignCatalogKindPolicy.knownGameBundle(app.id)
+            ? XSignCatalogKindPolicy.TypeEvidence(game: true, priority: 6) : nil
+        let genre = app.categoryReferences.lazy.compactMap { value -> Bool? in
+            guard let key = XSignCatalogKindPolicy.categoryKey(value),
+                  let id = Int(key), id == 6014 || (7001...7019).contains(id),
+                  taxonomy.definition(for: value) == nil else { return nil }
+            return true
+        }.first
+        let evidence = ownerKind.map { XSignCatalogKindPolicy.TypeEvidence(game: $0, priority: 7) }
+            ?? knownGame ?? genre.map { XSignCatalogKindPolicy.TypeEvidence(game: $0, priority: 6) }
+            ?? app.isGame.map { XSignCatalogKindPolicy.TypeEvidence(game: $0, priority: 5) } ?? sourceEvidence ?? recognised
+        self.typeEvidence = evidence
+        let game = evidence?.game ?? false
+        self.isGame = game
+        self.initialGame = game
+        let category = game && !inferred.isGameCategory ? .casualGames
+            : !game && inferred.isGameCategory ? .productivity : inferred
         self.category = category
         self.arabicSubtitle = AppStoreBilingualEngine.localizedSubtitle(for: app, category: category)
         self.searchDocument = XSignSearchDocument(name: app.currentName, bundleID: app.id ?? "", aliasIndex: AppStoreBilingualEngine.preparedAliasIndex)
         self.searchIndexTokens = ([searchDocument.name, searchDocument.bundle] + searchDocument.aliases).joined(separator: " ")
 
-		if let urls = app.screenshotURLs, !urls.isEmpty {
-			self.screenshots = urls
-		} else if let iphone = app.screenshots?.iPhone, !iphone.isEmpty {
-			self.screenshots = iphone
-		} else {
-			self.screenshots = []
-		}
+        let images = app.screenshotURLs.flatMap { $0.isEmpty ? nil : $0 } ?? app.screenshots?.iPhone ?? []
+        self.screenshots = images.filter { XSignManagedSource.httpsURL($0.absoluteString) != nil }
 	}
 
-    nonisolated private static func inferredKind(app: ASRepository.App, category: AppStore2026Category) -> Bool? {
-        if XSignCatalogKindPolicy.recognizesGame(name: app.currentName, bundleID: app.id) { return true }
-        return !category.isGameCategory && category != .productivity ? false : nil
+    func downloadProvenance(version: ASRepository.App.Version? = nil) -> SourceAppProvenance? {
+        guard let sourceURL, let identifier = app.catalogID ?? app.id else { return nil }
+        if let url = version?.downloadURL,
+           url != app.currentDownloadUrl, app.versions?.contains(where: { $0.downloadURL == url }) != true {
+            return nil
+        }
+        return SourceAppProvenance(sourceRepositoryURL: sourceURL, sourceRepositoryIdentifier: nil,
+            sourceRepositoryName: sourceName, sourceAppIdentifier: identifier, sourceAppName: app.currentName,
+            sourceAppVersion: version?.version ?? app.currentVersion, sourceAppVersionDate: version?.date?.date ?? app.currentDate?.date,
+            sourceAppDownloadURL: version?.downloadURL ?? app.currentDownloadUrl)
     }
 
     nonisolated var typeGroupKey: String? {
@@ -511,11 +527,84 @@ struct AppStoreAppItem: Identifiable, Hashable, Sendable {
         return app.currentDownloadUrl.map { "download:" + $0.absoluteString }
     }
 
+    nonisolated var catalogueKey: String { typeGroupKey ?? id }
+
+    nonisolated static func combined(_ entries: [Self]) -> [Self] {
+        let groups = Dictionary(grouping: entries, by: \.catalogueKey)
+        var seen = Set<String>()
+        return entries.compactMap { first in
+            let key = first.catalogueKey
+            guard seen.insert(key).inserted, let variants = groups[key] else { return nil }
+            var evidence: XSignCatalogKindPolicy.TypeEvidence?
+            for entry in variants {
+                if let candidate = entry.typeEvidence { evidence = XSignCatalogKindPolicy.preferred(evidence, candidate) }
+            }
+            let game = evidence?.game ?? first.initialGame
+            let primary = variants.reduce(first) { best, candidate in
+                let ready = candidate.app.currentDownloadUrl != nil
+                if ready != (best.app.currentDownloadUrl != nil) { return ready ? candidate : best }
+                guard candidate.sourceURL == best.sourceURL,
+                      let lhs = candidate.app.currentVersion,
+                      let rhs = best.app.currentVersion,
+                      XSignReleaseVersion.compare(lhs, rhs) == 1 else { return best }
+                return candidate
+            }
+            var merged = primary.placed(inGames: game)
+            merged.id = key
+            var labels = Set<String>()
+            merged.declaredCategories = []
+            merged.categoryKeys = []
+            var versions: [ASRepository.App.Version] = []
+            var downloadURLs = Set<URL>()
+            var metadataVersions = Set<String>()
+            for item in variants {
+                merged.sourceURLs.formUnion(item.sourceURLs)
+                merged.sourceCatalogIDs.formUnion(item.sourceCatalogIDs)
+                if item.typeEvidence.map({ $0.game == game || $0.priority < 2 }) != false {
+                    merged.categoryKeys.formUnion(item.categoryKeys.filter { key in
+                        XSignCatalogKindPolicy.categoryKind(key).map { $0 == game } ?? true
+                    })
+                    merged.declaredCategories += item.declaredCategories.filter { label in
+                        let kind = XSignCatalogKindPolicy.categoryKind(label.title)
+                        return (kind == nil || kind == game) && labels.insert(label.key).inserted
+                    }
+                }
+                var releases = item.app.versions ?? []
+                if let url = item.app.currentDownloadUrl, !releases.contains(where: { $0.downloadURL == url }) {
+                    releases.insert(.init(version: item.app.currentVersion ?? "نسخة أخرى", date: item.app.currentDate,
+                        localizedDescription: item.app.versionDescription, downloadURL: url,
+                        size: item.app.size.flatMap { UInt(exactly: $0) }), at: 0)
+                }
+                for release in releases {
+                    if let url = release.downloadURL {
+                        if downloadURLs.insert(url).inserted { versions.append(release) }
+                    } else if metadataVersions.insert(release.id).inserted {
+                        versions.append(release)
+                    }
+                }
+            }
+            let downloadable = Set(versions.filter { $0.downloadURL != nil }.map(\.id))
+            merged.catalogueVersions = versions.filter { $0.downloadURL != nil || !downloadable.contains($0.id) }
+                .enumerated().sorted { lhs, rhs in
+                    let leftValid = XSignReleaseVersion.valid(lhs.element.version)
+                    let rightValid = XSignReleaseVersion.valid(rhs.element.version)
+                    if leftValid != rightValid { return leftValid }
+                    if let order = XSignReleaseVersion.compare(lhs.element.version, rhs.element.version), order != 0 {
+                        return order > 0
+                    }
+                    if let left = lhs.element.date, let right = rhs.element.date, left != right { return left > right }
+                    if (lhs.element.date != nil) != (rhs.element.date != nil) { return lhs.element.date != nil }
+                    return lhs.offset < rhs.offset
+                }.map(\.element)
+            return merged
+        }
+    }
+
     nonisolated func placed(inGames game: Bool) -> Self {
         var item = self
         item.isGame = game
-        if category.isGameCategory != game {
-            item.category = game ? .casualGames : .productivity
+        item.category = inferredCategory.isGameCategory == game ? inferredCategory : (game ? .casualGames : .productivity)
+        if item.category != category {
             item.arabicSubtitle = AppStoreBilingualEngine.localizedSubtitle(for: app, category: item.category)
         }
         return item
@@ -606,6 +695,17 @@ struct TodayEditorialInstruction: Identifiable, Sendable {
 }
 
 enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
+    static let importedTitles = [
+        "social": "التواصل الاجتماعي", "social-networking": "التواصل الاجتماعي",
+        "lifestyle": "نمط حياة", "entertainment": "ترفيه", "utilities": "أدوات",
+        "productivity": "إنتاجية", "photo-video": "صور وفيديو", "games": "الألعاب",
+        "puzzle": "ألعاب ألغاز", "simulation": "ألعاب محاكاة"
+    ]
+
+    nonisolated static func importedTitle(_ name: String) -> String {
+        XSignCatalogKindPolicy.categoryKey(name).flatMap { importedTitles[$0] } ?? name
+    }
+
 	case topApps = "مختارات التطبيقات"
 	case topGames = "مختارات الألعاب"
 	case bestSellingApps = "اكتشف تطبيقات أخرى"
@@ -675,16 +775,11 @@ enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
 	}
 
     nonisolated static func declaredKind(app: ASRepository.App, categories: [ASRepository.CatalogCategory]) -> Bool? {
-        let sourceCategory = categories.first { $0.id == app.category }
-        return app.isGame ?? sourceCategory?.isGame ?? XSignCatalogKindPolicy.categoryKind(app.category)
-            ?? XSignCatalogKindPolicy.categoryKind(sourceCategory?.name)
+        app.isGame ?? XSignCategoryLookup(categories).match(app.categoryReferences).kind
     }
 
 	nonisolated static func strictlyClassify(app: ASRepository.App) -> AppStore2026Category {
 		let catRaw = (app.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if ["games", "game", "6014", "ألعاب", "العاب", "الألعاب"].contains(catRaw) || catRaw.hasPrefix("games.") {
-            return .casualGames
-        }
 		if catRaw == "social" { return .social }
 		if catRaw == "media" { return .photoVideo }
 		if catRaw == "tools" { return .devTools }
@@ -711,7 +806,7 @@ enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
 		let devToolApps = ["filza", "esign", "feather", "scarlet", "troll", "gbox", "ksign", "x-sign", "vsign", "vpn", "adblock", "adguard", "dns", "flex", "igamegod", "dl", "terminal", "ssh", "cert", "ipa", "sideload", "altstore", "فيلزا", "توقيع", "شهادات", "ترول"]
         if matches(devToolApps) { return .devTools }
 
-		let pvpKeywords = ["pubg", "8ball", "8 ball", "pool", "cod", "callofduty", "call of duty", "freefire", "free fire", "brawl", "fortnite", "fifa", "efootball", "pes", "mobilelegends", "mobile legends", "wildrift", "wild rift", "standoff", "bullet", "pvp", "multiplayer", "ark", "ببجي", "بلياردو", "فري فاير", "كود", "فيفا", "بيس"]
+		let pvpKeywords = ["pubg", "8ball", "8ballpool", "eightballpool", "8 ball", "pool", "cod", "callofduty", "call of duty", "freefire", "free fire", "brawl", "fortnite", "fifa", "efootball", "pes", "mobilelegends", "mobile legends", "wildrift", "wild rift", "standoff", "bullet", "pvp", "multiplayer", "ark", "ببجي", "بلياردو", "فري فاير", "كود", "فيفا", "بيس"]
 		if matches(pvpKeywords) { return .pvpGames }
 
 		let strategyKeywords = ["clash", "royale", "clans", "strategy", "chess", "tower", "defense", "war", "stick war", "empire", "civilization", "boombeach", "plantsvs", "كلاش", "شطرنج", "حرب", "استراتيجيه"]
@@ -737,6 +832,153 @@ enum AppStore2026Category: String, CaseIterable, Identifiable, Sendable {
 	}
 }
 
+struct XSignCategoryLabel: Sendable {
+    let key: String
+    let title: String
+}
+
+struct XSignCategoryLookup: Sendable {
+    private var byKey: [String: ASRepository.CatalogCategory] = [:]
+
+    init(_ categories: [ASRepository.CatalogCategory]) {
+        for category in categories {
+            if let key = XSignCatalogKindPolicy.categoryKey(category.id), byKey[key] == nil { byKey[key] = category }
+        }
+        for category in categories {
+            for key in ([category.name] + (category.aliases ?? [])).compactMap(XSignCatalogKindPolicy.categoryKey) {
+                if byKey[key] == nil { byKey[key] = category }
+            }
+        }
+    }
+
+    func definition(for value: String?) -> ASRepository.CatalogCategory? {
+        XSignCatalogKindPolicy.categoryKey(value).flatMap { byKey[$0] }
+    }
+
+    static func externalKey(_ category: ASRepository.CatalogCategory) -> String? {
+        guard let id = XSignCatalogKindPolicy.categoryKey(category.id) else { return nil }
+        let name = XSignCatalogKindPolicy.categoryKey(category.name) ?? id
+        return "source:" + id + ":" + name
+    }
+
+    func match(_ values: [String], namesFrom studio: Self? = nil, owned: Bool = false) -> (keys: Set<String>, labels: [XSignCategoryLabel], kind: Bool?, explicit: Bool, studioKind: Bool?, primaryStudioKind: Bool?) {
+        var keys = Set<String>()
+        var seenLabels = Set<String>()
+        var labels: [XSignCategoryLabel] = []
+        var kind: Bool?
+        var studioKind: Bool?
+        var primaryStudioKind: Bool?
+        var explicit = false
+        for (index, value) in values.enumerated() {
+            guard let key = XSignCatalogKindPolicy.categoryKey(value) else { continue }
+            let category = byKey[key]
+            let categoryKey = category.flatMap { XSignCatalogKindPolicy.categoryKey($0.id) } ?? key
+            let mapped = studio.flatMap { lookup -> ASRepository.CatalogCategory? in
+                let byID = lookup.byKey[key] ?? lookup.byKey[categoryKey]
+                guard !owned, let category else { return byID ?? lookup.definition(for: category?.name) }
+                if let byName = lookup.definition(for: category.name) { return byName }
+                // Numeric IDs are local to a feed. Only an explicit alias may remap a named foreign category.
+                if Int(categoryKey) != nil, XSignCatalogKindPolicy.categoryKey(category.name) != categoryKey,
+                   byID.flatMap({ XSignCatalogKindPolicy.categoryKey($0.id) }) == categoryKey { return nil }
+                return byID
+            }
+            if let mapped {
+                if studioKind == nil { studioKind = mapped.isGame }
+                if index == 0 { primaryStudioKind = mapped.isGame }
+            }
+            let display = mapped ?? category
+            let labelKey = mapped.flatMap { XSignCatalogKindPolicy.categoryKey($0.id) }
+                ?? (owned ? categoryKey : category.flatMap(Self.externalKey)) ?? categoryKey
+            keys.insert(labelKey)
+            keys.insert(categoryKey)
+            keys.insert(key)
+            let lookup = mapped == nil ? self : (studio ?? self)
+            if let display {
+                for alias in [display.name] + (display.aliases ?? []) {
+                    guard lookup.definition(for: alias)?.id == display.id,
+                          let aliasKey = XSignCatalogKindPolicy.categoryKey(alias) else { continue }
+                    keys.insert(aliasKey)
+                }
+            }
+            if seenLabels.insert(labelKey).inserted { labels.append(.init(key: labelKey, title: mapped?.name ?? AppStore2026Category.importedTitle(display?.name ?? value))) }
+            if !explicit, let flag = category?.isGame {
+                kind = flag
+                explicit = true
+            } else if kind == nil {
+                kind = XSignCatalogKindPolicy.categoryKind(value) ?? XSignCatalogKindPolicy.categoryKind(category?.name)
+            }
+        }
+        return (keys, labels, kind, explicit, studioKind, primaryStudioKind)
+    }
+}
+
+struct XSignStoreCategory: Identifiable, Sendable {
+    let id: String
+    let title: String
+    let symbol: String
+    var iconSVG: String? = nil
+    var items: [AppStoreAppItem]
+    var keys: Set<String>
+    static let allLabels: Set<String> = ["all", "all-apps", "all-games", "الكل", "كل-التطبيقات", "كل-الالعاب", "جميع-التطبيقات", "جميع-الالعاب"]
+
+    static func groups(_ items: [AppStoreAppItem], studio: [ASRepository.CatalogCategory],
+                       sourceCategories: [ASRepository.CatalogCategory], legacy: [AppStore2026Category]) -> [Self] {
+        var index: [String: [AppStoreAppItem]] = [:]
+        var labels: [XSignCategoryLabel] = []
+        var known = Set<String>()
+        for item in items {
+            for label in item.declaredCategories {
+                index[label.key, default: []].append(item)
+                if known.insert(label.key).inserted { labels.append(label) }
+            }
+        }
+
+        let fallback = Dictionary(grouping: items.filter { $0.declaredCategories.isEmpty }, by: \.category)
+        var seen = Set<String>()
+        var result: [Self] = []
+        let definitions = studio.map { ($0, true) } + sourceCategories.map { ($0, false) }
+        for (definition, isOwned) in definitions {
+            guard let id = XSignCatalogKindPolicy.categoryKey(definition.id),
+                  let key = isOwned ? id : XSignCategoryLookup.externalKey(definition),
+                  seen.insert(key).inserted else { continue }
+            let group = index[key] ?? []
+            guard !group.isEmpty || isOwned else { continue }
+            let aliases = ([definition.name] + (definition.aliases ?? [])).compactMap(XSignCatalogKindPolicy.categoryKey)
+            let isGame = definition.isGame ?? group.allSatisfy(\.isGame)
+            result.append(.init(id: "category:" + key, title: isOwned ? definition.name : AppStore2026Category.importedTitle(definition.name),
+                symbol: isGame ? "gamecontroller" : "square.grid.2x2", iconSVG: definition.iconSVG,
+                items: group, keys: Set([id, key] + aliases)))
+        }
+        for label in labels where !seen.contains(label.key) {
+            guard let group = index[label.key] else { continue }
+            result.append(.init(id: "category:" + label.key, title: label.title,
+                symbol: group.allSatisfy(\.isGame) ? "gamecontroller" : "square.grid.2x2",
+                items: group, keys: [label.key]))
+        }
+        for kind in legacy {
+            guard let group = fallback[kind], !group.isEmpty else { continue }
+            result.append(.init(id: "legacy:" + kind.rawValue, title: kind.rawValue, symbol: kind.sfSymbol,
+                items: group, keys: Set([XSignCatalogKindPolicy.categoryKey(kind.rawValue)].compactMap { $0 })))
+        }
+        var positions: [String: Int] = [:]
+        var unique: [Self] = []
+        for group in result {
+            guard let title = XSignCatalogKindPolicy.categoryKey(AppStore2026Category.importedTitle(group.title)),
+                  !allLabels.contains(title), allLabels.isDisjoint(with: group.keys) else { continue }
+            if let position = positions[title] {
+                var itemIDs = Set(unique[position].items.map(\.id))
+                unique[position].items += group.items.filter { itemIDs.insert($0.id).inserted }
+                unique[position].keys.formUnion(group.keys)
+                if unique[position].iconSVG == nil { unique[position].iconSVG = group.iconSVG }
+            } else {
+                positions[title] = unique.count
+                unique.append(group)
+            }
+        }
+        return unique
+    }
+}
+
 // MARK: - Cached catalog shown before background refresh
 private struct XSignCatalogSnapshot: Sendable {
     var ipablackItems: [AppStoreAppItem] = []
@@ -744,17 +986,15 @@ private struct XSignCatalogSnapshot: Sendable {
     var allCombinedItems: [AppStoreAppItem] = []
     var pureAppsOnly: [AppStoreAppItem] = []
     var pureGamesOnly: [AppStoreAppItem] = []
-    var itemsByCategory: [AppStore2026Category: [AppStoreAppItem]] = [:]
     var includesIPABlack = false
-    var sourceName = "IPA BLACK"
-    var sourceSubtitle = ""
-    var sourceIconURL: URL? = nil
-    var sourceCategories: [ASRepository.CatalogCategory] = []
     var skippedLookupBundleIDs: Set<String> = []
     var todayItems: [AppStoreAppItem] = []
     var todayNews: [TodayEditorialInstruction] = []
-    var todayCategories: [ASRepository.CatalogCategory] = []
-    var todayFeaturedIDs: [String] = []
+    var todayFeaturedBySource: [URL: [String]] = [:]
+    var appCategories: [XSignStoreCategory] = []
+    var gameCategories: [XSignStoreCategory] = []
+    var searchCategories: [XSignStoreCategory] = []
+    var todayCategoryGroups: [XSignStoreCategory] = []
 }
 
 @MainActor
@@ -767,29 +1007,85 @@ final class AppStoreCacheManager: ObservableObject {
     var allCombinedItems: [AppStoreAppItem] { catalog.allCombinedItems }
     var pureAppsOnly: [AppStoreAppItem] { catalog.pureAppsOnly }
     var pureGamesOnly: [AppStoreAppItem] { catalog.pureGamesOnly }
-    var itemsByCategory: [AppStore2026Category: [AppStoreAppItem]] { catalog.itemsByCategory }
-    var todayItems: [AppStoreAppItem] { catalog.todayItems }
-    var todayEditorialNews: [TodayEditorialInstruction] { catalog.todayNews }
-    var todayCategories: [ASRepository.CatalogCategory] { catalog.todayCategories }
-    var todayFeaturedIDs: [String] { catalog.todayFeaturedIDs }
+    var todayItems: [AppStoreAppItem] {
+        guard let selectedTodayURLs else { return catalog.todayItems }
+        return catalog.todayItems.filter { $0.sourceURL.map(selectedTodayURLs.contains) == true }
+    }
+    var todayEditorialNews: [TodayEditorialInstruction] {
+        guard let selectedTodayURLs else { return catalog.todayNews }
+        return catalog.todayNews.filter { $0.sourceURL.map(selectedTodayURLs.contains) == true }
+    }
 
-    var sourceName: String { catalog.sourceName }
-    var sourceSubtitle: String { catalog.sourceSubtitle }
-    var sourceIconURL: URL? { catalog.sourceIconURL }
-    var sourceCategories: [ASRepository.CatalogCategory] { catalog.sourceCategories }
-    var storeSources: [XSignStoreSource] {
-        var entries: [(String, ASRepository)] = Self.coreTargets.compactMap { target in
-            directLoadedRepos[target.urlStr].map { (target.urlStr, $0) }
-        }
-        entries += customSnapshot.compactMap { entry in entry.0.map { ($0.absoluteString, entry.2) } }
-        var seen=Set<String>()
-        return entries.compactMap { url, repo in
-            guard seen.insert(url).inserted else { return nil }
-            let config=URL(string:url).flatMap { XSignDashboardSources.configuration(for:$0) }
-            return XSignStoreSource(id:url,name:config?.name ?? repo.name ?? "المصدر",
-                icon:XSignManagedSource.httpsURL(config?.icon_url) ?? repo.currentIconURL,count:repo.apps.count)
+    private var todaySourceIDs: Set<String>?
+    var todayEmptyMessage: String {
+        let targets = todayTargets
+        if targets.isEmpty { return "لا توجد مصادر مفعّلة لصفحة اليوم." }
+        if targets.allSatisfy(sourceFailures.contains) { return "تعذّر الوصول إلى مصادر اليوم. تحقق من الاتصال وأعد المحاولة." }
+        return "لا يوجد محتوى متاح لليوم حاليًا."
+    }
+
+    private var todayTargets: [URL] {
+        Self.coreTargets.compactMap { target in
+            guard let url = URL(string: target.urlStr),
+                  XSignTodaySourcePolicy.allows(id: target.id, url: url, selected: todaySourceIDs) else { return nil }
+            return url
         }
     }
+
+    private var selectedTodayURLs: Set<URL>? {
+        todaySourceIDs.map { _ in Set(todayTargets.map(XSignCatalogIO.canonicalURL)) }
+    }
+
+    func applyTodaySources(_ ids: [String]?) {
+        let selected = ids.map(Set.init)
+        guard selected != todaySourceIDs else { return }
+        todaySourceIDs = selected
+        scheduleSnapshot(priority: .userInitiated)
+    }
+    var todayFeaturedBySource: [URL: [String]] { catalog.todayFeaturedBySource }
+
+    func categories(for page: String) -> [XSignStoreCategory] {
+        switch page {
+        case "apps": return catalog.appCategories
+        case "games": return catalog.gameCategories
+        case "today":
+            guard let selectedTodayURLs else { return catalog.todayCategoryGroups }
+            return catalog.todayCategoryGroups.compactMap { group in
+                var visible = group
+                visible.items = group.items.filter { $0.sourceURL.map(selectedTodayURLs.contains) == true }
+                return visible.items.isEmpty ? nil : visible
+            }
+        default: return catalog.searchCategories
+        }
+    }
+
+    func categories(for page: String, section: XSignStoreSection) -> [XSignStoreCategory] {
+        let source = XSignDashboardSources.sectionSource(section.source_url)
+        let category = XSignCatalogKindPolicy.categoryKey(section.category_id)
+        let appIDs = Set(section.app_ids ?? [])
+        var groups = categories(for: page).compactMap { group -> XSignStoreCategory? in
+            if let category, !group.keys.contains(category) { return nil }
+            guard source != nil || !appIDs.isEmpty else { return group }
+            var filtered = group
+            filtered.items = group.items.filter { item in
+                (source.map(item.sourceURLs.contains) ?? true) &&
+                    (appIDs.isEmpty || !appIDs.isDisjoint(with: item.sourceCatalogIDs))
+            }
+            return filtered.items.isEmpty ? nil : filtered
+        }
+        if section.sort == "name" { groups.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending } }
+        if section.sort == "reverse" { groups.reverse() }
+        return Array(groups.prefix(section.boundedLimit))
+    }
+
+    private var studioCategories: [ASRepository.CatalogCategory]?
+
+    func applyStudioCategories(_ categories: [ASRepository.CatalogCategory]?) {
+        guard categories != studioCategories else { return }
+        studioCategories = categories
+        scheduleSnapshot(priority: .userInitiated)
+    }
+
 
     var featuredCatalogIDs: [String] {
         Self.coreTargets.flatMap { directLoadedRepos[$0.urlStr]?.featuredApps ?? [] }.compactMap { $0 }
@@ -797,8 +1093,10 @@ final class AppStoreCacheManager: ObservableObject {
 
     var hasLoadedCatalog: Bool { !catalog.allCombinedItems.isEmpty || finishedInitialLoad }
     @Published private(set) var isRefreshing = false
+    @Published private(set) var isRefreshingToday = false
     @Published private(set) var isPreparing = false
     @Published private(set) var catalogErrorMessage: String? = nil
+    @Published private var sourceFailures = Set<URL>()
     @Published private(set) var catalogRevision: UInt64 = 0
     private var finishedInitialLoad = false
     private var publicationTask: Task<Void, Never>?
@@ -806,13 +1104,14 @@ final class AppStoreCacheManager: ObservableObject {
     private var requestedSources: [AltSource] = []
     private var customFingerprints: [String: Data] = [:]
     private let catalogIO: XSignCatalogIO
-    private let bundledResources: URL?
 
     func shouldSkipStoreLookup(_ bundleID: String?) -> Bool {
         guard let bundleID else { return false }
         return catalog.skippedLookupBundleIDs.contains(bundleID)
     }
 
+    private var loadedCacheIdentities: [String: String] = [:]
+    private var acceptedOwnerRevision = 0
     private var directLoadedRepos: [String: ASRepository] = [:]
     private var repoFingerprints: [String: Data] = [:]
     private var customSnapshot: [(URL?, String?, ASRepository)] = []
@@ -823,43 +1122,71 @@ final class AppStoreCacheManager: ObservableObject {
     private var indexGeneration: UInt64 = 0
     private var indexTask: Task<XSignCatalogSnapshot?, Never>?
 
-    private nonisolated static let defaultCoreTargets: [(urlStr: String, id: String, file: String, seed: String)] = [
-        (ProtectedSourcesVault.primaryURLString, "xsign.core.primary", "zsign_soon_cache.json", ""),
-        (ProtectedSourcesVault.secondaryURLString, "xsign.core.zsign", "zsign_official_cache.json", "")
+    private nonisolated static let defaultCoreTargets: [XSignManagedSource] = [
+        .init(id: XSignCatalogueEndpoint.primaryID, name: "IPA SOON", url: XSignCatalogueEndpoint.soonSnapshot.absoluteString),
+        .init(id: XSignCatalogueEndpoint.iosBoomID, name: "iOSBoom Public", url: XSignCatalogueEndpoint.iosBoomCatalogue.absoluteString)
     ]
 
-    nonisolated static func resolvedManagedSources(_ configured: [XSignCoreSourceItem]?) -> [XSignCoreSourceItem] {
-        if let configured = XSignDashboardSources.configured {
-            return configured.map { XSignCoreSourceItem(name:$0.name,id:$0.id,url:$0.url) }
-        }
-        var result=[XSignCoreSourceItem(name:"IPA BLACK",id:ProtectedSourcesVault.ownedIdentifier,url:ProtectedSourcesVault.defaultOwnedURLString)]
-        result.append(XSignCoreSourceItem(name:"ipasoon",id:"xsign.core.primary",url:ProtectedSourcesVault.primaryURLString))
-        result.append(XSignCoreSourceItem(name:"متجر Zsign الرسمي",id:"xsign.core.zsign",url:ProtectedSourcesVault.secondaryURLString))
-        result += XSignDashboardSources.iosboomSources.filter { $0.enabled != false }.map { XSignCoreSourceItem(name:$0.name,id:$0.id,url:$0.url) }
-        return result
+    nonisolated static func availableManagedSources(_ legacy: [XSignCoreSourceItem]? = nil) -> [XSignManagedSource] {
+        let fallback = legacy?.map { XSignManagedSource(id: $0.id, name: $0.name, url: $0.url) } ?? defaultCoreTargets
+        return XSignDashboardSources.managed ?? XSignDashboardSources.normalized(fallback)
     }
 
-    private nonisolated static var coreTargets: [(urlStr: String, id: String, file: String, seed: String)] {
-        let configured = UserDefaults.standard.data(forKey: "xsign.managedSources")
-            .flatMap { try? JSONDecoder().decode([XSignCoreSourceItem].self, from: $0) }
-        return resolvedManagedSources(configured).map { source in
-            let known = defaultCoreTargets.first { $0.id == source.id }
-            let file = known?.file ?? "managed_" + SHA256.hash(data: Data(source.url.utf8)).prefix(10).map { String(format: "%02x", $0) }.joined() + ".json"
-            return (source.url, source.id, file, known?.seed ?? "")
+    nonisolated static func resolvedManagedSources(_ legacy: [XSignCoreSourceItem]?) -> [XSignCoreSourceItem] {
+        availableManagedSources(legacy).filter { $0.enabled != false }
+            .map { XSignCoreSourceItem(name: $0.name, id: $0.id, url: $0.url) }
+    }
+
+    private nonisolated static var coreTargets: [(urlStr: String, id: String, file: String)] {
+        resolvedManagedSources(nil).compactMap { source in
+            guard let url = URL(string: source.url) else { return nil }
+            let file = "managed_" + SHA256.hash(data: Data(XSignCatalogIO.cacheIdentity(url).utf8)).prefix(12)
+                .map { String(format: "%02x", $0) }.joined() + ".json"
+            return (source.url, source.id, file)
         }
     }
 
     @discardableResult
-    func configureManagedSources(_ sources: [XSignCoreSourceItem]?) -> Bool {
+    func configureManagedSources(_ sources: [XSignCoreSourceItem]?, resetAdapters: Bool = false) -> Bool {
         let valid = Self.resolvedManagedSources(sources)
         guard let encoded = try? JSONEncoder().encode(valid) else { return false }
         let prior = UserDefaults.standard.data(forKey: "xsign.managedSources")
-        if let prior, (try? JSONDecoder().decode([XSignCoreSourceItem].self, from: prior)) == valid { return false }
+        if !resetAdapters, let prior, (try? JSONDecoder().decode([XSignCoreSourceItem].self, from: prior)) == valid { return false }
         UserDefaults.standard.set(encoded, forKey: "xsign.managedSources")
         let allowed = Set(valid.map { $0.url })
-        directLoadedRepos = directLoadedRepos.filter { allowed.contains($0.key) }
-        repoFingerprints = repoFingerprints.filter { allowed.contains($0.key) }
-        customFingerprints.removeAll()
+        let identities = Dictionary(uniqueKeysWithValues: Self.coreTargets.map { ($0.urlStr, $0.file) })
+        directLoadedRepos = directLoadedRepos.filter { allowed.contains($0.key) && (!resetAdapters ||
+            identities[$0.key] == loadedCacheIdentities[$0.key]) }
+        repoFingerprints = repoFingerprints.filter { directLoadedRepos[$0.key] != nil }
+        loadedCacheIdentities = identities
+        rebuildCustomSnapshot(sources: requestedSources, repositories: SourcesViewModel.shared.sources, viewModel: .shared)
+        let liveURLs = Set(valid.compactMap { URL(string: $0.url) } + customSnapshot.compactMap { $0.0 })
+        if allCombinedItems.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) ||
+            catalog.todayItems.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) ||
+            catalog.todayNews.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) {
+            var visible = catalog
+            visible.allCombinedItems.removeAll { $0.sourceURL.map(liveURLs.contains) != true }
+            visible.todayItems.removeAll { $0.sourceURL.map(liveURLs.contains) != true }
+            visible.pureAppsOnly.removeAll { $0.sourceURL.map(liveURLs.contains) != true }
+            visible.pureGamesOnly.removeAll { $0.sourceURL.map(liveURLs.contains) != true }
+            visible.todayNews.removeAll { $0.sourceURL.map(liveURLs.contains) != true }
+            visible.todayFeaturedBySource = visible.todayFeaturedBySource.filter { liveURLs.contains($0.key) }
+            func filterGroups(_ groups: [XSignStoreCategory]) -> [XSignStoreCategory] {
+                groups.compactMap { group in
+                    let items = group.items.filter { $0.sourceURL.map(liveURLs.contains) == true }
+                    guard group.items.isEmpty || !items.isEmpty else { return nil }
+                    var visible = group
+                    visible.items = items
+                    return visible
+                }
+            }
+            visible.appCategories = filterGroups(visible.appCategories)
+            visible.gameCategories = filterGroups(visible.gameCategories)
+            visible.searchCategories = filterGroups(visible.searchCategories)
+            visible.todayCategoryGroups = filterGroups(visible.todayCategoryGroups)
+            catalog = visible
+            catalogRevision &+= 1
+        }
         nextRefreshAllowed = .distantPast
         restoreBoundedLaunchPreviews()
         scheduleSnapshot(priority: .userInitiated)
@@ -870,43 +1197,45 @@ final class AppStoreCacheManager: ObservableObject {
     func invalidateNetworkCache() {
         repoFingerprints.removeAll()
         nextRefreshAllowed = .distantPast
-        for target in Self.coreTargets { UserDefaults.standard.removeObject(forKey: "XSign.catalog.etag." + target.file) }
+        Task { await catalogIO.invalidateValidators() }
         // Keep the visible snapshot and last good disk catalog until a valid response replaces them.
         Task { await AppStoreLiveMetadataBridge.shared.invalidateCache() }
     }
 
     private nonisolated static var diskCacheDirectory: URL {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("XSignApprovedStoreCache_v1", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            .appendingPathComponent("XSignApprovedStoreCache_v2", isDirectory: true)
+        try? XSignPrivateFiles.createDirectory(dir)
         return dir
     }
 
     private func restoreBoundedLaunchPreviews() {
-        for target in Self.coreTargets where directLoadedRepos[target.urlStr] == nil {
-            let disk = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
-            let bundle = bundledResources?.appendingPathComponent(target.seed + ".json") ?? Bundle.main.url(forResource: target.seed, withExtension: "json")
-            for path in [Optional(disk), bundle].compactMap({ $0 }) {
-                guard let size = (try? path.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
-                      size <= 131_072, let data = try? Data(contentsOf: path),
-                      let record = try? XSignCatalogIO.decode(data), record.repository.apps.count <= 24 else { continue }
-                directLoadedRepos[target.urlStr] = record.repository
-                break
-            }
+        // Bound synchronous launch work; the background reader restores all enabled feeds.
+        for target in Self.coreTargets.prefix(3) where directLoadedRepos[target.urlStr] == nil {
+            guard URL(string: target.urlStr) != nil else { continue }
+            let path = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
+            guard let size = (try? path.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+                  size <= 131_072, let data = try? Data(contentsOf: path),
+                  let record = try? XSignCatalogIO.decode(data), record.repository.apps.count <= 24 else { continue }
+            directLoadedRepos[target.urlStr] = record.repository
+            loadedCacheIdentities[target.urlStr] = target.file
         }
     }
 
-    // Only a small first screen is prepared synchronously. The full bundled catalog is decoded off-main.
-    init(catalogIO: XSignCatalogIO = .shared, bundledResources: URL? = nil) {
+    // Previously validated previews come from the device cache.
+    init(catalogIO: XSignCatalogIO = .shared) {
         ProtectedSourcesVault.migrateOldSourceCaches()
         self.catalogIO = catalogIO
-        self.bundledResources = bundledResources
         restoreBoundedLaunchPreviews()
         let preview = Self.coreTargets.compactMap { target -> (URL?, String?, ASRepository)? in
             guard let repo = directLoadedRepos[target.urlStr] else { return nil }
             return (URL(string: target.urlStr).map(XSignCatalogIO.canonicalURL), target.id, repo)
         }
-        if let snapshot = Self.buildSnapshot(snapshot: preview, previousItems: []) { catalog = snapshot }
+        studioCategories = XSignRemoteManager.shared.catalogueCategories
+        todaySourceIDs = XSignRemoteManager.shared.config?.dashboard?.today_source_ids.map { Set($0) }
+        if !preview.isEmpty,
+           let snapshot = Self.buildSnapshot(snapshot: preview, studioCategories: studioCategories,
+                                             todaySourceIDs: todaySourceIDs, launchPreview: true) { catalog = snapshot }
         loadInstantDiskSnapshot()
     }
 
@@ -914,11 +1243,29 @@ final class AppStoreCacheManager: ObservableObject {
         diskSnapshotTask?.cancel()
         let targets = Self.coreTargets
         diskSnapshotTask = Task { @MainActor [weak self] in
-            for target in targets {
-                guard !Task.isCancelled, let url = URL(string: target.urlStr),
-                      let self, let record = await self.catalogIO.cached(url) else { continue }
-                guard !Task.isCancelled, Self.coreTargets.contains(where: { $0.urlStr == target.urlStr }) else { continue }
-                self.acceptRepository(record, from: url)
+            await withTaskGroup(of: (Int, XSignRepositoryRecord?).self) { group in
+                guard let io = self?.catalogIO else { return }
+                let load: @Sendable (Int) async -> (Int, XSignRepositoryRecord?) = { index in
+                    guard let url = URL(string: targets[index].urlStr) else { return (index, nil) }
+                    return (index, await io.cached(url))
+                }
+                let count = min(3, targets.count)
+                for index in 0..<count { group.addTask { await load(index) } }
+                var next = count
+                for await (index, record) in group {
+                    guard !Task.isCancelled else { group.cancelAll(); return }
+                    let target = targets[index]
+                    if let self, let record, let url = URL(string: target.urlStr),
+                       self.repoFingerprints[target.urlStr] == nil,
+                       Self.coreTargets.contains(where: { $0.urlStr == target.urlStr && $0.file == target.file }) {
+                        self.acceptRepository(record, from: url)
+                    }
+                    if next < targets.count {
+                        let index = next
+                        next += 1
+                        group.addTask { await load(index) }
+                    }
+                }
             }
             guard !Task.isCancelled, let self else { return }
             await self.publicationTask?.value
@@ -930,22 +1277,34 @@ final class AppStoreCacheManager: ObservableObject {
         guard let target = Self.coreTargets.first(where: {
             URL(string: $0.urlStr).map { XSignCatalogIO.canonicalURL($0).absoluteString } == key
         }), repoFingerprints[target.urlStr] != record.fingerprint else { return }
+        if key == XSignCatalogueEndpoint.ownerURL.absoluteString {
+            let revision = record.revision ?? 0
+            guard revision >= acceptedOwnerRevision else { return }
+            acceptedOwnerRevision = revision
+        }
         directLoadedRepos[target.urlStr] = record.repository
         repoFingerprints[target.urlStr] = record.fingerprint
-        scheduleSnapshot(priority: .userInitiated)
+        loadedCacheIdentities[target.urlStr] = target.file
+        scheduleSnapshot(priority: key == XSignCatalogueEndpoint.iosBoomCatalogue.absoluteString ? .utility : .userInitiated)
         let repo = record.repository
         let path = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
         Task.detached(priority: .utility) {
-            if let preview = Self.makeLaunchPreview(repo) { try? preview.write(to: path, options: .atomic) }
+            if let preview = Self.makeLaunchPreview(repo) {
+                try? preview.write(to: path, options: .atomic)
+                try? XSignPrivateFiles.protect(path)
+            }
         }
     }
 
     private func customSources(_ sources: [AltSource]) -> [AltSource] {
-        let managed = Set(Self.coreTargets.compactMap { URL(string: $0.urlStr) }.map(XSignCatalogIO.canonicalURL))
+        let managed = Set(Self.availableManagedSources().compactMap(\.safeURL).map(XSignDashboardSources.sourceKey))
+            .union([XSignDashboardSources.sourceKey(XSignCatalogueEndpoint.soonSnapshot)])
         return sources.filter { source in
-            guard let url = source.sourceURL.map(XSignCatalogIO.canonicalURL),
+            guard !source.isDeleted, let url = source.sourceURL.map(XSignCatalogIO.canonicalURL),
+                  source.identifier != XSignCatalogueEndpoint.primaryID,
                   !ProtectedSourcesVault.isRetiredSource(url, identifier: source.identifier) else { return false }
-            return !managed.contains(url) && XSignDashboardSources.isUserSource(url)
+            return !XSignDashboardSources.isHidden(url.absoluteString) &&
+                !managed.contains(XSignDashboardSources.sourceKey(url)) && XSignDashboardSources.isUserSource(url)
         }
     }
 
@@ -996,21 +1355,21 @@ final class AppStoreCacheManager: ObservableObject {
             guard let self else { return }
             self.isRefreshing = true
             defer { self.refreshTask = nil; self.isRefreshing = false; self.finishedInitialLoad = true }
-            await self.diskSnapshotTask?.value
             repeat {
                 self.refreshAgain = false
                 let custom = self.customSources(self.requestedSources)
                 async let coreSucceeded = self.fetchCoreRepositories()
                 // This path already passed the refresh deadline. Refresh custom URLs too,
                 // even when a previous response is visible; otherwise they never update automatically.
-                await viewModel.fetchSources(custom, refresh: true, batchSize: 1)
+                await viewModel.fetchSources(custom, refresh: true, batchSize: 3)
                 let succeeded = await coreSucceeded
                 self.rebuildCacheIfNeeded(sources: self.requestedSources, repositoriesMap: viewModel.sources)
                 await self.publicationTask?.value
-                if self.catalogErrorMessage == nil, !viewModel.errors.isEmpty {
-                    self.catalogErrorMessage = "تعذّر تحديث أحد المصادر. البيانات المحفوظة ما زالت متاحة؛ اسحب لأسفل للمحاولة مجددًا."
+                let customSourceFailed = custom.contains { viewModel.errors[$0] != nil }
+                if self.catalogErrorMessage == nil, customSourceFailed {
+                    self.catalogErrorMessage = "تعذّر تحديث أحد المصادر. ستتم إعادة المحاولة تلقائيًا."
                 }
-                self.nextRefreshAllowed = Date().addingTimeInterval(succeeded ? 300 : 15)
+                self.nextRefreshAllowed = Date().addingTimeInterval(succeeded && !customSourceFailed ? 300 : 30)
             } while self.refreshAgain && !Task.isCancelled
         }
         refreshTask = task
@@ -1018,13 +1377,21 @@ final class AppStoreCacheManager: ObservableObject {
     }
 
     func refreshToday() async {
-        let urls = Self.coreTargets.compactMap { URL(string: $0.urlStr) }.filter { XSignTodaySourcePolicy.allows($0) }
-        _ = await fetchRepositories(urls)
+        guard !isRefreshingToday else { return }
+        isRefreshingToday = true
+        defer { isRefreshingToday = false }
+        await XSignRemoteManager.shared.fetchRemoteConfig(force: true)
+        guard !XSignRemoteManager.shared.isMaintenanceActive, !XSignRemoteManager.shared.isForceUpdateRequired,
+              !XSignSecurityEnforcer.shared.isVPNOrProxyDetected else { return }
+        _ = await fetchRepositories(todayTargets)
         await publicationTask?.value
     }
 
     private func fetchCoreRepositories() async -> Bool {
-        let result = await fetchRepositories(Self.coreTargets.compactMap { URL(string: $0.urlStr) })
+        let today = todayTargets
+        let prioritized = Set(today)
+        let others = Self.coreTargets.compactMap { URL(string: $0.urlStr) }.filter { !prioritized.contains($0) }
+        let result = await fetchRepositories(today + others)
         catalogErrorMessage = result.error
         return result.succeeded
     }
@@ -1034,32 +1401,42 @@ final class AppStoreCacheManager: ObservableObject {
         let ownerRevision: Int? = revision > 0 ? revision : nil
         var failures: [String] = []
         var successes = 0
+        let identities = Dictionary(uniqueKeysWithValues: urls.map { ($0, XSignCatalogIO.cacheIdentity($0)) })
+        let io = catalogIO
+        let load: @Sendable (URL) async -> (URL, XSignRepositoryRecord?, String?) = { url in
+            do { return (url, try await io.fetch(url, ownerRevision: ownerRevision), nil) }
+            catch { return (url, await io.cached(url), error.localizedDescription) }
+        }
         await withTaskGroup(of: (URL, XSignRepositoryRecord?, String?).self) { group in
             var next = 0
-            for url in urls.prefix(2) {
+            for url in urls.prefix(3) {
                 next += 1
-                let io = catalogIO
-                group.addTask {
-                    do { return (url, try await io.fetch(url, ownerRevision: ownerRevision), nil) }
-                    catch { return (url, nil, error.localizedDescription) }
-                }
+                group.addTask { await load(url) }
             }
             for await (url, record, message) in group {
                 guard !Task.isCancelled else { group.cancelAll(); break }
-                if let record { acceptRepository(record, from: url); successes += 1 }
-                else { failures.append(message ?? "تعذّر تحديث المصدر.") }
+                if identities[url] == XSignCatalogIO.cacheIdentity(url) {
+                    if let message {
+                        sourceFailures.insert(url)
+                        failures.append(message)
+                        // A late disk result must not overwrite data already on screen.
+                        if let record, directLoadedRepos[url.absoluteString] == nil {
+                            acceptRepository(record, from: url)
+                        }
+                    } else if let record {
+                        sourceFailures.remove(url)
+                        acceptRepository(record, from: url)
+                        successes += 1
+                    }
+                }
                 if next < urls.count {
                     let url = urls[next]
                     next += 1
-                    let io = catalogIO
-                    group.addTask {
-                        do { return (url, try await io.fetch(url, ownerRevision: ownerRevision), nil) }
-                        catch { return (url, nil, error.localizedDescription) }
-                    }
+                    group.addTask { await load(url) }
                 }
             }
         }
-        return (successes > 0 && failures.isEmpty, failures.first)
+        return (successes == urls.count && failures.isEmpty, failures.first)
     }
 
     func rebuildCacheIfNeeded<S: Collection>(sources: S, repositoriesMap: [AltSource: ASRepository]) where S.Element == AltSource {
@@ -1095,16 +1472,27 @@ final class AppStoreCacheManager: ObservableObject {
         let generation = indexGeneration
         indexTask?.cancel()
         publicationTask?.cancel()
-        guard !entries.isEmpty else {
+        let categories = studioCategories
+        let todayIDs = todaySourceIDs
+        guard !entries.isEmpty || categories?.isEmpty == false else {
             catalog = XSignCatalogSnapshot(); indexTask = nil; isPreparing = false
             catalogRevision &+= 1
             return
         }
         let input = entries
-        let previous = allCombinedItems
+        let needsLaunchPreview = catalog.allCombinedItems.isEmpty && input.contains { $0.2.apps.count > 24 }
         isPreparing = true
-        let worker = Task.detached(priority: priority) {
-            Self.buildSnapshot(snapshot: input, previousItems: previous)
+        let hadVisibleItems = !catalog.allCombinedItems.isEmpty
+        let worker = Task.detached(priority: priority) { [weak self] () -> XSignCatalogSnapshot? in
+            if hadVisibleItems {
+                // Several feeds often finish together. Keep the current rows while coalescing those rebuilds.
+                do { try await Task.sleep(nanoseconds: 55_000_000) } catch { return nil }
+            }
+            if needsLaunchPreview, let preview = Self.buildSnapshot(snapshot: input, studioCategories: categories,
+                    todaySourceIDs: todayIDs, launchPreview: true) {
+                await self?.publishLaunchPreview(preview, generation: generation)
+            }
+            return Self.buildSnapshot(snapshot: input, studioCategories: categories, todaySourceIDs: todayIDs)
         }
         indexTask = worker
         publicationTask = Task { @MainActor [weak self] in
@@ -1116,10 +1504,19 @@ final class AppStoreCacheManager: ObservableObject {
         }
     }
 
-    private nonisolated static func makeLaunchPreview(_ repo: ASRepository) -> Data? {
+    private func publishLaunchPreview(_ preview: XSignCatalogSnapshot, generation: UInt64) {
+        guard !Task.isCancelled, indexGeneration == generation, catalog.allCombinedItems.isEmpty,
+              !preview.allCombinedItems.isEmpty else { return }
+        catalog = preview
+        catalogRevision &+= 1
+    }
+
+    private nonisolated static func launchApps(in repo: ASRepository, scanLimit: Int? = nil) -> [ASRepository.App] {
         var games: [ASRepository.App] = []
         var apps: [ASRepository.App] = []
-        for app in repo.apps {
+        let candidates = repo.apps.prefix(scanLimit ?? repo.apps.count)
+        for app in candidates {
+            if Task.isCancelled { return [] }
             let isGame = AppStore2026Category.declaredKind(app: app, categories: repo.categories ?? [])
                 ?? XSignCatalogKindPolicy.recognizesGame(name: app.currentName, bundleID: app.id)
             if isGame {
@@ -1130,9 +1527,13 @@ final class AppStoreCacheManager: ObservableObject {
         var selected = apps + games
         if selected.count < 24 {
             let used = Set(selected.map { $0.stableCatalogIdentifier })
-            selected += repo.apps.lazy.filter { !used.contains($0.stableCatalogIdentifier) }.prefix(24 - selected.count)
+            selected += candidates.lazy.filter { !used.contains($0.stableCatalogIdentifier) }.prefix(24 - selected.count)
         }
-        let page = selected.map { app -> [String: Any] in
+        return selected
+    }
+
+    private nonisolated static func makeLaunchPreview(_ repo: ASRepository) -> Data? {
+        let page = launchApps(in: repo).map { app -> [String: Any] in
             var item: [String: Any] = ["name": app.currentName]
             item["bundleIdentifier"] = app.id
             item["catalogID"] = app.catalogID
@@ -1141,6 +1542,9 @@ final class AppStoreCacheManager: ObservableObject {
             item["version"] = app.currentVersion
             item["size"] = app.size
             item["category"] = app.category
+            item["categories"] = app.categoryReferences
+            item["artworkURL"] = app.artworkURL?.absoluteString
+            item["screenshotURLs"] = app.screenshotURLs?.prefix(4).map(\.absoluteString)
             item["isGame"] = app.isGame
             item["skipAppStoreLookup"] = app.skipAppStoreLookup
             item["developerName"] = app.developer
@@ -1153,6 +1557,7 @@ final class AppStoreCacheManager: ObservableObject {
         root["identifier"] = repo.id
         root["subtitle"] = repo.subtitle
         root["iconURL"] = repo.iconURL?.absoluteString
+        root["featuredApps"] = repo.featuredApps.map { Array($0.prefix(32)) }
         if let categories = repo.categories, let encoded = try? JSONEncoder().encode(categories) {
             root["categories"] = try? JSONSerialization.jsonObject(with: encoded)
         }
@@ -1160,100 +1565,97 @@ final class AppStoreCacheManager: ObservableObject {
         return data
     }
 
-    private nonisolated static func sameAppContent(_ first: ASRepository.App, _ second: ASRepository.App) -> Bool {
-        var comparable = second
-        comparable.uuid = first.uuid
-        return first == comparable
-    }
-
-    private nonisolated static func buildSnapshot(snapshot: [(URL?, String?, ASRepository)], previousItems: [AppStoreAppItem]) -> XSignCatalogSnapshot? {
-		if Task.isCancelled { return nil }
-        let previousByID = Dictionary(previousItems.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-		let totalCount = snapshot.reduce(0) { $0 + $1.2.apps.count }
-		var allItems: [AppStoreAppItem] = []
-		var ipaBlackOnly: [AppStoreAppItem] = []
-		var ipaBlackNews: [TodayEditorialInstruction] = []
-		var didIncludeIPABlackRepo = false
-        var todayItems: [AppStoreAppItem] = []
+    private nonisolated static func buildSnapshot(snapshot: [(URL?, String?, ASRepository)],
+                                                  studioCategories: [ASRepository.CatalogCategory]?,
+                                                  todaySourceIDs: Set<String>? = nil,
+                                                  launchPreview: Bool = false) -> XSignCatalogSnapshot? {
+        if Task.isCancelled { return nil }
+        let ownerRepoDefinitions = snapshot.first(where: {
+            ProtectedSourcesVault.isIPABlackSource($0.0, identifier: $0.1)
+        })?.2.categories ?? []
+        let configured = studioCategories ?? []
+        let configuredKeys = Set(configured.compactMap { XSignCatalogKindPolicy.categoryKey($0.id) })
+        let ownerDefinitions = configured + ownerRepoDefinitions.filter { definition in
+            XSignCatalogKindPolicy.categoryKey(definition.id).map { !configuredKeys.contains($0) } ?? false
+        }
+        let studioTaxonomy = XSignCategoryLookup(configured.isEmpty ? ownerDefinitions : configured)
+        let totalCount = snapshot.reduce(0) { count, source in
+            count + (launchPreview ? min(24, source.2.apps.count) : source.2.apps.count)
+        }
+        var allItems: [AppStoreAppItem] = []
+        var ipaBlackOnly: [AppStoreAppItem] = []
+        var ipaBlackNews: [TodayEditorialInstruction] = []
+        var didIncludeIPABlackRepo = false
+        var todayGroups: [[AppStoreAppItem]] = []
         var todayNews: [TodayEditorialInstruction] = []
         var todayCategories: [ASRepository.CatalogCategory] = []
-        var todayCategoryIDs = Set<String>()
-        var todayItemIDs = Set<String>()
-        var todayFeaturedIDs: [String] = []
+        var sourceCategories: [ASRepository.CatalogCategory] = []
+        var todayFeaturedBySource: [URL: [String]] = [:]
 
 		allItems.reserveCapacity(totalCount)
-		var seenKeys = Set<String>()
-        var seenBundleNames = Set<String>()
-        var seenDownloadURLs = Set<String>()
 
 		for (sourceURL, sourceID, repo) in snapshot {
-            let earlierBundleNames = seenBundleNames
-            let earlierDownloadURLs = seenDownloadURLs
 			let isIPABlack = ProtectedSourcesVault.isIPABlackSource(sourceURL, identifier: sourceID)
-            let isTodaySource = XSignTodaySourcePolicy.allows(sourceURL)
-			if isIPABlack {
-				didIncludeIPABlackRepo = true
-			}
-			let sourceURLString = sourceURL?.absoluteString ?? ""
+            let isTodaySource = XSignTodaySourcePolicy.allows(id: sourceID, url: sourceURL, selected: todaySourceIDs)
+            let appSourceName = isIPABlack ? "IPA BLACK" : (sourceID == XSignCatalogueEndpoint.primaryID ? "IPA SOON" : repo.name)
+            if isIPABlack { didIncludeIPABlackRepo = true }
+            let definitions = repo.categories ?? []
+            let taxonomy = XSignCategoryLookup(definitions)
+            let visibleDefinitions = isIPABlack ? ownerDefinitions : definitions
+            sourceCategories += visibleDefinitions
+            if isTodaySource { todayCategories += visibleDefinitions }
+            let sourceURLString = sourceURL?.absoluteString ?? ""
 
 			var currentRepoItems: [AppStoreAppItem] = []
-			currentRepoItems.reserveCapacity(repo.apps.count)
+            let apps = launchPreview ? launchApps(in: repo, scanLimit: 96) : repo.apps
+            currentRepoItems.reserveCapacity(apps.count)
 
-			for (index, app) in repo.apps.enumerated() {
+            for (index, app) in apps.enumerated() {
                 if index.isMultiple(of: 64) && Task.isCancelled { return nil }
-				let bundleName = (app.id ?? "").lowercased() + "\u{1F}" + app.currentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let download = app.currentDownloadUrl?.absoluteString
-                let duplicatesDownload = download.map { earlierDownloadURLs.contains($0) } ?? false
-                let duplicatesBundleName = earlierBundleNames.contains(bundleName)
-                let excludeFromStore: Bool
-                switch sourceID {
-                case "xsign.core.reference": excludeFromStore = duplicatesBundleName || duplicatesDownload
-                case "xsign.core.soon.live", "xsign.core.ipaomtk.live": excludeFromStore = duplicatesBundleName
-                default: excludeFromStore = sourceID?.hasPrefix("xsign.iosboom.") == true && duplicatesDownload
-                }
-                if excludeFromStore && !isTodaySource { continue }
-                if !excludeFromStore {
-                    seenBundleNames.insert(bundleName)
-                    if let download { seenDownloadURLs.insert(download) }
-                }
-                let uniqueKey = "\(app.stableCatalogIdentifier)_\(sourceURLString)"
-				let item: AppStoreAppItem
-                if let existing = previousByID[uniqueKey], Self.sameAppContent(existing.app, app),
-                   existing.sourceName == (repo.name ?? "المصدر"), existing.sourceCategories == (repo.categories ?? []) {
-                    item = existing
-                } else {
-                    item = AppStoreAppItem(
-					id: uniqueKey,
-					sourceURL: sourceURL,
-					repository: repo,
-					app: app
-				)
-                }
+                let uniqueKey = sourceURLString + "\u{1F}" + app.catalogRowKey
+                let item = AppStoreAppItem(id: uniqueKey, sourceURL: sourceURL, sourceName: appSourceName, taxonomy: taxonomy,
+                    studioTaxonomy: studioTaxonomy, ownsCategory: isIPABlack, app: app)
 				if isIPABlack || isTodaySource {
 					currentRepoItems.append(item)
 				}
-				if !excludeFromStore && seenKeys.insert(uniqueKey).inserted {
-					allItems.append(item)
-				}
+                allItems.append(item)
 			}
 
 			if isIPABlack { ipaBlackOnly.append(contentsOf: currentRepoItems) }
             if isTodaySource {
-                todayItems += currentRepoItems.filter { todayItemIDs.insert($0.id).inserted }
-                todayFeaturedIDs += (repo.featuredApps ?? []).compactMap { $0 }
-                for category in repo.categories ?? [] where todayCategoryIDs.insert(category.id).inserted { todayCategories.append(category) }
+                todayGroups.append(currentRepoItems)
+                let features = (repo.featuredApps ?? []).compactMap { $0 }
+                if let sourceURL, !features.isEmpty { todayFeaturedBySource[sourceURL] = features }
 
-                let newsStart = todayNews.count
-                if let newsList = repo.news {
-					for newsItem in newsList {
-						let matchedApp = currentRepoItems.first {
-							$0.app.id == newsItem.appID
-						}
+            }
+            if isTodaySource || isIPABlack {
+                var sourceNews: [TodayEditorialInstruction] = []
+                if !launchPreview, let newsList = repo.news, !newsList.isEmpty {
+                    let byCatalogID = Dictionary(currentRepoItems.compactMap { item in
+                        item.app.catalogID.map { ($0, item) }
+                    }, uniquingKeysWith: { first, _ in first })
+                    let byBundle = Dictionary(grouping: currentRepoItems) { XSignCatalogKindPolicy.bundleKey($0.app.id) ?? "" }
+                    var newsIDs = Set<String>()
+                    for newsItem in newsList where newsIDs.insert(newsItem.id).inserted {
+                        let matchedApp = newsItem.appID.flatMap { reference -> AppStoreAppItem? in
+                            if let exact = byCatalogID[reference] { return exact }
+                            let parts = reference.components(separatedBy: "||")
+                            guard let bundle = XSignCatalogKindPolicy.bundleKey(parts.first) else { return nil }
+                            let matches = byBundle[bundle] ?? []
+                            guard parts.count == 2 else { return matches.first }
+                            let title = XSignSearchDocument.normalize(parts[1])
+                            if let match = matches.first(where: { $0.searchDocument.name == title }) { return match }
+                            if matches.count == 1 { return matches.first }
+                            if matches.isEmpty, let dot = bundle.lastIndex(of: "."), Int(bundle[bundle.index(after: dot)...]) != nil {
+                                return byBundle[String(bundle[..<dot])]?.first { $0.searchDocument.name == title }
+                            }
+                            return nil
+                        }
 
-						todayNews.append(
+						sourceNews.append(
 							TodayEditorialInstruction(
 								id: sourceURLString + "#" + newsItem.id,
-								badge: newsItem.notify ? "تنبيه" : nil,
+								badge: newsItem.badge ?? (newsItem.notify ? "تنبيه" : nil),
 								title: newsItem.title,
 								caption: newsItem.caption,
 								imageURL: newsItem.imageURL,
@@ -1265,76 +1667,58 @@ final class AppStoreCacheManager: ObservableObject {
 						)
 					}
 				}
-                if isIPABlack { ipaBlackNews += todayNews.dropFirst(newsStart) }
+                if isIPABlack { ipaBlackNews += sourceNews }
+                if isTodaySource { todayNews += sourceNews }
 			}
 		}
 
-        // Pick one type for a bundle, then put its variants in the same tab.
-        // Explicit source data wins over inference. Unclassified entries are still searchable.
-        var catalogueKinds: [String: (game: Bool, declared: Bool)] = [:]
-        for item in allItems {
-            guard let key = item.typeGroupKey, let game = item.isGame else { continue }
-            let existing = catalogueKinds[key]
-            if existing == nil || (existing?.declared == false && item.declaredGame != nil) {
-                catalogueKinds[key] = (game, item.declaredGame != nil)
-            }
-        }
-        let categorized = allItems.compactMap { item -> AppStoreAppItem? in
-            let kind = item.typeGroupKey.flatMap { catalogueKinds[$0]?.game } ?? item.isGame
-            return kind.map { item.placed(inGames: $0) }
-        }
-        let onlyApps = categorized.filter { $0.isGame == false }
-        let onlyGames = categorized.filter { $0.isGame == true }
+        let categorized = AppStoreAppItem.combined(allItems)
+        let catalogueByID = Dictionary(uniqueKeysWithValues: categorized.map { ($0.id, $0) })
+        let onlyApps = categorized.filter { XSignCatalogKindPolicy.showsInPage("apps", isGame: $0.isGame) }
+        let onlyGames = categorized.filter { XSignCatalogKindPolicy.showsInPage("games", isGame: $0.isGame) }
 
-        let grouped = Dictionary(grouping: categorized, by: { $0.category })
-		var categoryDict: [AppStore2026Category: [AppStoreAppItem]] = [:]
-		for category in AppStore2026Category.allCases {
-			switch category {
-			case .topApps:
-				categoryDict[category] = onlyApps
-			case .bestSellingApps:
-				categoryDict[category] = Array(onlyApps.reversed())
-			case .topGames:
-				categoryDict[category] = onlyGames
-			case .bestSellingGames:
-				categoryDict[category] = Array(onlyGames.reversed())
-			case .timePass:
-				let casual = onlyGames.filter { $0.category == .casualGames || $0.category == .puzzleGames }
-				categoryDict[category] = casual
-			default:
-				let exactMatches = grouped[category] ?? []
-				if !exactMatches.isEmpty {
-					categoryDict[category] = exactMatches
-                } else {
-                    categoryDict[category] = []
-                }
-			}
-		}
-
-		// Keep Today’s two approved feeds separate from the complete store catalogue.
-		let finalIPABlack = ipaBlackOnly
-		let finalIPABlackNews = ipaBlackNews
-		let finalAll = allItems
+		// Keep curated Today content separate from the complete catalogue.
+		let finalIPABlack = AppStoreAppItem.combined(ipaBlackOnly)
+		let finalAll = categorized
 		let finalApps = onlyApps
 		let finalGames = onlyGames
-		let finalCats = categoryDict
 		let shouldUpdateIPABlack = didIncludeIPABlackRepo
 
         if Task.isCancelled { return nil }
+        let visibleToday = AppStoreAppItem.combined(XSignTodaySourcePolicy.interleave(todayGroups)).map { item in
+            catalogueByID[item.id].map { item.placed(inGames: $0.isGame) } ?? item
+        }
+        let todayByID = Dictionary(uniqueKeysWithValues: visibleToday.map { ($0.id, $0) })
+        func mappedNews(_ entries: [TodayEditorialInstruction], to apps: [String: AppStoreAppItem]) -> [TodayEditorialInstruction] {
+            entries.map { entry in
+                .init(id: entry.id, badge: entry.badge, title: entry.title, caption: entry.caption,
+                    imageURL: entry.imageURL, tintColor: entry.tintColor,
+                    associatedApp: entry.associatedApp.flatMap { apps[$0.catalogueKey] },
+                    targetURL: entry.targetURL, sourceURL: entry.sourceURL)
+            }
+        }
+        let appCategories = XSignStoreCategory.groups(finalApps, studio: ownerDefinitions.filter { $0.isGame != true },
+            sourceCategories: sourceCategories, legacy: [.social, .photoVideo, .mediaReaders, .devTools, .visualArts, .productivity])
+        let gameCategories = XSignStoreCategory.groups(finalGames, studio: ownerDefinitions.filter { $0.isGame == true },
+            sourceCategories: sourceCategories, legacy: [.pvpGames, .simulationGames, .strategyGames, .puzzleGames, .casualGames])
+        let searchCategories = XSignStoreCategory.groups(finalAll, studio: ownerDefinitions,
+            sourceCategories: sourceCategories, legacy: [.social, .photoVideo, .mediaReaders, .devTools, .visualArts, .productivity,
+                .pvpGames, .simulationGames, .strategyGames, .puzzleGames, .casualGames])
+        let todayCategoryGroups = XSignStoreCategory.groups(visibleToday, studio: ownerDefinitions,
+            sourceCategories: todayCategories, legacy: [])
+        if Task.isCancelled { return nil }
         return XSignCatalogSnapshot(
             ipablackItems: finalIPABlack,
-            ipablackEditorialNews: finalIPABlackNews,
+            ipablackEditorialNews: mappedNews(ipaBlackNews, to: catalogueByID),
             allCombinedItems: finalAll,
             pureAppsOnly: finalApps,
             pureGamesOnly: finalGames,
-            itemsByCategory: finalCats,
             includesIPABlack: shouldUpdateIPABlack,
-            sourceName: snapshot.first(where: { ProtectedSourcesVault.isIPABlackSource($0.0, identifier: $0.1) })?.2.name ?? "IPA BLACK",
-            sourceSubtitle: snapshot.first(where: { ProtectedSourcesVault.isIPABlackSource($0.0, identifier: $0.1) })?.2.subtitle ?? "",
-            sourceIconURL: snapshot.first(where: { ProtectedSourcesVault.isIPABlackSource($0.0, identifier: $0.1) })?.2.iconURL,
-            sourceCategories: snapshot.first(where: { ProtectedSourcesVault.isIPABlackSource($0.0, identifier: $0.1) })?.2.categories ?? [],
             skippedLookupBundleIDs: Set(finalAll.filter { $0.app.skipAppStoreLookup == true }.compactMap { $0.app.id }),
-            todayItems: todayItems, todayNews: todayNews, todayCategories: todayCategories, todayFeaturedIDs: todayFeaturedIDs
+            todayItems: visibleToday, todayNews: mappedNews(todayNews, to: todayByID),
+            todayFeaturedBySource: todayFeaturedBySource,
+            appCategories: appCategories, gameCategories: gameCategories, searchCategories: searchCategories,
+            todayCategoryGroups: todayCategoryGroups
         )
     }
 }
@@ -1349,7 +1733,7 @@ struct XSignSerialQueue<Element> {
     private var head = 0
     private var registered: Set<String> = []
     private(set) var active: Entry? = nil
-    var pendingCount: Int { waiting.count - head }
+    var pendingCount: Int { registered.count - (active == nil ? 0 : 1) }
 
     init() {}
 
@@ -1361,7 +1745,12 @@ struct XSignSerialQueue<Element> {
 
     mutating func next() -> Entry? {
         guard case nil = active else { return nil }
-        guard head < waiting.count, let entry = waiting[head] else { return nil }
+        while head < waiting.count && waiting[head] == nil { head += 1 }
+        guard head < waiting.count, let entry = waiting[head] else {
+            waiting.removeAll(keepingCapacity: true)
+            head = 0
+            return nil
+        }
         waiting[head] = nil
         head += 1
         if head == waiting.count {
@@ -1380,6 +1769,17 @@ struct XSignSerialQueue<Element> {
         guard active?.key == key else { return false }
         registered.remove(key)
         active = nil
+        return true
+    }
+
+    mutating func removeWaiting(key: String) -> Bool {
+        guard let position = waiting.indices.dropFirst(head).first(where: { waiting[$0]?.key == key }) else { return false }
+        waiting[position] = nil
+        registered.remove(key)
+        if pendingCount == 0 {
+            waiting.removeAll(keepingCapacity: true)
+            head = 0
+        }
         return true
     }
 }
@@ -1429,6 +1829,15 @@ struct XSignBoundedPipeline<Job, File> {
         registered.remove(key)
         return true
     }
+    mutating func cancelWaiting(key: String) -> File? {
+        if let staged, staged.key == key {
+            self.staged = nil
+            registered.remove(key)
+            return staged.file
+        }
+        if downloads.removeWaiting(key: key) { registered.remove(key) }
+        return nil
+    }
     mutating func takeProcessing() -> Prepared? {
         guard case nil = processing, let next = staged else { return nil }
         staged = nil
@@ -1447,11 +1856,15 @@ struct XSignBoundedPipeline<Job, File> {
 final class XSignDownloadProgressGate: @unchecked Sendable {
     private let lock = NSLock()
     private var greatest = -1
+    private var lastPublication: UInt64?
     func shouldPublish(_ percent: Int) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard percent > greatest else { return false }
+        let now = DispatchTime.now().uptimeNanoseconds
+        if let lastPublication, now - lastPublication < 100_000_000 { return false }
         greatest = percent
+        lastPublication = now
         return true
     }
 }
@@ -1462,12 +1875,25 @@ final class AutoSignPipelineManager: ObservableObject {
 	static let shared = AutoSignPipelineManager()
 
 	@Published var activeStates: [String: Stage] = [:]
-	@Published var downloadProgress: [String: Int] = [:]
+	private var downloadProgress: [String: CurrentValueSubject<Int, Never>] = [:]
+
+    func progressPublisher(for key: String) -> AnyPublisher<Int, Never>? {
+        downloadProgress[key]?.removeDuplicates().eraseToAnyPublisher()
+    }
     @Published var showCertificateSetup = false
-    private var pendingCertificateDownloads: [ASRepository.App] = []
-    private var packagePipeline = XSignBoundedPipeline<ASRepository.App, URL>()
+    private struct DownloadRequest {
+        let app: ASRepository.App
+        let url: URL
+        let provenance: SourceAppProvenance?
+    }
+    private var pendingCertificateDownloads: [DownloadRequest] = []
+    private var packagePipeline = XSignBoundedPipeline<DownloadRequest, URL>()
     private var activeNetworkTask: URLSessionDownloadTask?
+    private var activeImportTask: Task<Void, Never>?
+    private var activeAttempt: UUID?
+    private var protectedTransfers: [String: UUID] = [:]
     private var isCheckingDownloadPolicy = false
+    private var abortingTransferQueue = false
     private var downloadPreflightBlocked = false
 
 	enum Stage: Equatable {
@@ -1491,7 +1917,7 @@ final class AutoSignPipelineManager: ObservableObject {
         config.timeoutIntervalForResource = 3600
 		config.requestCachePolicy = .reloadIgnoringLocalCacheData
 		config.urlCache = nil
-		return URLSession(configuration: config)
+		return URLSession(configuration: config, delegate: XSignCatalogRedirects(), delegateQueue: nil)
 	}()
 
 	init() {
@@ -1528,33 +1954,35 @@ final class AutoSignPipelineManager: ObservableObject {
 		}
 	}
 
-    func downloadAndAutoSign(app: ASRepository.App) {
-        if let reason = XSignRemoteManager.shared.blockingReason {
-            UIAlertController.showAlertWithOk(title: "تنبيه", message: reason)
+    func downloadAndAutoSign(app: ASRepository.App, provenance: SourceAppProvenance?) {
+        let security = XSignSecurityEnforcer.shared
+        security.evaluateNetworkSecurity()
+        if let reason = security.packageNetworkFailure ?? XSignRemoteManager.shared.blockingReason {
+            security.reportInstallationFailure(reason)
             return
         }
+        let key = app.downloadKey
+        if let state = activeStates[key] {
+            guard case .failed = state else { return }
+        }
+        guard let url = app.currentDownloadUrl.flatMap({ XSignManagedSource.httpsURL($0.absoluteString) }) else {
+            activeStates[key] = .failed("رابط التنزيل غير صالح.")
+            return
+        }
+        let request = DownloadRequest(app: app, url: url, provenance: provenance)
         guard Self.fetchActiveCertificate() != nil else {
-            if !pendingCertificateDownloads.contains(where: { $0.stableCatalogIdentifier == app.stableCatalogIdentifier }) {
-                pendingCertificateDownloads.append(app)
+            if !pendingCertificateDownloads.contains(where: { $0.app.downloadKey == key }) {
+                pendingCertificateDownloads.append(request)
             }
             showCertificateSetup = true
             return
         }
         downloadPreflightBlocked = false
-        let key = app.stableCatalogIdentifier
-        if let state = activeStates[key] {
-            switch state {
-            case .failed: activeStates.removeValue(forKey: key)
-            default: return
-            }
-        }
-        guard let url = app.currentDownloadUrl ?? app.versions?.first?.downloadURL,
-              ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
-            activeStates[key] = .failed("رابط التنزيل غير صالح.")
-            return
-        }
-        guard packagePipeline.enqueue(key: key, job: app) else { return }
+        guard packagePipeline.enqueue(key: key, job: request) else { return }
         activeStates[key] = .queued
+        protectedTransfers[key] = security.startProtectedTransfer { [weak self] reason in
+            self?.stopDownload(key: key, reason: reason)
+        }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         startNextDownload()
     }
@@ -1564,12 +1992,16 @@ final class AutoSignPipelineManager: ObservableObject {
         pendingCertificateDownloads = []
         refreshCertificateCache()
         guard cachedCertificate != nil else { return }
-        for app in pending { downloadAndAutoSign(app: app) }
+        for request in pending { downloadAndAutoSign(app: request.app, provenance: request.provenance) }
     }
 
     func applyRemotePolicy() {
-        if XSignRemoteManager.shared.blockingReason != nil {
+        if let reason = XSignRemoteManager.shared.blockingReason {
             activeNetworkTask?.cancel()
+            if let key = packagePipeline.processing?.key, let activeImportTask {
+                activeStates[key] = .failed(reason)
+                activeImportTask.cancel()
+            }
         } else {
             downloadPreflightBlocked = false
             startNextProcessing()
@@ -1578,7 +2010,7 @@ final class AutoSignPipelineManager: ObservableObject {
     }
 
     private func startNextDownload() {
-        guard packagePipeline.canStartDownload, !isCheckingDownloadPolicy, !downloadPreflightBlocked,
+        guard packagePipeline.canStartDownload, !isCheckingDownloadPolicy, !downloadPreflightBlocked, !abortingTransferQueue,
               XSignRemoteManager.shared.blockingReason == nil else { return }
         isCheckingDownloadPolicy = true
         Task { @MainActor in
@@ -1594,23 +2026,40 @@ final class AutoSignPipelineManager: ObservableObject {
     }
 
     private func beginNextDownload() {
-        guard XSignRemoteManager.shared.blockingReason == nil,
+        guard XSignRemoteManager.shared.blockingReason == nil, !abortingTransferQueue,
               let entry = packagePipeline.takeDownload() else { return }
-        let app = entry.value
         let key = entry.key
-        guard let url = app.currentDownloadUrl ?? app.versions?.first?.downloadURL else {
-            failNetworkDownload(key: key, message: "رابط التنزيل غير صالح.")
-            return
-        }
+        let url = entry.value.url
+        downloadProgress[key] = CurrentValueSubject(0)
         activeStates[key] = .downloading
-        downloadProgress[key] = 0
-        var request = URLRequest(url: url)
+        let attempt = UUID()
+        activeAttempt = attempt
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.setValue("X-SIGN/2.0", forHTTPHeaderField: "User-Agent")
+        Task { @MainActor in
+            do {
+                let approved = try XSignCatalogueEndpoint.packageRequest(request)
+                XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+                guard self.activeAttempt == attempt else { return }
+                if let reason = XSignRemoteManager.shared.blockingReason {
+                    self.failNetworkDownload(key: key, message: reason)
+                    return
+                }
+                self.startTransfer(approved, key: key, attempt: attempt)
+            } catch {
+                guard self.activeAttempt == attempt else { return }
+                self.failNetworkDownload(key: key, message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func startTransfer(_ request: URLRequest, key: String, attempt: UUID) {
         let task = turboSession.downloadTask(with: request) { [weak self] location, response, error in
             guard let self else { return }
             guard error == nil, let location,
                   let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 Task { @MainActor in
+                    guard self.activeAttempt == attempt else { return }
                     self.failNetworkDownload(key: key, message: error?.localizedDescription ?? "تعذّر تنزيل التطبيق من الخادم.")
                 }
                 return
@@ -1623,13 +2072,19 @@ final class AutoSignPipelineManager: ObservableObject {
                     throw NSError(domain: "XSign.Download", code: 1,
                                   userInfo: [NSLocalizedDescriptionKey: "الملف الذي نزله الخادم فارغ."])
                 }
+                guard size.int64Value <= XSignIPAExtractor.maximumArchiveBytes else {
+                    throw XSignIPAExtractor.InvalidArchive.tooLarge
+                }
                 try FileManager.default.moveItem(at: location, to: file)
             } catch {
                 try? FileManager.default.removeItem(at: file)
-                Task { @MainActor in self.failNetworkDownload(key: key, message: error.localizedDescription) }
+                Task { @MainActor in
+                    guard self.activeAttempt == attempt else { return }
+                    self.failNetworkDownload(key: key, message: error.localizedDescription)
+                }
                 return
             }
-            Task { @MainActor in self.receivedPackage(file, key: key) }
+            Task { @MainActor in self.receivedPackage(file, key: key, attempt: attempt) }
         }
         let progressGate = XSignDownloadProgressGate()
         progressObservations[key] = task.progress.observe(\Progress.fractionCompleted, options: [.new]) { [weak self] progress, _ in
@@ -1638,9 +2093,8 @@ final class AutoSignPipelineManager: ObservableObject {
             let percent = Int(max(0, min(99, fraction * 100)))
             guard progressGate.shouldPublish(percent) else { return }
             Task { @MainActor in
-                guard let self, self.activeStates[key] == .downloading else { return }
-                // At most 100 progress publications per download, regardless of chunk count.
-                if self.downloadProgress[key] != percent { self.downloadProgress[key] = percent }
+                guard let self, self.activeAttempt == attempt, self.activeStates[key] == .downloading else { return }
+                self.downloadProgress[key]?.send(percent)
             }
         }
         activeNetworkTask = task
@@ -1648,8 +2102,9 @@ final class AutoSignPipelineManager: ObservableObject {
         task.resume()
     }
 
-    private func receivedPackage(_ file: URL, key: String) {
-        guard packagePipeline.activeDownload?.key == key else {
+    private func receivedPackage(_ file: URL, key: String, attempt: UUID) {
+        XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+        guard activeAttempt == attempt, packagePipeline.activeDownload?.key == key else {
             try? FileManager.default.removeItem(at: file)
             return
         }
@@ -1664,6 +2119,7 @@ final class AutoSignPipelineManager: ObservableObject {
             return
         }
         activeNetworkTask = nil
+        activeAttempt = nil
         progressObservations.removeValue(forKey: key)
         downloadProgress.removeValue(forKey: key)
         activeStates[key] = .preparing
@@ -1673,15 +2129,22 @@ final class AutoSignPipelineManager: ObservableObject {
     }
 
     private func startNextProcessing() {
-        guard XSignRemoteManager.shared.blockingReason == nil,
+        guard XSignRemoteManager.shared.blockingReason == nil, !abortingTransferQueue,
               let entry = packagePipeline.takeProcessing() else { return }
         let key = entry.key
         let file = entry.file
         activeStates[key] = .preparing
         refreshCertificateCache()
-        FR.importPackageFile(file, consumeTemporaryFile: true) { [weak self] result in
+        activeImportTask = FR.importPackageFile(file, sourceProvenance: entry.job.provenance,
+                                                consumeTemporaryFile: true) { [weak self] result in
             try? FileManager.default.removeItem(at: file)
             guard let self else { return }
+            self.activeImportTask = nil
+            if case .failed(let reason) = self.activeStates[key] {
+                if case .success(let uuid) = result { Storage.shared.deleteInterruptedImport(uuid: uuid) }
+                self.finishDownload(key: key, error: reason)
+                return
+            }
             switch result {
             case .failure(let error):
                 self.finishDownload(key: key, error: error.localizedDescription)
@@ -1701,9 +2164,11 @@ final class AutoSignPipelineManager: ObservableObject {
     private func failNetworkDownload(key: String, message: String) {
         guard packagePipeline.failDownload(key: key) else { return }
         activeNetworkTask = nil
+        activeAttempt = nil
         progressObservations.removeValue(forKey: key)
         downloadProgress.removeValue(forKey: key)
         activeStates[key] = .failed(message)
+        XSignSecurityEnforcer.shared.finishProtectedTransfer(protectedTransfers.removeValue(forKey: key))
         startNextProcessing()
         startNextDownload()
     }
@@ -1711,8 +2176,23 @@ final class AutoSignPipelineManager: ObservableObject {
     private func finishDownload(key: String, error: String?) {
         guard packagePipeline.finishProcessing(key: key) else { return }
         if let error { activeStates[key] = .failed(error) }
+        XSignSecurityEnforcer.shared.finishProtectedTransfer(protectedTransfers.removeValue(forKey: key))
         startNextProcessing()
         startNextDownload()
+    }
+
+    private func stopDownload(key: String, reason: String) {
+        abortingTransferQueue = true
+        defer { abortingTransferQueue = false }
+        protectedTransfers[key] = nil
+        if packagePipeline.activeDownload?.key == key {
+            activeNetworkTask?.cancel()
+            failNetworkDownload(key: key, message: reason)
+        } else {
+            if packagePipeline.processing?.key == key { activeImportTask?.cancel() }
+            if let file = packagePipeline.cancelWaiting(key: key) { try? FileManager.default.removeItem(at: file) }
+            activeStates[key] = .failed(reason)
+        }
     }
 
     func triggerInstantZSign(for importedApp: Imported, appKey: String) {
@@ -1725,6 +2205,11 @@ final class AutoSignPipelineManager: ObservableObject {
         options.signingOption = .default
         FR.signPackageFileWithResult(importedApp, using: options, icon: nil, certificate: cert) { [weak self] result in
             guard let self else { return }
+            XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+            if case .failed(let reason) = self.activeStates[appKey] {
+                self.finishDownload(key: appKey, error: reason)
+                return
+            }
             switch result {
             case .failure(let error):
                 self.finishDownload(key: appKey, error: error.localizedDescription)
@@ -1778,13 +2263,13 @@ struct AppStoreStatBadge: View {
 
 	var body: some View {
 		VStack(spacing: 4) {
-			Text(topTitle)
+			Text(xsignText(topTitle))
 				.font(.system(size: 11, weight: .semibold))
 				.foregroundStyle(.secondary)
 			Text(mainValue)
 				.font(.system(size: 20, weight: .heavy, design: .rounded))
 				.foregroundStyle(Color.primary.opacity(0.9))
-			Text(bottomText)
+			Text(xsignText(bottomText))
 				.font(.system(size: 11, weight: .medium))
 				.foregroundStyle(.secondary)
 				.lineLimit(1)
@@ -1800,7 +2285,7 @@ struct AppStoreInfoRow: View {
 	var body: some View {
 		VStack(spacing: 10) {
 			HStack {
-				Text(label)
+				Text(xsignText(label))
 					.font(.system(size: 14))
 					.foregroundStyle(.secondary)
 				Spacer()
@@ -1814,341 +2299,276 @@ struct AppStoreInfoRow: View {
 	}
 }
 
-// MARK: - 1. TODAY VIEW (IPA BLACK and IPA Soon)
+// MARK: - Today
 struct AppStoreTodayView: View {
     @StateObject private var cache = AppStoreCacheManager.shared
+    @ObservedObject private var sourcesViewModel = SourcesViewModel.shared
     @State private var showSettingsSheet = false
+    @ObservedObject private var remote = XSignRemoteManager.shared
+    @FetchRequest(entity: AltSource.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)])
+    private var sources: FetchedResults<AltSource>
 
-    private var todayApps: [AppStoreAppItem] { cache.todayItems }
+    private var dashboard: XSignDashboardConfig? { remote.config?.dashboard }
+    private var showsDefaultEmptyState: Bool {
+        let sections = dashboard?.sections(for: "today") ?? XSignDashboardConfig.defaultSections.filter { $0.page == "today" }
+        return cache.todayItems.isEmpty && !(sections.contains { $0.kind == "news" } && !cache.todayEditorialNews.isEmpty) &&
+            sections.contains { ["featured", "apps"].contains($0.kind) }
+    }
 
     var body: some View {
         XSignNavigationView {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(Date(), format: .dateTime.weekday(.wide).day().month(.wide))
-                                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                            Text("اليوم").font(.largeTitle.bold())
-                        }
-                        Spacer()
-                        AppStoreAccountAppIconButton { showSettingsSheet = true }
-                    }
-                    .padding(.top, 12)
+                    AppStore2026TopHeader(title: "اليوم", onSettingsTap: { showSettingsSheet = true },
+                        date: dashboard?.today_show_date != false ? Date() : nil,
+                        showsAccount: dashboard?.today_show_account != false, horizontalInset: 0)
 
                     XSignClassicStoreContent(page: "today")
-                    if todayApps.isEmpty {
-                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
-                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
+                    if showsDefaultEmptyState {
+                        AppStore2026EmptyState(isLoading: cache.isRefreshingToday || cache.isRefreshing || cache.isPreparing,
+                            emptyMessage: cache.todayEmptyMessage,
                             retry: { Task { await cache.refreshToday() } })
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 110)
             }
-            .background(AppStoreTheme.background.ignoresSafeArea())
+            .xsignPageBackground()
             .navigationBarHidden(true)
             .refreshable { await cache.refreshToday() }
             .sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
                 AppStore2026SettingsPopup()
             }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+
+        .task(id: sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
+            await cache.ensureFetched(sources: sources, viewModel: sourcesViewModel)
+        }
     }
 }
 
 struct XSignTodayFeatureCard: View {
-    let item: AppStoreAppItem
+    let item: AppStoreAppItem?
+    let title: String
+    let caption: String
+    let badge: String?
+    let artwork: URL?
+    let tint: Color?
+    var targetURL: URL? = nil
+    var showsDownload = true
+    var compact = false
+
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize = 32.0
+    private let shape = RoundedRectangle(cornerRadius: 23, style: .continuous)
+    private var cardColor: Color { tint ?? Color.accentColor }
+    private var artURL: URL? {
+        [artwork, item?.app.artworkURL, item?.screenshots.first].compactMap { $0 }
+            .first { XSignManagedSource.httpsURL($0.absoluteString) != nil }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            NavigationLink { AppStore2026DetailView(item: item) } label: {
-                ZStack(alignment: .bottomLeading) {
-                    LinearGradient(colors: [.init(red: 0.01, green: 0.10, blue: 0.25), .init(red: 0.02, green: 0.28, blue: 0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    if let artwork = item.screenshots.first {
-                        LazyImage(url: artwork) { state in
-                            if let image = state.image { image.resizable().scaledToFill().opacity(0.5) }
-                        }.processors([.resize(size: CGSize(width: 700, height: 700))])
-                    } else {
-                        VStack {
-                            Spacer(minLength: 16)
-                            AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id, appName: item.app.currentName, size: 132)
-                                .rotationEffect(.degrees(-9)).shadow(color: .black.opacity(0.3), radius: 18, y: 12)
-                            Spacer(minLength: 120)
-                        }.frame(maxWidth: .infinity)
-                    }
-                    LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .center, endPoint: .bottom)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("اختيار XSIGN").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(.white.opacity(0.8))
-                        Text(item.app.currentName).font(.system(.largeTitle, design: .rounded).bold()).lineLimit(2)
-                        Text(item.arabicSubtitle).font(.subheadline.weight(.medium)).lineLimit(2).foregroundStyle(.white.opacity(0.85))
-                    }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading).padding(24)
-                }.frame(height: 350).clipped()
-            }.buttonStyle(.plain)
-            HStack(spacing: 12) {
-                NavigationLink { AppStore2026DetailView(item: item) } label: {
-                    HStack(spacing: 12) {
-                        AppStoreIconView(url: item.app.iconURL, size: 46)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.app.currentName).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
-                            Text("توقيع عبر XSign").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain)
-                AppStore2026DownloadButton(app: item.app)
-            }.padding(16).background(AppStoreTheme.cardSurface)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 16, y: 7)
-    }
-}
-
-struct XSignTodaySmallCard: View {
-    let item: AppStoreAppItem
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                AppStoreIconView(url: item.app.iconURL, size: 64)
-                Spacer(minLength: 0)
+            if let targetURL {
+                Link(destination: targetURL) { artworkContent }.buttonStyle(.plain)
+            } else if let item {
+                NavigationLink { AppStore2026DetailView(item: item) } label: { artworkContent }.buttonStyle(.plain)
+            } else {
+                artworkContent
             }
-            Text(item.category.rawValue).font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor).lineLimit(1)
-            Text(item.app.currentName).font(.headline).foregroundStyle(.primary).lineLimit(2)
-            Text(item.arabicSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-        }.frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
-            .padding(16).background(AppStoreTheme.cardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+            if let item {
+                HStack(spacing: 10) {
+                    NavigationLink { AppStore2026DetailView(item: item) } label: {
+                        HStack(spacing: 10) {
+                            AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id,
+                                appName: item.app.currentName, size: 48)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.app.currentName).font(.headline).foregroundStyle(.white).lineLimit(1)
+                                Text(xsignText(item.arabicSubtitle)).font(.subheadline).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }.buttonStyle(.plain)
+                    if showsDownload {
+                        AppStore2026DownloadButton(app: item.app, provenance: item.downloadProvenance(), onArtwork: true)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .background(Color.black.opacity(0.13))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .background { ZStack { Color.black; cardColor.opacity(0.58) } }
+        .clipShape(shape)
+        .overlay { shape.strokeBorder(Color.white.opacity(0.13), lineWidth: 1).allowsHitTesting(false) }
+    }
+
+    private var artworkContent: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let badge, !badge.isEmpty {
+                Text(xsignText(badge)).font(.caption.weight(.bold))
+                    .padding(.horizontal, 11).padding(.vertical, 6)
+                    .background(.black.opacity(0.44), in: Capsule())
+            }
+            Spacer(minLength: compact ? 38 : 82)
+            Text(xsignText(title)).font(.system(size: compact ? titleSize * 0.77 : titleSize, weight: .heavy))
+                .lineLimit(3).accessibilityAddTraits(.isHeader)
+            if !caption.isEmpty {
+                Text(xsignText(caption)).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.83)).lineLimit(3)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: !compact && (artURL != nil || item != nil) ? 334 : 174, alignment: .leading)
+        .background {
+            GeometryReader { proxy in
+                ZStack {
+                    if let artURL {
+                        LazyImage(request: xsignImageRequest(artURL)) { state in
+                            if let image = state.image {
+                                image.resizable().scaledToFill().frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                            } else { iconArtwork }
+                        }
+                        .processors([.resize(size: CGSize(width: 840, height: 840))])
+                    } else { iconArtwork }
+                    LinearGradient(stops: [
+                        .init(color: .clear, location: 0.27),
+                        .init(color: cardColor.opacity(0.53), location: 0.67),
+                        .init(color: .black.opacity(0.76), location: 1)
+                    ], startPoint: .top, endPoint: .bottom)
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder private var iconArtwork: some View {
+        if let item {
+            AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id, appName: item.app.currentName, size: compact ? 62 : 116)
+                .rotationEffect(.degrees(-8))
+                .shadow(color: .black.opacity(0.35), radius: 15, y: 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, compact ? 17 : 42)
+        } else {
+            LinearGradient(colors: [cardColor.opacity(0.6), .black.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
     }
 }
 
-// MARK: - 2. APPS VIEW
+// MARK: - Apps and games
 struct SourcesView: View {
-	@StateObject var viewModel = SourcesViewModel.shared
-	@StateObject private var cache = AppStoreCacheManager.shared
-	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
-	@State private var _isSettingsPresenting = false
-	@State private var _selectedAppCategory: AppStore2026Category? = nil
-
-	@FetchRequest(
-		entity: AltSource.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
-	) private var _sources: FetchedResults<AltSource>
-
-	private let appOnlyCategories: [AppStore2026Category] = [
-		.social,
-		.photoVideo,
-		.mediaReaders,
-		.devTools,
-		.visualArts,
-		.productivity
-	]
-
-	private var filteredPureApps: [AppStoreAppItem] {
-		guard let selected = _selectedAppCategory else {
-			return cache.pureAppsOnly
-		}
-		return cache.itemsByCategory[selected] ?? []
-	}
-
-	private var accentColor: Color {
-		Color(hex: userTintHex)
-	}
-
-	var body: some View {
-		XSignNavigationView {
-			ScrollView(.vertical, showsIndicators: false) {
-				LazyVStack(alignment: .leading, spacing: 24) {
-					AppStore2026TopHeader(
-						title: "التطبيقات",
-						onSettingsTap: { _isSettingsPresenting = true }
-					)
-
-					if cache.pureAppsOnly.isEmpty {
-                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
-                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
-                            retry: { Task { await cache.forceRefresh(sources: _sources, viewModel: viewModel) } })
-							.padding(.horizontal, 18)
-							.padding(.top, 30)
-					} else {
-						ScrollView(.horizontal, showsIndicators: false) {
-							HStack(spacing: 10) {
-								Button {
-									_selectedAppCategory = nil
-								} label: {
-									Text("الكل")
-										.font(.subheadline.weight(.bold))
-										.foregroundStyle(_selectedAppCategory == nil ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
-										.padding(.horizontal, 18)
-										.padding(.vertical, 9)
-										.background(
-											Capsule(style: .continuous)
-												.fill(_selectedAppCategory == nil ? accentColor : AppStoreTheme.controlSurface)
-										)
-								}
-								.buttonStyle(.plain)
-
-								ForEach(appOnlyCategories.filter { !(cache.itemsByCategory[$0] ?? []).isEmpty }) { cat in
-									Button {
-										_selectedAppCategory = cat
-									} label: {
-										HStack(spacing: 6) {
-											Image(systemName: cat.sfSymbol)
-												.font(.caption)
-											Text(cat.rawValue)
-												.font(.subheadline.weight(.bold))
-										}
-										.foregroundStyle(_selectedAppCategory == cat ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
-										.padding(.horizontal, 16)
-										.padding(.vertical, 9)
-										.background(
-											Capsule(style: .continuous)
-												.fill(_selectedAppCategory == cat ? accentColor : AppStoreTheme.controlSurface)
-										)
-									}
-									.buttonStyle(.plain)
-								}
-							}
-							.padding(.horizontal, 18)
-						}
-
-                        Group {
-                            if let category = _selectedAppCategory {
-                                Text(category.rawValue).font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                                XSignCatalogueFeed(items: filteredPureApps).id(category)
-                            } else {
-                                XSignClassicStoreContent(page: "apps")
-                            }
-                        }.padding(.horizontal, 18)
-					}
-				}
-				.padding(.bottom, 100)
-			}
-			.background(AppStoreTheme.background.ignoresSafeArea())
-			.navigationBarHidden(true)
-			.refreshable {
-				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
-			}
-			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
-				AppStore2026SettingsPopup()
-			}
-		}
-		.environment(\.layoutDirection, .rightToLeft)
-        .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
-            await cache.ensureFetched(sources: _sources, viewModel: viewModel)
-        }
-	}
+    var body: some View { XSignStoreCataloguePage(page: "apps") }
 }
 
-// MARK: - 3. GAMES VIEW
 struct AppStoreGamesView: View {
-	@StateObject private var viewModel = SourcesViewModel.shared
-	@StateObject private var cache = AppStoreCacheManager.shared
-	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
-	@State private var showSettingsSheet = false
-	@State private var selectedGameCategory: AppStore2026Category? = nil
+    var body: some View { XSignStoreCataloguePage(page: "games") }
+}
 
-	@FetchRequest(
-		entity: AltSource.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)]
-	) private var _sources: FetchedResults<AltSource>
+private struct XSignStoreCataloguePage: View {
+    let page: String
+    private let viewModel = SourcesViewModel.shared
+    @ObservedObject private var cache = AppStoreCacheManager.shared
+    @ObservedObject private var remote = XSignRemoteManager.shared
+    @State private var showSettings = false
+    @State private var selection: String?
+    @FetchRequest(entity: AltSource.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)])
+    private var sources: FetchedResults<AltSource>
 
-	private let gameOnlyCategories: [AppStore2026Category] = [
-		.pvpGames,
-		.simulationGames,
-		.strategyGames,
-		.puzzleGames,
-		.casualGames
-	]
-
-	private var displayedGames: [AppStoreAppItem] {
-		guard let selected = selectedGameCategory else {
-			return cache.pureGamesOnly
-		}
-		return cache.itemsByCategory[selected] ?? []
-	}
-
-	private var accentColor: Color {
-		Color(hex: userTintHex)
-	}
-
-	var body: some View {
-		XSignNavigationView {
-			ScrollView(.vertical, showsIndicators: false) {
-				LazyVStack(alignment: .leading, spacing: 24) {
-					AppStore2026TopHeader(
-						title: "الألعاب",
-						onSettingsTap: { showSettingsSheet = true }
-					)
-
-					if cache.pureGamesOnly.isEmpty {
-                        AppStore2026EmptyState(isLoading: cache.isRefreshing || cache.isPreparing,
-                            emptyMessage: "لا توجد تطبيقات متاحة الآن.",
-                            retry: { Task { await cache.forceRefresh(sources: _sources, viewModel: viewModel) } })
-							.padding(.horizontal, 18)
-							.padding(.top, 20)
-					} else {
-						ScrollView(.horizontal, showsIndicators: false) {
-							HStack(spacing: 10) {
-								Button {
-									selectedGameCategory = nil
-								} label: {
-									Text("كل الألعاب")
-										.font(.subheadline.weight(.bold))
-										.foregroundStyle(selectedGameCategory == nil ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
-										.padding(.horizontal, 18)
-										.padding(.vertical, 9)
-										.background(
-											Capsule(style: .continuous)
-												.fill(selectedGameCategory == nil ? accentColor : AppStoreTheme.controlSurface)
-										)
-								}
-								.buttonStyle(.plain)
-
-								ForEach(gameOnlyCategories.filter { !(cache.itemsByCategory[$0] ?? []).isEmpty }) { cat in
-									Button {
-										selectedGameCategory = cat
-									} label: {
-										HStack(spacing: 6) {
-											Image(systemName: cat.sfSymbol)
-												.font(.caption)
-											Text(cat.rawValue)
-												.font(.subheadline.weight(.bold))
-										}
-										.foregroundStyle(selectedGameCategory == cat ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.primary)
-										.padding(.horizontal, 16)
-										.padding(.vertical, 9)
-										.background(
-											Capsule(style: .continuous)
-												.fill(selectedGameCategory == cat ? accentColor : AppStoreTheme.controlSurface)
-										)
-									}
-									.buttonStyle(.plain)
-								}
-							}
-							.padding(.horizontal, 18)
-						}
-
-                        Group {
-                            if let category = selectedGameCategory {
-                                Text(category.rawValue).font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                                XSignCatalogueFeed(items: displayedGames).id(category)
-                            } else {
-                                XSignClassicStoreContent(page: "games")
+    private var games: Bool { page == "games" }
+    var body: some View {
+        let configured = remote.config?.dashboard?.sections ?? XSignDashboardConfig.defaultSections
+        let categorySection = configured.first { $0.page == page && $0.kind == "categories" && $0.enabled != false }
+        let hasExplicitCategorySetting = configured.contains { $0.page == page && $0.kind == "categories" }
+        let categories = (categorySection.map { cache.categories(for: page, section: $0) }
+            ?? (hasExplicitCategorySetting ? [] : cache.categories(for: page))).filter { !$0.items.isEmpty }
+        let selected = categories.first { $0.id == selection }
+        let allItems = games ? cache.pureGamesOnly : cache.pureAppsOnly
+        XSignNavigationView {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    AppStore2026TopHeader(title: games ? "الألعاب" : "التطبيقات", onSettingsTap: { showSettings = true })
+                    if !categories.isEmpty {
+                        XSignStoreCategoryBar(title: categorySection?.title ?? (games ? "أقسام الألعاب" : "أقسام التطبيقات")) {
+                            Button { selection = nil } label: {
+                                XSignStoreCategoryPill(title: "الكل", symbol: "square.grid.2x2", isSelected: selected == nil)
+                            }.buttonStyle(.plain)
+                            ForEach(categories) { category in
+                                Button { selection = category.id } label: {
+                                    XSignStoreCategoryPill(title: category.title, symbol: category.symbol,
+                                        svg: category.iconSVG, isSelected: selected?.id == category.id)
+                                }.buttonStyle(.plain)
                             }
-                        }.padding(.horizontal, 18)
-					}
-				}
-				.padding(.bottom, 100)
-			}
-			.background(AppStoreTheme.background.ignoresSafeArea())
-			.navigationBarHidden(true)
-			.refreshable {
-				await cache.forceRefresh(sources: _sources, viewModel: viewModel)
-			}
-			.sheet(isPresented: $showSettingsSheet, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
-				AppStore2026SettingsPopup()
-			}
-		}
-		.environment(\.layoutDirection, .rightToLeft)
-        .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
-            await cache.ensureFetched(sources: _sources, viewModel: viewModel)
+                        }
+                        .padding(.horizontal, 18)
+                    }
+                    let visibleItems = selected?.items ?? allItems
+                    XSignClassicStoreContent(page: page, completeItems: visibleItems, showsCategories: false, categoryID: selected?.id)
+                        .padding(.horizontal, 18)
+                    if visibleItems.isEmpty {
+                        AppStore2026EmptyState(isLoading: !cache.hasLoadedCatalog || cache.isPreparing,
+                            emptyMessage: games ? "لا توجد ألعاب متاحة الآن." : "لا توجد تطبيقات متاحة الآن.")
+                    }
+                }.padding(.bottom, 100)
+            }
+            .xsignPageBackground()
+            .navigationBarHidden(true)
+            .refreshable { await cache.forceRefresh(sources: sources, viewModel: viewModel) }
+            .sheet(isPresented: $showSettings, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
+                AppStore2026SettingsPopup()
+            }
         }
-	}
+
+        .task(id: sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
+            await cache.ensureFetched(sources: sources, viewModel: viewModel)
+        }
+    }
+
+}
+
+struct XSignStoreCategoryBar<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(xsignText(title)).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal, showsIndicators: false) {
+                if #available(iOS 26.0, *) {
+                    GlassEffectContainer(spacing: 8) { pills }
+                } else {
+                    pills
+                }
+            }
+        }
+    }
+
+    private var pills: some View {
+        LazyHStack(spacing: 8, content: content)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 2)
+    }
+}
+
+struct XSignStoreCategoryPill: View {
+    let title: String
+    let symbol: String
+    var svg: String? = nil
+    var isSelected = false
+    @AppStorage("Feather.userTintColor") private var userTintHex = "#005BBB"
+
+    var body: some View {
+        HStack(spacing: 6) {
+            XSignCategoryIcon(svg: svg, symbol: symbol)
+                .accessibilityHidden(true)
+            Text(xsignText(title)).lineLimit(1)
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(isSelected ? AppStoreTheme.contrastingText(forHex: userTintHex) : .primary)
+        .padding(.horizontal, 15)
+        .frame(minHeight: 44)
+        .xsignGlassControl(in: Capsule(), tint: isSelected ? Color(hex: userTintHex) : nil)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
 }
 
 // MARK: - 4. SEARCH VIEW (Background Debounced 120fps Zero-Lag Search)
@@ -2184,48 +2604,11 @@ struct AppStoreSearchView: View {
                                 Button { localSearchText = "" } label: { Image(systemName: "xmark.circle.fill") }
                                     .accessibilityLabel("مسح البحث")
                             }
-                        }.padding(12).xsignSurface(radius: 14)
+                        }.padding(12).xsignGlassControl(in: Capsule(), interactive: false)
                             .padding(.horizontal, 18)
                     }
 					if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         XSignCatalogCategories(cache: cache)
-						VStack(alignment: .leading, spacing: 14) {
-							HStack(spacing: 6) {
-								Text("تصفح")
-									.font(.system(size: 22, weight: .bold))
-									.foregroundStyle(.primary)
-								Image(systemName: "chevron.left")
-									.font(.system(size: 16, weight: .bold))
-									.foregroundStyle(.secondary)
-								Spacer()
-							}
-							.padding(.horizontal, 18)
-
-							LazyVGrid(
-								columns: [
-									GridItem(.flexible(), spacing: 12),
-									GridItem(.flexible(), spacing: 12)
-								],
-								spacing: 12
-							) {
-								ForEach(AppStore2026Category.allCases.filter { !(cache.itemsByCategory[$0] ?? []).isEmpty }) { category in
-									let catApps = cache.itemsByCategory[category] ?? []
-									NavigationLink {
-										AppStore2026CategoryListView(
-											category: category,
-											items: catApps
-										)
-									} label: {
-										AppStore2026BrowseCategoryTile(
-											category: category,
-											previewApps: Array(catApps.prefix(2))
-										)
-									}
-									.buttonStyle(.plain)
-								}
-							}
-							.padding(.horizontal, 18)
-						}
 					} else {
                         HStack {
                             if results.isSearching { ProgressView().controlSize(.small); Text("جاري البحث…") }
@@ -2265,7 +2648,7 @@ struct AppStoreSearchView: View {
 				AppStore2026SettingsPopup()
 			}
 		}
-		.environment(\.layoutDirection, .rightToLeft)
+
         .task(id: _sources.map { $0.sourceURL?.absoluteString ?? "" }.sorted()) {
             triggerBackgroundSearch(query: searchText)
             await cache.ensureFetched(sources: _sources, viewModel: viewModel)
@@ -2280,22 +2663,28 @@ struct AppStoreSearchView: View {
 
 // MARK: - Top Header
 struct AppStore2026TopHeader: View {
-	let title: String
-	let onSettingsTap: () -> Void
+    let title: String
+    let onSettingsTap: () -> Void
+    var date: Date? = nil
+    var showsAccount = true
+    var horizontalInset: CGFloat = 18
 
-	var body: some View {
-		HStack(alignment: .center) {
-			Text(title)
-				.font(.system(size: 34, weight: .heavy))
-				.foregroundStyle(.primary)
-
-			Spacer()
-
-			AppStoreAccountAppIconButton(action: onSettingsTap)
-		}
-		.padding(.horizontal, 18)
-		.padding(.top, 10)
-	}
+    var body: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 5) {
+                if let date {
+                    Text(date, format: .dateTime.weekday(.wide).day().month(.wide))
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                Text(xsignText(title)).font(.largeTitle.weight(.heavy))
+                    .foregroundStyle(.primary).accessibilityAddTraits(.isHeader)
+            }
+            Spacer()
+            if showsAccount { AppStoreAccountAppIconButton(action: onSettingsTap) }
+        }
+        .padding(.horizontal, horizontalInset)
+        .padding(.top, 14)
+    }
 }
 
 struct AppStoreAccountAppIconButton: View {
@@ -2306,10 +2695,8 @@ struct AppStoreAccountAppIconButton: View {
             FRAppIconView(size: 38)
                 .frame(width: 38, height: 38)
                 .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color.primary.opacity(0.28), lineWidth: 1.1)
-                }
+                .padding(3)
+                .xsignGlassControl(in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("الإعدادات")
@@ -2334,11 +2721,11 @@ struct TodayLiveEventHeroCard: View {
 		VStack(alignment: .leading, spacing: 10) {
 			if let outerTitle {
 				VStack(alignment: .leading, spacing: 2) {
-					Text(outerTitle)
+					Text(xsignText(outerTitle))
 						.font(.system(size: 22, weight: .heavy))
 						.foregroundStyle(.primary)
 					if let outerSubtitle {
-						Text(outerSubtitle)
+						Text(xsignText(outerSubtitle))
 							.font(.subheadline)
 							.foregroundStyle(.secondary)
 					}
@@ -2365,7 +2752,7 @@ struct TodayLiveEventHeroCard: View {
 						.overlay {
 							let displayBanner = bannerImageURL ?? liveScreenshots.first
 							if let bannerURL = displayBanner {
-								LazyImage(url: bannerURL) { state in
+								LazyImage(request: xsignImageRequest(bannerURL)) { state in
 									if let image = state.image {
 										image
 											.resizable()
@@ -2395,11 +2782,11 @@ struct TodayLiveEventHeroCard: View {
 								)
 
 								VStack(alignment: .leading, spacing: 6) {
-									Text(eventTag)
+									Text(xsignText(eventTag))
 										.font(.system(size: 13, weight: .bold))
 										.foregroundStyle(.white.opacity(0.9))
 
-									Text(headline)
+									Text(xsignText(headline))
 										.font(.system(size: 26, weight: .heavy))
 										.foregroundStyle(.white)
 										.lineLimit(2)
@@ -2417,7 +2804,7 @@ struct TodayLiveEventHeroCard: View {
 							}
 						}
 
-					Text(cornerBadge)
+					Text(xsignText(cornerBadge))
 						.font(.system(size: 13, weight: .bold))
 						.foregroundStyle(.white)
 						.padding(.horizontal, 16)
@@ -2450,7 +2837,7 @@ struct TodayLiveEventHeroCard: View {
 							.font(.system(size: 16, weight: .bold))
 							.foregroundStyle(.white)
 							.lineLimit(1)
-						Text(item.arabicSubtitle)
+						Text(xsignText(item.arabicSubtitle))
 							.font(.system(size: 13))
 							.foregroundStyle(.white.opacity(0.8))
 							.lineLimit(1)
@@ -2458,7 +2845,7 @@ struct TodayLiveEventHeroCard: View {
 
 					Spacer(minLength: 8)
 
-					AppStore2026DownloadButton(app: item.app, isLightPill: true)
+					AppStore2026DownloadButton(app: item.app, provenance: item.downloadProvenance(), onArtwork: true)
 				}
 				.padding(.horizontal, 18)
 				.padding(.vertical, 14)
@@ -2517,12 +2904,12 @@ struct TodayTwoRowIconGridCard: View {
 								.font(.system(size: 20))
 								.foregroundStyle(AppStoreTheme.dynamicAccent)
 						}
-						Text(outerTitle)
+						Text(xsignText(outerTitle))
 							.font(.system(size: 22, weight: .heavy))
 							.foregroundStyle(.primary)
 					}
 					if let outerSubtitle {
-						Text(outerSubtitle)
+						Text(xsignText(outerSubtitle))
 							.font(.subheadline)
 							.foregroundStyle(.secondary)
 					}
@@ -2579,11 +2966,11 @@ struct TodayTwoRowIconGridCard: View {
 						)
 
 						VStack(alignment: .leading, spacing: 6) {
-							Text(caption)
+							Text(xsignText(caption))
 								.font(.system(size: 13, weight: .bold))
 								.foregroundStyle(.white.opacity(0.88))
 
-							Text(headline)
+							Text(xsignText(headline))
 								.font(.system(size: 27, weight: .heavy))
 								.foregroundStyle(.white)
 								.lineLimit(2)
@@ -2609,65 +2996,24 @@ struct TodayTwoRowIconGridCard: View {
 	}
 }
 
-struct TodayFourAppsListCard: View {
-	let outerTitle: String?
-	let outerSubtitle: String?
-	let innerCaption: String
-	let innerTitle: String
-	let items: [AppStoreAppItem]
+struct XSignTodayListCard: View {
+    let items: [AppStoreAppItem]
+    let showsDownload: Bool
+    var caption: String? = nil
 
-	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			if let outerTitle {
-				VStack(alignment: .leading, spacing: 3) {
-					Text(outerTitle)
-						.font(.system(size: 22, weight: .heavy))
-						.foregroundStyle(.primary)
-					if let outerSubtitle {
-						Text(outerSubtitle)
-							.font(.subheadline)
-							.foregroundStyle(.secondary)
-					}
-				}
-				.padding(.horizontal, 4)
-			}
-
-			VStack(alignment: .leading, spacing: 18) {
-				VStack(alignment: .leading, spacing: 4) {
-					Text(innerCaption)
-						.font(.system(size: 13, weight: .bold))
-						.foregroundStyle(.secondary)
-					Text(innerTitle)
-						.font(.system(size: 26, weight: .heavy))
-						.foregroundStyle(.primary)
-						.lineLimit(2)
-						.multilineTextAlignment(.leading)
-				}
-
-				VStack(spacing: 14) {
-					ForEach(Array(items.prefix(4).enumerated()), id: \.element.id) { index, item in
-                        AppStore2026AppRow(item: item)
-
-						if index < min(items.count, 4) - 1 {
-							Divider()
-								.background(Color.primary.opacity(0.08))
-								.padding(.leading, 70)
-						}
-					}
-				}
-			}
-			.padding(20)
-			.frame(maxWidth: .infinity)
-			.background(
-				RoundedRectangle(cornerRadius: 28, style: .continuous)
-					.fill(AppStoreTheme.cardSurface)
-			)
-			.overlay(
-				RoundedRectangle(cornerRadius: 28, style: .continuous)
-					.stroke(Color.primary.opacity(0.07), lineWidth: 0.6)
-			)
-		}
-	}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let caption {
+                Text(xsignText(caption)).font(.subheadline.bold()).foregroundStyle(.secondary)
+            }
+            ForEach(items) { item in
+                AppStore2026AppRow(item: item, showsDownload: showsDownload)
+            }
+        }
+        .padding(17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppStoreTheme.cardSurface, in: RoundedRectangle(cornerRadius: 23, style: .continuous))
+    }
 }
 
 struct TodayFullArtworkDockCard: View {
@@ -2703,7 +3049,7 @@ struct TodayFullArtworkDockCard: View {
 				.overlay {
 					let displayImg = item.screenshots.first ?? liveScreenshots.first
 					if let firstScreen = displayImg {
-						LazyImage(url: firstScreen) { state in
+						LazyImage(request: xsignImageRequest(firstScreen)) { state in
 							if let image = state.image {
 								image
 									.resizable()
@@ -2725,16 +3071,13 @@ struct TodayFullArtworkDockCard: View {
 				.clipped()
 				.overlay {
 					if showPlayBadge {
-						Circle()
-							.fill(.ultraThinMaterial)
-							.frame(width: 58, height: 58)
-							.overlay {
-								Image(systemName: "play.fill")
-									.font(.system(size: 22))
-									.foregroundStyle(.white)
-									.offset(x: 2)
-							}
-							.offset(y: -30)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.white)
+                            .frame(width: 58, height: 58)
+                            .xsignGlassControl(in: Circle(), tint: .black.opacity(0.30), interactive: false)
+                            .offset(y: -30)
+                            .accessibilityHidden(true)
 					}
 				}
 				.overlay(alignment: .bottomLeading) {
@@ -2746,10 +3089,10 @@ struct TodayFullArtworkDockCard: View {
 						)
 
 						VStack(alignment: .leading, spacing: 5) {
-							Text(categoryTag)
+							Text(xsignText(categoryTag))
 								.font(.system(size: 13, weight: .bold))
 								.foregroundStyle(.white.opacity(0.88))
-							Text(headline)
+							Text(xsignText(headline))
 								.font(.system(size: 26, weight: .heavy))
 								.foregroundStyle(.white)
 								.lineLimit(2)
@@ -2777,7 +3120,7 @@ struct TodayFullArtworkDockCard: View {
 						.font(.system(size: 16, weight: .bold))
 						.foregroundStyle(.white)
 						.lineLimit(1)
-					Text(item.category.rawValue)
+					Text(xsignText(item.category.rawValue))
 						.font(.caption)
 						.foregroundStyle(.white.opacity(0.75))
 						.lineLimit(1)
@@ -2785,7 +3128,7 @@ struct TodayFullArtworkDockCard: View {
 
 				Spacer(minLength: 8)
 
-				AppStore2026DownloadButton(app: item.app, isLightPill: true)
+				AppStore2026DownloadButton(app: item.app, provenance: item.downloadProvenance(), onArtwork: true)
 			}
 			.padding(.horizontal, 18)
 			.padding(.vertical, 14)
@@ -2850,7 +3193,8 @@ struct AppStore2026SettingsPopup: View {
 						Button("تم") {
 							dismiss()
 						}
-						.font(.body.weight(.bold))
+                        .font(.body.weight(.bold))
+                        .xsignGlassButton()
 					}
 
 					Picker("", selection: $selectedSection) {
@@ -2862,7 +3206,9 @@ struct AppStore2026SettingsPopup: View {
 				}
 				.padding(.horizontal, 18)
 				.padding(.vertical, 12)
-				.background(AppStoreTheme.cardSurface)
+                .xsignSurface(radius: 24)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
 
 				if selectedSection == 0 {
 					SettingsView()
@@ -2875,7 +3221,7 @@ struct AppStore2026SettingsPopup: View {
 			.xsignPageBackground()
 			.navigationBarHidden(true)
 		}
-		.environment(\.layoutDirection, .rightToLeft)
+
 	}
 }
 
@@ -2889,7 +3235,7 @@ struct CustomSafeAddSourceSheet: View {
 		XSignNavigationView {
 			Form {
 				Section("رابط المصدر (JSON URL)") {
-					TextField("https://example.com/repo.json", text: $sourceURLText)
+				TextField("رابط السورس عبر HTTPS", text: $sourceURLText)
 						.keyboardType(.URL)
 						.textInputAutocapitalization(.never)
 						.disableAutocorrection(true)
@@ -2912,7 +3258,7 @@ struct CustomSafeAddSourceSheet: View {
 					}
 					.disabled(sourceURLText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
 				}
-                if let errorMessage { Section { Text(errorMessage).font(.footnote).foregroundStyle(.red) } }
+                if let errorMessage { Section { Text(xsignText(errorMessage)).font(.footnote).foregroundStyle(.red) } }
 			}
 			.xsignListBackground()
 			.navigationTitle("إضافة مصدر")
@@ -2925,7 +3271,7 @@ struct CustomSafeAddSourceSheet: View {
 				}
 			}
 		}
-		.environment(\.layoutDirection, .rightToLeft)
+
 	}
 
 	private func addSource() {
@@ -2942,9 +3288,11 @@ struct CustomSafeAddSourceSheet: View {
 
 // MARK: - Unified Download & Auto-Sign Button
 struct AppStore2026DownloadButton: View {
-	let app: ASRepository.App
-	var isLightPill: Bool = false
-    var showsFootnote: Bool = true
+    let app: ASRepository.App
+    var provenance: SourceAppProvenance? = nil
+    var onArtwork = false
+    var usesGlass = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentStage: AutoSignPipelineManager.Stage?
     @State private var progressPercent = 0
 
@@ -2956,7 +3304,7 @@ struct AppStore2026DownloadButton: View {
 	}
 
 	private var appKey: String {
-		app.stableCatalogIdentifier
+		app.downloadKey
 	}
 
     private var canDownload: Bool {
@@ -2965,97 +3313,90 @@ struct AppStore2026DownloadButton: View {
 
 	var body: some View {
 		Button {
-			pipeline.downloadAndAutoSign(app: app)
+			pipeline.downloadAndAutoSign(app: app, provenance: provenance)
 		} label: {
-			switch currentStage {
-            case .queued:
-                Label("بالانتظار", systemImage: "clock")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 82, height: 32)
-                    .background(AppStoreTheme.controlSurface, in: Capsule())
-            case .failed(let message):
-                VStack(spacing: 3) {
-                    Label("أعد المحاولة", systemImage: "arrow.clockwise")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.red)
-                        .frame(width: 82, height: 32)
-                        .background(AppStoreTheme.controlSurface, in: Capsule())
-                    Text(message)
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .frame(width: 100)
-                }
-                .accessibilityHint(message)
-			case .downloading:
-				HStack(spacing: 5) {
-					ProgressView()
-						.tint(AppStoreTheme.contrastingText(forHex: userTintHex))
-						.scaleEffect(0.72)
-					Text("\(progressPercent)%")
-						.font(.system(size: 12, weight: .heavy, design: .rounded))
-						.monospacedDigit()
-						.foregroundStyle(AppStoreTheme.contrastingText(forHex: userTintHex))
-				}
-				.frame(width: 82, height: 32)
-				.background(Capsule().fill(accentColor))
-
-			case .preparing, .signing:
-				HStack(spacing: 4) {
-					Image(systemName: "bolt.fill")
-						.font(.system(size: 11, weight: .bold))
-					Text(currentStage == .preparing ? "تجهيز..." : "توقيع...")
-						.font(.system(size: 11, weight: .bold))
-				}
-				.foregroundStyle(AppStoreTheme.contrastingText(forHex: userTintHex))
-				.frame(width: 82, height: 32)
-				.background(Capsule().fill(accentColor))
-
-			case .ready:
-				HStack(spacing: 4) {
-					Image(systemName: "checkmark")
-						.font(.system(size: 11, weight: .bold))
-					Text("تم التوقيع")
-						.font(.system(size: 11, weight: .bold))
-				}
-				.foregroundStyle(.white)
-				.frame(width: 78, height: 32)
-				.background(Capsule().fill(Color.green))
-
-			case nil:
-				VStack(spacing: 3) {
-					Text(canDownload ? "تنزيل" : "غير متاح")
-						.font(.system(size: 15, weight: .bold))
-						.foregroundStyle(canDownload ? AppStoreTheme.contrastingText(forHex: userTintHex) : Color.secondary)
-						.frame(width: 78, height: 32)
-						.background(
-							Capsule(style: .continuous)
-								.fill(canDownload ? accentColor : AppStoreTheme.controlSurface)
-						)
-
-                    if showsFootnote {
-					Text(canDownload ? "توقيع عبر XSign" : "لا يتوفر ملف IPA")
-						.font(.system(size: 7.5, weight: .medium))
-						.foregroundStyle(isLightPill ? .white.opacity(0.75) : .secondary)
-						.lineLimit(1)
-                    }
-				}
-			}
+            Group {
+                if currentStage == nil { pillLabel }
+                else { circularLabel }
+            }
+            .frame(minWidth: 78, minHeight: 44)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: currentStage)
+            .animation(reduceMotion ? nil : .linear(duration: 0.17), value: progressPercent)
 		}
 		.buttonStyle(.plain)
 		.disabled(currentStage == .ready || (currentStage == nil && !canDownload))
+        .accessibilityLabel(Text(verbatim: installAccessibilityLabel))
         .onReceive(pipeline.$activeStates.map { $0[appKey] }.removeDuplicates()) {
-            if currentStage != $0 { currentStage = $0 }
+            if currentStage != $0 {
+                currentStage = $0
+                if $0 != .downloading { progressPercent = 0 }
+            }
         }
-        .onReceive(pipeline.$downloadProgress.map { $0[appKey] ?? 0 }.removeDuplicates()) {
-            if progressPercent != $0 { progressPercent = $0 }
+        .background {
+            if currentStage == .downloading, let progress = pipeline.progressPublisher(for: appKey) {
+                Color.clear.onReceive(progress) { progressPercent = $0 }
+            }
         }
-	}
+    }
+
+    private var installAccessibilityLabel: String {
+        switch currentStage {
+        case .queued: return xsignText("بالانتظار")
+        case .failed(let message): return String(format: xsignText("أعد المحاولة. %@"), xsignText(message))
+        case .downloading: return String(format: xsignText("جاري التنزيل، %lld بالمئة"), Int64(progressPercent))
+        case .preparing: return xsignText("جاري التجهيز")
+        case .signing: return xsignText("جاري التوقيع")
+        case .ready: return xsignText("تم التوقيع")
+        case nil: return canDownload ? String(format: xsignText("تثبيت %@"), app.currentName) : xsignText("التنزيل غير متاح")
+        }
+    }
+
+    private var circularLabel: some View {
+        let foreground: Color = onArtwork ? .white : accentColor
+        return ZStack {
+            Circle().strokeBorder(foreground.opacity(0.20), lineWidth: 1.3)
+            switch currentStage {
+            case .downloading:
+                Circle().trim(from: 0, to: CGFloat(min(100, max(0, progressPercent))) / 100)
+                    .stroke(foreground, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(2)
+                Image(systemName: "arrow.down").font(.system(size: 13, weight: .bold))
+            case .preparing, .signing:
+                ProgressView().tint(foreground).controlSize(.small)
+            case .queued:
+                Image(systemName: "clock").font(.system(size: 15, weight: .semibold))
+            case .failed:
+                Image(systemName: "arrow.clockwise").font(.system(size: 16, weight: .semibold))
+            case .ready:
+                Image(systemName: "checkmark").font(.system(size: 16, weight: .bold))
+            case nil: EmptyView()
+            }
+        }
+        .foregroundStyle(foreground)
+        .frame(width: 44, height: 44)
+        .xsignGlassControl(in: Circle(), tint: onArtwork ? .black.opacity(0.26) : nil, interactive: false)
+    }
+
+    @ViewBuilder
+    private var pillLabel: some View {
+        let label = Text(xsignText(canDownload ? "تثبيت" : "غير متاح"))
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(canDownload ? AppStoreTheme.contrastingText(forHex: userTintHex) : .secondary)
+            .frame(minWidth: 78, minHeight: 32)
+        let tint = canDownload ? accentColor : nil
+        if usesGlass {
+            label.xsignGlassControl(in: Capsule(), tint: tint, interactive: canDownload)
+        } else {
+            label.background(tint ?? AppStoreTheme.controlSurface, in: Capsule())
+        }
+    }
 }
+
 
 struct AppStore2026AppRow: View {
     let item: AppStoreAppItem
+    var showsDownload = true
 
     var body: some View {
         HStack(spacing: 12) {
@@ -3064,10 +3405,10 @@ struct AppStore2026AppRow: View {
             } label: {
                 HStack(spacing: 12) {
                     AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id,
-                                     appName: item.app.currentName, size: 50)
+                                     appName: item.app.currentName, size: 50, looksUpMissingArtwork: false)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.app.currentName).font(.body.weight(.semibold)).lineLimit(2)
-                        Text(item.arabicSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(xsignText(item.arabicSubtitle)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -3075,7 +3416,9 @@ struct AppStore2026AppRow: View {
                 .contentShape(Rectangle())
             }.buttonStyle(.plain)
 
-            AppStore2026DownloadButton(app: item.app, showsFootnote: false)
+            if showsDownload {
+                AppStore2026DownloadButton(app: item.app, provenance: item.downloadProvenance(), usesGlass: false)
+            }
         }
         .padding(.vertical, 10)
     }
@@ -3083,135 +3426,56 @@ struct AppStore2026AppRow: View {
 
 struct AppStore2026FeaturedBanner: View {
     let item: AppStoreAppItem
-    @AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
+    @AppStorage("Feather.userTintColor") private var userTintHex = "#005BBB"
 
-    private var bannerColor: Color {
-        item.app.tintColor ?? Color(hex: userTintHex)
+    private var artwork: URL? {
+        [item.app.artworkURL, item.screenshots.first].compactMap { $0 }
+            .first { XSignManagedSource.httpsURL($0.absoluteString) != nil }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            NavigationLink { AppStore2026DetailView(item: item) } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.category.rawValue)
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(Color(hex: userTintHex))
-                    Text(item.app.currentName)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(item.arabicSubtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }.buttonStyle(.plain)
-
-            ZStack(alignment: .bottom) {
-                LinearGradient(
-                    colors: [bannerColor.opacity(0.88), AppStoreTheme.deepOcean],
-                    startPoint: .topTrailing,
-                    endPoint: .bottomLeading
-                )
-
-                HStack(spacing: 12) {
-                    AppStoreIconView(
-                        url: item.app.iconURL,
-                        bundleID: item.app.id,
-                        appName: item.app.currentName,
-                        size: 50
-                    )
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.app.currentName)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(item.arabicSubtitle)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .lineLimit(1)
+        VStack(spacing: 0) {
+            NavigationLink {
+                AppStore2026DetailView(item: item)
+            } label: {
+                GeometryReader { proxy in
+                    ZStack {
+                        let tint = item.app.tintColor ?? Color(hex: userTintHex)
+                        LinearGradient(colors: [AppStoreTheme.deepOcean, tint.opacity(0.7)],
+                                       startPoint: .bottomLeading, endPoint: .topTrailing)
+                        if let artwork {
+                            LazyImage(request: xsignImageRequest(artwork)) { state in
+                                if let image = state.image {
+                                    image.resizable().scaledToFill()
+                                        .frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                                } else {
+                                    icon
+                                }
+                            }
+                            .processors([.resize(size: CGSize(width: 840, height: 520))])
+                        } else {
+                            icon
+                        }
                     }
-
-                    Spacer()
-
-                    AppStore2026DownloadButton(app: item.app, isLightPill: true)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
                 }
-                .padding(14)
-                .background(Color.black.opacity(0.55))
+                .frame(height: 156)
+                .contentShape(Rectangle())
             }
-            .frame(height: 175)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.app.currentName)
+
+            AppStore2026AppRow(item: item).padding(.horizontal, 14)
         }
-        .frame(width: min(UIScreen.main.bounds.width - 44, 336))
+        .frame(maxWidth: .infinity)
+        .background(AppStoreTheme.controlSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
-}
 
-struct AppStore2026BrowseCategoryTile: View {
-	let category: AppStore2026Category
-	let previewApps: [AppStoreAppItem]
-
-	var body: some View {
-		ZStack {
-            AppStoreTheme.cardSurface
-
-			Group {
-				if previewApps.count >= 2 {
-					ZStack {
-						AppStoreIconView(
-							url: previewApps[1].app.iconURL,
-							bundleID: previewApps[1].app.id,
-							appName: previewApps[1].app.currentName,
-							size: 40
-						)
-						.rotationEffect(.degrees(12))
-						.offset(x: -14, y: 8)
-
-						AppStoreIconView(
-							url: previewApps[0].app.iconURL,
-							bundleID: previewApps[0].app.id,
-							appName: previewApps[0].app.currentName,
-							size: 44
-						)
-						.rotationEffect(.degrees(-10))
-						.offset(x: 10, y: -4)
-					}
-				} else {
-					Image(systemName: category.sfSymbol)
-						.font(.system(size: 38, weight: .bold))
-						.foregroundStyle(Color.accentColor)
-				}
-			}
-			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-			.padding(.top, 14)
-			.padding(.trailing, 18)
-
-			Text(category.rawValue)
-				.font(.system(size: 16, weight: .bold))
-				.foregroundStyle(.primary)
-				.multilineTextAlignment(.leading)
-				.lineLimit(2)
-				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-				.padding(14)
-		}
-		.frame(height: 102)
-		.clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-	}
-}
-
-struct AppStore2026CategoryListView: View {
-    let category: AppStore2026Category
-    let items: [AppStoreAppItem]
-    var customTitle: String? = nil
-
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            XSignCatalogueFeed(items: items).padding(18)
-        }
-        .xsignPageBackground()
-        .navigationTitle(customTitle ?? category.rawValue)
-        .environment(\.layoutDirection, .rightToLeft)
+    private var icon: some View {
+        AppStoreIconView(url: item.app.iconURL, bundleID: item.app.id, appName: item.app.currentName, size: 78)
+            .shadow(color: .black.opacity(0.26), radius: 13, y: 7)
     }
 }
 
@@ -3220,18 +3484,19 @@ struct AppStoreIconView: View {
 	var bundleID: String? = nil
 	var appName: String = ""
 	let size: CGFloat
+    var looksUpMissingArtwork = true
 	@State private var appleIconURL: URL? = nil
 
-	private var isFallbackGitHubIcon: Bool {
+    private var isFallbackGitHubIcon: Bool {
 		guard let u = url?.absoluteString.lowercased() else { return true }
 		return u.contains("github.com/ipa-black.png") || u.hasSuffix("/assets/icon.png")
 	}
 
 	var body: some View {
 		Group {
-			let effectiveURL = url ?? appleIconURL
+			let effectiveURL = isFallbackGitHubIcon ? (appleIconURL ?? url) : url
 			if let effectiveURL {
-				LazyImage(url: effectiveURL) { state in
+				LazyImage(request: xsignImageRequest(effectiveURL)) { state in
 					if let image = state.image {
 						image
 							.resizable()
@@ -3252,7 +3517,7 @@ struct AppStoreIconView: View {
 				.stroke(Color.primary.opacity(0.14), lineWidth: 0.6)
 		)
 		.task {
-			if (url == nil || isFallbackGitHubIcon) && !appName.isEmpty && !AppStoreLiveMetadataBridge.hasExtractedGitHubIcon(url) && !AppStoreCacheManager.shared.shouldSkipStoreLookup(bundleID) {
+			if looksUpMissingArtwork && isFallbackGitHubIcon && !appName.isEmpty && !AppStoreLiveMetadataBridge.hasExtractedGitHubIcon(url) && !AppStoreCacheManager.shared.shouldSkipStoreLookup(bundleID) {
 				if let meta = await AppStoreLiveMetadataBridge.shared.fetchMetadata(
 					bundleID: bundleID,
 					appName: appName,
@@ -3270,6 +3535,11 @@ struct AppStoreIconView: View {
 	}
 }
 
+func xsignImageRequest(_ url: URL) -> ImageRequest? {
+    guard XSignManagedSource.httpsURL(url.absoluteString) != nil else { return nil }
+    return ImageRequest(url: url)
+}
+
 struct AppStore2026EmptyState: View {
     let isLoading: Bool
     var emptyMessage: String = "لا توجد تطبيقات في المصادر المفعّلة."
@@ -3283,10 +3553,12 @@ struct AppStore2026EmptyState: View {
             } else {
                 Image(systemName: "square.stack").font(.largeTitle).foregroundStyle(.secondary)
             }
-            Text(isLoading ? "جاري تحديث المصادر…" : emptyMessage)
+            Text(xsignText(isLoading ? "جاري تحديث المصادر…" : emptyMessage))
 				.font(.subheadline.weight(.semibold))
 				.foregroundStyle(.primary)
-            if !isLoading, let retry { Button("إعادة المحاولة", action: retry) }
+            if !isLoading, let retry {
+                Button("إعادة المحاولة", action: retry)
+            }
 		}
 		.frame(maxWidth: .infinity)
 		.padding(36)
@@ -3499,45 +3771,103 @@ private struct XSignLegacyTranslation: View {
 // MARK: - End XSign Inline Description Translation
 
 // MARK: - Configured source identity, taxonomy and announcements
-private struct XSignSourceIdentity: View {
-    @ObservedObject var cache: AppStoreCacheManager
-    var body: some View {
-        HStack(spacing: 12) {
-            AppStoreIconView(url: cache.sourceIconURL, size: 42)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(cache.sourceName).font(.headline)
-                if !cache.sourceSubtitle.isEmpty { Text(cache.sourceSubtitle).font(.caption).foregroundStyle(.secondary) }
-            }
-            Spacer()
-        }.padding(.horizontal, 18)
-    }
-}
-
 private struct XSignCatalogCategories: View {
     @ObservedObject var cache: AppStoreCacheManager
-    var body: some View {
-        if !cache.sourceCategories.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("تصنيفات \(cache.sourceName)")
-                    .font(.system(size: 20, weight: .bold))
-                    .padding(.horizontal, 18)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(cache.sourceCategories) { category in
-                            NavigationLink {
-                                AppStore2026CategoryListView(category: .topApps,
-                                    items: cache.ipablackItems.filter { $0.app.category == category.id },
-                                    customTitle: category.name)
-                            } label: {
-                                Text(category.name).font(.subheadline.weight(.semibold))
-                                    .padding(.horizontal, 14).padding(.vertical, 9)
-                                    .background(AppStoreTheme.controlSurface, in: Capsule())
-                            }.buttonStyle(.plain)
-                        }
-                    }.padding(.horizontal, 18)
-                }
+    @ScaledMetric(relativeTo: .body) private var tileHeight: CGFloat = 112
+    @State private var scope: Scope = .all
+
+    private enum Scope: String, CaseIterable, Identifiable {
+        case all = "search"
+        case apps
+        case games
+
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .all: return "الكل"
+            case .apps: return "التطبيقات"
+            case .games: return "الألعاب"
             }
         }
+        var symbol: String {
+            switch self {
+            case .all: return "square.grid.2x2"
+            case .apps: return "square.stack.fill"
+            case .games: return "gamecontroller.fill"
+            }
+        }
+    }
+
+    private static let colors: [(UInt64, UInt64)] = [
+        (0x235C9D, 0x123669), (0x6741A5, 0x40257C),
+        (0x13798E, 0x10566C), (0x2B825F, 0x185345),
+        (0xA35939, 0x713A28), (0xA64378, 0x742E59)
+    ]
+
+    var body: some View {
+        let groups = cache.categories(for: scope.rawValue).filter { !$0.items.isEmpty }
+        if !cache.allCombinedItems.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                XSignStoreCategoryBar(title: "التصنيفات") {
+                    ForEach(Scope.allCases) { option in
+                        Button { scope = option } label: {
+                            XSignStoreCategoryPill(title: option.title, symbol: option.symbol, isSelected: option == scope)
+                        }.buttonStyle(.plain)
+                    }
+                }
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    if scope != .games && !cache.pureAppsOnly.isEmpty {
+                        tile(title: "التطبيقات", items: cache.pureAppsOnly, svg: nil, symbol: "square.stack.fill", at: 0)
+                    }
+                    if scope != .apps && !cache.pureGamesOnly.isEmpty {
+                        tile(title: "الألعاب", items: cache.pureGamesOnly, svg: nil, symbol: "gamecontroller.fill", at: 1)
+                    }
+                    ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                        tile(title: group.title, items: group.items, svg: group.iconSVG, symbol: group.symbol, at: index + 2)
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+        }
+    }
+
+    private func tile(title: String, items: [AppStoreAppItem], svg: String?, symbol: String, at index: Int) -> some View {
+        let pair = Self.colors[index % Self.colors.count]
+        return NavigationLink {
+            XSignClassicCatalogueList(title: title, items: items)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Spacer()
+                    if let svg {
+                        XSignCategoryIcon(svg: svg, symbol: symbol, size: 42)
+                    } else {
+                        let icons = Array(items.lazy.compactMap { $0.app.iconURL }.prefix(2))
+                        if icons.isEmpty {
+                            Image(systemName: symbol).font(.system(size: 28, weight: .semibold))
+                        } else {
+                            HStack(spacing: -9) {
+                                ForEach(icons.indices, id: \.self) { index in
+                                    AppStoreIconView(url: icons[index], size: 36, looksUpMissingArtwork: false)
+                                        .rotationEffect(.degrees(index == 0 ? 8 : -8))
+                                }
+                            }
+                        }
+                    }
+                }
+                .accessibilityHidden(true)
+                Spacer(minLength: 0)
+                Text(xsignText(title)).font(.subheadline.weight(.bold)).lineLimit(2).multilineTextAlignment(.leading)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: tileHeight, alignment: .leading)
+            .foregroundStyle(.white)
+            .background(LinearGradient(colors: [Color(hex: String(format: "#%06llX", pair.0)),
+                                                Color(hex: String(format: "#%06llX", pair.1))],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: RoundedRectangle(cornerRadius: 17))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -3545,7 +3875,7 @@ struct XSignAnnouncementCard: View {
     let instruction: TodayEditorialInstruction
     @ViewBuilder private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let badge = instruction.badge { Text(badge).font(.caption.bold()).foregroundStyle(Color.accentColor) }
+            if let badge = instruction.badge { Text(xsignText(badge)).font(.caption.bold()).foregroundStyle(Color.accentColor) }
             Text(instruction.title).font(.title3.bold())
             Text(instruction.caption).font(.subheadline).foregroundStyle(.secondary)
             if instruction.targetURL != nil { Image(systemName: "arrow.up.left.square").foregroundStyle(Color.accentColor) }

@@ -7,6 +7,7 @@ import io
 import json
 import os
 import plistlib
+import re
 import subprocess
 import tempfile
 import unittest
@@ -75,9 +76,14 @@ class ToolchainChecks(unittest.TestCase):
         steps = template['jobs']['build']['steps']
         toolchain = next(i for i, step in enumerate(steps) if 'Select_Xcode.py' in step.get('run', ''))
         build = next(i for i, step in enumerate(steps) if step.get('name') == 'Build and verify the iOS application')
-        checks = next(i for i, step in enumerate(steps) if 'swiftc -swift-version' in step.get('run', ''))
+        checks = next(i for i, step in enumerate(steps) if 'Tools/Tests/check_native.sh' in step.get('run', ''))
+        deliver = next(i for i, step in enumerate(steps) if 'packages/X-SIGN.ipa' in step.get('with', {}).get('path', ''))
+        script = (ROOT / 'Tools/Tests/check_native.sh').read_text()
+        self.assertIn('::error title=%s', script)
+        self.assertIn('xcrun --sdk macosx --find swiftc', script)
         self.assertLess(toolchain, build)
         self.assertLess(build, checks)
+        self.assertLess(checks, deliver)
         logs = next(step for step in steps if step.get('name') == 'Preserve native check and build logs')
         self.assertEqual(logs['if'], 'always()')
         self.assertIn('xsign-build.xcresult', logs['with']['path'])
@@ -127,10 +133,26 @@ class IDeviceChecks(unittest.TestCase):
             self.assertFalse(destination.exists())
             self.assertEqual(list(destination.parent.iterdir()), [])
 
-    def test_make_stages_verified_dependency_before_xcode(self):
+    def test_native_ota_does_not_link_the_ios_17_pairing_library(self):
         commands = subprocess.check_output(['make', '-n', 'iphoneos'], cwd=ROOT, text=True)
-        self.assertLess(commands.index('python3 Tools/Prepare_IDevice.py'),
-                        commands.index('XSIGN_USE_PREPARED_IDEVICE=1 xcodebuild'))
+        self.assertIn('python3 Tools/Prepare_Zsign.py', commands)
+        self.assertNotIn('Prepare_IDevice.py', commands)
+        self.assertLess(commands.index('xcodebuild'), commands.index('finalize-info'))
+        self.assertLess(commands.index('finalize-info'), commands.index('codesign'))
+        self.assertLess(commands.index('codesign'), commands.index('ditto'))
+        project = (ROOT / 'Feather.xcodeproj/project.pbxproj').read_text()
+        workspace = (ROOT / 'Feather.xcworkspace/contents.xcworkspacedata').read_text()
+        self.assertNotIn('IDeviceSwift', project)
+        self.assertNotIn('IDeviceKitten', workspace)
+        orphaned_api = re.compile(
+            r'\bimport\s+IDeviceSwift\b|\.(?:heartbeat|heartbeatInvalidHost|isStreamingDidChange|mobiledevicepairing)\b'
+            r'|allowedContentTypes\s*:\s*\[[^\]]*\.plist\b'
+        )
+        for source in (ROOT / 'Feather').rglob('*.swift'):
+            with self.subTest(source=source.relative_to(ROOT)):
+                self.assertNotRegex(source.read_text(), orphaned_api)
+        importer = ROOT / 'Feather/Views/Signing/SigningEntitlementsView.swift'
+        self.assertIn('[.propertyList, .entitlements]', importer.read_text())
 
 
 if __name__ == '__main__':

@@ -1,10 +1,9 @@
 {
   "schema_version": 2,
   "app_repository": "ipablack/X-SIGN",
-  "reviewed_base_commit": "84bb3b8",
+  "reviewed_base_commit": "beae88a",
   "minimum_ios": "15.0",
-  "build_bundle_identifier": "com.ipablack.xsign",
-  "config_url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+  "build_bundle_identifier": "Xsign",
   "publish_repository": "ipablack/repo",
   "publish_branch": "main",
   "catalogue_path": "repo.json",
@@ -17,7 +16,7 @@
     "xsign_config.maintenance": "Feather/FeatherApp.swift",
     "xsign_config.force_update": "Feather/FeatherApp.swift",
     "xsign_config.dashboard.sources": "Feather/Utilities/XSignDashboardPolicy.swift",
-    "xsign_config.dashboard.sections": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "xsign_config.dashboard.sections": "Feather/Utilities/XSignDashboardPolicy.swift",
     "xsign_config.dashboard.tab_order": "Feather/Views/TabView/Bars/TabbarView.swift",
     "xsign_config.dashboard.allow_user_sources": "Feather/Views/Sources/SourcesView.swift",
     "xsign_config.dashboard.signing_enabled": "Feather/FeatherApp.swift",
@@ -26,14 +25,17 @@
     "xsign_config.app_control": "Feather/FeatherApp.swift",
     "apps": "Feather/Views/Sources/SourcesView.swift",
     "news": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
-    "categories": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "categories": "Feather/Views/Sources/SourcesView.swift",
     "featuredApps": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
-    "xsign_config.dashboard.update.required": "Feather/FeatherApp.swift"
+    "xsign_config.dashboard.update.required": "Feather/FeatherApp.swift",
+    "xsign_config.dashboard.today_show_date": "Feather/Views/Sources/SourcesView.swift",
+    "xsign_config.dashboard.today_show_account": "Feather/Views/Sources/SourcesView.swift",
+    "xsign_config.dashboard.today_show_download_buttons": "Feather/Views/Sources/XSignConfiguredStoreView.swift",
+    "xsign_config.security_locks.anti_vpn_proxy": "Feather/FeatherApp.swift",
+    "xsign_config.security_locks.require_online_handshake": "Feather/FeatherApp.swift",
+    "xsign_config.dashboard.bundle_updates": "Feather/Utilities/XSignDashboardPolicy.swift",
+    "xsign_config.usage_stats": "Feather/FeatherApp.swift"
   },
-  "not_enforced_in_local_signing_build": [
-    "anti_vpn_proxy",
-    "require_online_handshake"
-  ],
   "publisher_to_update_fields": {
     "version": "latest_version",
     "buildVersion": "build_version",
@@ -41,45 +43,35 @@
     "sha256": "sha256"
   },
   "app_version": "1.0",
-  "installer": "Feather Server / Semi Local (api.palera.in)",
+  "installer": "XSign HTTPS manifest with Palera fallback, device-local signing and IPA delivery",
   "default_build_number": "workflow_run_number",
   "canonical_workflow": "XSign_Full_Link.yml",
   "canonical_guide": "Tools/Delivery/XSign_Unified_Guide_AR.md",
   "source_priority": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
-    "https://appiraq.com/source.php?action=getAll",
-    "https://appiraq.com/han.json",
-    "https://repo.ucerts.io",
-    "https://repository.apptesters.org/",
-    "https://appstore.nabzclan.vip/repos/scarlet.php",
-    "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
-    "https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",
-    "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json"
+    "https://appiraq.com/source.php?action=getAll"
   ],
   "managed_sources_editable": true,
-  "built_in_sources_removable": true,
+  "built_in_sources_removable": false,
   "source_formats": [
     "auto",
     "altstore",
-    "json"
+    "json",
+    "rest"
   ],
   "configuration_authority_independent_of_source_list": true,
-  "display_name": "XSign",
+  "display_name": "Xsign",
   "icon_source_url": "https://up6.cc/2026/11/179399545145851.png",
   "panel_design": "Tools/Integration/panel-origin.json",
   "user_source_interface": true,
   "catalog_profile": "iosboom-public-v1",
-  "appstore_service_status": "403 from the official endpoint: provider activation for XSign is required",
+  "appstore_service_status": "Apple metadata lookup and matching variants from the configured catalogues",
   "active_source_urls": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
-    "https://appiraq.com/source.php?action=getAll",
-    "https://appiraq.com/han.json",
-    "https://repository.apptesters.org/",
-    "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
-    "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json"
+    "https://appiraq.com/source.php?action=getAll"
   ],
   "public_source_registry": "Tools/Integration/iosboom-public-sources.json",
-  "experience_version": 2,
+  "experience_version": 3,
   "today_sources": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
     "https://appiraq.com/source.php?action=getAll"
@@ -88,9 +80,37 @@
   "tab_bar": "Native SwiftUI Tab with a search role on iOS 18+, native legacy TabView on iOS 15–17",
   "product_page": "Feather/Views/Sources/XSignAppStoreProductPage.swift",
   "signing": "Native Zsign with dynamic eligible certificate selection and no Swift App ID rejection for ordinary signing",
-  "live_config_url": "https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json",
   "foreground_config_refresh_seconds": 5,
-  "release_gate": "Exact version, optional build, and release URL fingerprint in the signed bundle",
+  "release_gate": "Use per-bundle policy first and support existing explicitly targeted or original-bundle policies.",
   "installation_page": "Tools/StudioSource/src/XSignInstall.html",
-  "studio_theme": "Black and XSign blue #003173"
+  "studio_theme": "Black and XSign blue #003173",
+  "pinned_source_id": "xsign.core.owned",
+  "studio_build": {
+    "application_repository": "ipablack/X-SIGN",
+    "branch": "main",
+    "settings_file": "xsign-build.json",
+    "schema_version": 1,
+    "manual_dispatch_inputs": [],
+    "build_trigger": "push of settings or workflow_dispatch",
+    "inspection_event": "xsign-inspect-ipa",
+    "inspection_payload": [
+      "request_id",
+      "ipa_url"
+    ],
+    "sealed_identity": "XSignStudioBuildRequest in the IPA as build_request_id in the release policy",
+    "settings": [
+      "appName",
+      "bundleIdentifier",
+      "version",
+      "buildVersion",
+      "iconURL",
+      "manifestURL",
+      "delivery"
+    ]
+  },
+  "public_configuration_path": "https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json",
+  "soon_snapshot": "https://raw.githubusercontent.com/ipablack/repo/main/public/sources/ipasoon.json",
+  "today_display": "Only the IPA BLACK and IPA SOON source slots; interleave default cards and keep Studio filters",
+  "category_display": "One filter row per Apps and Games page",
+  "vpn_download_policy": "Cancel active XSign transfers on detection or when background time expires. Keep the alert until acknowledged after returning."
 }

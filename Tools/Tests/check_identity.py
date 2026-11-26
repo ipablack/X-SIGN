@@ -13,12 +13,13 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     branding = json.loads((ROOT / 'Tools/Integration/branding.json').read_text())
     contract = json.loads((ROOT / 'Tools/Integration/contract.json').read_text())
-    assert branding['display_name'] == contract['display_name'] == 'XSign'
-    assert branding['bundle_identifier'] == contract['build_bundle_identifier'] == 'com.ipablack.xsign'
+    assert branding['display_name'] == contract['display_name'] == 'Xsign'
+    assert branding['bundle_identifier'] == contract['build_bundle_identifier'] == 'Xsign'
     assert branding['version'] == contract['app_version'] == '1.0'
     assert branding['minimum_ios'] == contract['minimum_ios'] == '15.0'
     config = (ROOT / 'Feather.xcconfig').read_text()
-    assert 'FEATHER_PRODUCT_BUNDLE_IDENTIFIER=com.ipablack.xsign' in config
+    assert 'FEATHER_PRODUCT_BUNDLE_IDENTIFIER=Xsign' in config
+    assert 'XSIGN_APP_DISPLAY_NAME = Xsign' in config
     project = (ROOT / 'Feather.xcodeproj/project.pbxproj').read_text()
     assert project.count('PRODUCT_BUNDLE_IDENTIFIER = "$(FEATHER_PRODUCT_BUNDLE_IDENTIFIER)";') == 2
     assert project.count('PRODUCT_NAME = XSign;') == 2
@@ -27,9 +28,10 @@ def main():
     scheme = (ROOT / 'Feather.xcodeproj/xcshareddata/xcschemes/Feather.xcscheme').read_text()
     assert scheme.count('BuildableName = "XSign.app"') == 3
     info = plistlib.loads((ROOT / 'Feather/Resources/Info.plist').read_bytes())
-    assert info['CFBundleDisplayName'] == info['CFBundleName'] == branding['display_name']
+    assert info['CFBundleDisplayName'] == info['CFBundleName'] == '$(XSIGN_APP_DISPLAY_NAME)'
     assert info['CFBundleURLTypes'][0]['CFBundleURLSchemes'] == ['xsign']
-    assert info['CFBundleURLTypes'][0]['CFBundleURLName'] == branding['bundle_identifier']
+    assert info['CFBundleURLTypes'][0]['CFBundleURLName'] == '$(PRODUCT_BUNDLE_IDENTIFIER)'
+    assert info.get('XSignStudioRelease') is True
     assert 'CFBundleAlternateIcons' not in info['CFBundleIcons']
     assert all(item['UTTypeIdentifier'].startswith('com.ipablack.xsign.') for item in info['UTExportedTypeDeclarations'])
 
@@ -70,7 +72,7 @@ def main():
     assert set(origin['control_ids']) <= set(re.findall(r'\bid="([^"]+)"', template))
     assert set(origin['config_bindings']) <= set(re.findall(r'data-path="([^"]+)"', template))
     integration = (ROOT / 'Tools/StudioSource/src/integration.js').read_text()
-    assert "bundle:'com.ipablack.xsign'" in integration
+    assert "bundle:'Xsign'" in integration
     example = json.loads((ROOT / 'Tools/Delivery/repo.example.json').read_text())
     assert example['iconURL'] == branding['icon_source_url']
     assert [item['url'] for item in example['xsign_config']['dashboard']['sources']] == contract['source_priority']

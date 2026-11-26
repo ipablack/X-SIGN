@@ -35,6 +35,7 @@ struct CertificatesInfoView: View {
 				}
 
 			}
+            .xsignListBackground()
 			.toolbar {
 				NBToolbarButton(role: .close)
 			}

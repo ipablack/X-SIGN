@@ -22,7 +22,7 @@ struct SourceNewsCardView: View {
 			}()
 			
 			if let iconURL = new.imageURL {
-				LazyImage(url: iconURL) { state in
+				LazyImage(request: xsignImageRequest(iconURL)) { state in
 					if let image = state.image {
 						image
 							.resizable()
@@ -44,13 +44,7 @@ struct SourceNewsCardView: View {
 			)
 			.frame(height: 70)
 			.frame(maxWidth: .infinity, alignment: .bottom)
-			.overlay(
-				NBVariableBlurView()
-					.rotationEffect(.degrees(180))
-					.frame(height: 50)
-					.frame(maxHeight: .infinity, alignment: .bottom)
-			)
-			.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .allowsHitTesting(false)
 			
 			Text(new.title)
 				.font(.headline)

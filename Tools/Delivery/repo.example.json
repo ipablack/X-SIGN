@@ -74,7 +74,7 @@
       "lock_bundle_rename": false,
       "lock_icon_change": false,
       "lock_dylib_injection": false,
-      "anti_vpn_proxy": false,
+      "anti_vpn_proxy": true,
       "require_online_handshake": false,
       "vpn_warning_message": "عذراً، لا يمكن استخدام تطبيق X-Sign أو تحميل التطبيقات أثناء تشغيل VPN أو برامج مراقبة الشبكة (Proxy)."
     },
@@ -91,29 +91,9 @@
           "url": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json"
         },
         {
-          "name": "ipasoon",
+          "name": "IPA SOON",
           "id": "xsign.core.primary",
           "url": "https://appiraq.com/source.php?action=getAll"
-        },
-        {
-          "name": "متجر Zsign الرسمي",
-          "id": "xsign.core.zsign",
-          "url": "https://appiraq.com/han.json"
-        },
-        {
-          "name": "AppTesters",
-          "id": "xsign.iosboom.apptesters",
-          "url": "https://repository.apptesters.org/"
-        },
-        {
-          "name": "IPAOMTK Apps",
-          "id": "xsign.iosboom.ipaomtk",
-          "url": "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json"
-        },
-        {
-          "name": "Minoa’s Combined",
-          "id": "xsign.iosboom.minoa",
-          "url": "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json"
         }
       ]
     },
@@ -138,57 +118,8 @@
         },
         {
           "id": "xsign.core.primary",
-          "name": "ipasoon",
+          "name": "IPA SOON",
           "url": "https://appiraq.com/source.php?action=getAll",
-          "enabled": true,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.core.zsign",
-          "name": "متجر Zsign الرسمي",
-          "url": "https://appiraq.com/han.json",
-          "enabled": true,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.ucerts",
-          "name": "uCerts",
-          "url": "https://repo.ucerts.io",
-          "enabled": false,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.apptesters",
-          "name": "AppTesters",
-          "url": "https://repository.apptesters.org/",
-          "enabled": true,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.nabzclan",
-          "name": "Nabzclan",
-          "url": "https://appstore.nabzclan.vip/repos/scarlet.php",
-          "enabled": false,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.ipaomtk",
-          "name": "IPAOMTK Apps",
-          "url": "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/ipaomtk.json",
-          "enabled": true,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.buildstore",
-          "name": "Build Store",
-          "url": "https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",
-          "enabled": false,
-          "format": "auto"
-        },
-        {
-          "id": "xsign.iosboom.minoa",
-          "name": "Minoa’s Combined",
-          "url": "https://raw.githubusercontent.com/M1noa/Sideload-Tools/main/merged-apps-original-links-no-pal.json",
           "enabled": true,
           "format": "auto"
         }
@@ -204,9 +135,9 @@
         },
         {
           "enabled": true,
-          "limit": 12,
+          "limit": 2,
           "id": "today-featured",
-          "title": "مختارات IPA BLACK",
+          "title": "مختارات اليوم",
           "page": "today",
           "kind": "featured"
         },
@@ -243,6 +174,14 @@
           "kind": "apps"
         },
         {
+          "id": "games-categories",
+          "title": "أقسام الألعاب",
+          "page": "games",
+          "kind": "categories",
+          "enabled": true,
+          "limit": 12
+        },
+        {
           "id": "games-featured",
           "title": "مختارات الألعاب",
           "page": "games",
@@ -271,7 +210,15 @@
         "required": null
       },
       "catalog_profile": "iosboom-public-v1",
-      "experience_version": 2
+      "experience_version": 3,
+      "today_show_date": true,
+      "today_show_account": true,
+      "today_show_download_buttons": true,
+      "bundle_updates": {}
+    },
+    "usage_stats": {
+      "enabled": false,
+      "endpoint": ""
     }
   }
 }

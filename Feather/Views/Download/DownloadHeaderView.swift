@@ -18,7 +18,9 @@ struct DownloadHeaderView: View {
 				VStack {
 					VStack(spacing: 12) {
 						if let firstDownload = downloadManager.manualDownloads.first {
-							DownloadItemView(download: firstDownload)
+                            DownloadItemView(download: firstDownload) {
+                                downloadManager.cancelDownload(firstDownload)
+                            }
 
 							if downloadManager.manualDownloads.count > 1 {
 								HStack {
@@ -31,7 +33,9 @@ struct DownloadHeaderView: View {
 							}
 						}
 					}
-					.padding(.horizontal)
+                    .padding(12)
+                    .xsignSurface(radius: 20)
+                    .padding(.horizontal)
 				}
 				.transition(.move(edge: .top).combined(with: .opacity))
 			}
@@ -41,7 +45,8 @@ struct DownloadHeaderView: View {
 }
 
 struct DownloadItemView: View {
-	let download: Download
+    let download: Download
+    var cancel: (() -> Void)? = nil
 	@State private var progress: Double = 0
 	@State private var bytesDownloaded: Int64 = 0
 	@State private var totalBytes: Int64 = 0
@@ -49,9 +54,20 @@ struct DownloadItemView: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 4) {
-			Text(download.fileName)
-				.font(.subheadline)
-				.lineLimit(1)
+            HStack {
+                Text(download.fileName)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                if let cancel, !download.onlyArchiving {
+                    Spacer()
+                    Button(action: cancel) {
+                        Image(systemName: "xmark.circle.fill")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("إلغاء تنزيل التطبيق")
+                }
+            }
 
 			ProgressView(value: overallProgress)
 				.progressViewStyle(.linear)

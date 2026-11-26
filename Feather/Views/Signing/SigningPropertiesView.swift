@@ -34,7 +34,7 @@ struct SigningPropertiesView: View {
                 .disableAutocorrection(true)
                 .keyboardType(field == .version ? .numbersAndPunctuation : .default)
             if text != initialValue, let message = validationMessage {
-                Text(message).font(.footnote).foregroundStyle(.red)
+                Text(xsignText(message)).font(.footnote).foregroundStyle(.red)
             }
             if let originalValue {
                 Button("استخدام القيمة الأصلية: \(originalValue)") {

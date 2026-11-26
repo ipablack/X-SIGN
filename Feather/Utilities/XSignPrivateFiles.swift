@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
 // No signing material or install package lives in the document-sharing directory.
 enum XSignPrivateFiles {
@@ -17,6 +20,19 @@ enum XSignPrivateFiles {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         try protect(url)
     }
+    static func copyToWork(_ source: URL, to destination: URL) throws {
+        #if os(iOS) || os(macOS) || targetEnvironment(macCatalyst)
+        let cloned = source.withUnsafeFileSystemRepresentation { sourcePath in
+            destination.withUnsafeFileSystemRepresentation { destinationPath in
+                guard let sourcePath, let destinationPath else { return false }
+                return clonefile(sourcePath, destinationPath, UInt32(CLONE_NOFOLLOW)) == 0
+            }
+        }
+        if cloned { return }
+        #endif
+        try FileManager.default.copyItem(at: source, to: destination)
+    }
+
     static func protect(_ url: URL) throws {
         var value = url
         var flags = URLResourceValues()

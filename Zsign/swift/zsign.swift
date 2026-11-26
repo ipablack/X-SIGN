@@ -5,6 +5,7 @@
 //  Created by samara on 17.04.2025.
 //
 
+import Foundation
 import ZsignC
 
 public enum Zsign {
@@ -113,4 +114,31 @@ public enum Zsign {
 			completionHandler(status, expirationDate, error)
 		}
 	}
+}
+
+/// Sequential ZIP reader used after the app has validated the archive entries.
+public final class ZsignZipReader {
+    private let state: UnsafeMutableRawPointer
+
+    public init?(url: URL, count: UInt64) {
+        guard let reader = url.withUnsafeFileSystemRepresentation({ path -> UnsafeMutableRawPointer? in
+            guard let path else { return nil }
+            return XSignZipOpen(path, count)
+        }) else { return nil }
+        state = reader
+    }
+
+    deinit { XSignZipClose(state) }
+
+    public func advance(path: String, size: UInt64, crc: UInt32, directory: Bool) -> Bool {
+        path.withCString { XSignZipNext(state, $0, size, crc, directory ? 1 : 0) == 0 }
+    }
+
+    public func read(into buffer: UnsafeMutableRawBufferPointer) -> Int {
+        Int(XSignZipRead(state, buffer.baseAddress, UInt32(clamping: buffer.count)))
+    }
+
+    public func finishEntry() -> Bool {
+        XSignZipFinishEntry(state) == 0
+    }
 }

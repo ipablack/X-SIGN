@@ -12,6 +12,44 @@ import SwiftUI
 // only altstore repo (ofc) has the correct format.
 // we're going to use a defensive approach and try to parse many repos.
 
+private extension KeyedDecodingContainer {
+    func categoryText(_ key: Key) -> String? {
+        let raw = (try? decode(String.self, forKey: key)) ??
+            (try? decode(Int.self, forKey: key)).map(String.init)
+        guard let text = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
+    }
+
+    func flexibleBool(_ key: Key) -> Bool? {
+        if let flag = try? decode(Bool.self, forKey: key) { return flag }
+        switch categoryText(key)?.lowercased() {
+        case "1", "true", "yes": return true
+        case "0", "false", "no": return false
+        default: return nil
+        }
+    }
+}
+
+private struct ASCategoryReference: Decodable {
+    let value: String?
+    enum CodingKeys: String, CodingKey { case id, value, categoryId, category_id, slug, name, label, title }
+    init(from decoder: any Decoder) throws {
+        let single = try decoder.singleValueContainer()
+        if let text = try? single.decode(String.self) { value = text; return }
+        if let number = try? single.decode(Int.self) { value = String(number); return }
+        let fields = try? decoder.container(keyedBy: CodingKeys.self)
+        let keys: [CodingKeys] = [.id, .value, .categoryId, .category_id, .slug, .name, .label, .title]
+        value = keys.lazy.compactMap { fields?.categoryText($0) }.first
+    }
+}
+
+private struct ASOptionalRecord<Value: Decodable>: Decodable {
+    let value: Value?
+    init(from decoder: any Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
+
 // MARK: - Repository
 
 public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
@@ -40,6 +78,51 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
         public var id: String
         public var name: String
         public var isGame: Bool?
+        public var aliases: [String]?
+        public var iconSVG: String?
+
+        public init(id: String, name: String, isGame: Bool? = nil, aliases: [String]? = nil, iconSVG: String? = nil) {
+            self.id = id
+            self.name = name
+            self.isGame = isGame
+            self.aliases = aliases
+            self.iconSVG = iconSVG
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, name, isGame, aliases, iconSVG, icon_svg, value, label, title, slug, categoryId, category_id, is_game
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let single = try decoder.singleValueContainer()
+            if let raw = try? single.decode(String.self), !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                self.init(id: raw.trimmingCharacters(in: .whitespacesAndNewlines), name: raw.trimmingCharacters(in: .whitespacesAndNewlines))
+                return
+            }
+            if let number = try? single.decode(Int.self) {
+                self.init(id: String(number), name: String(number))
+                return
+            }
+            let row = try decoder.container(keyedBy: CodingKeys.self)
+            let nameKeys: [CodingKeys] = [.name, .label, .title]
+            let idKeys: [CodingKeys] = [.id, .value, .categoryId, .category_id, .slug]
+            let title = nameKeys.lazy.compactMap { row.categoryText($0) }.first
+            guard let id = idKeys.lazy.compactMap({ row.categoryText($0) }).first ?? title else {
+                throw DecodingError.dataCorruptedError(forKey: .id, in: row, debugDescription: "Missing category identity.")
+            }
+            let alternatives = (try? row.decode([ASCategoryReference].self, forKey: .aliases))?.compactMap(\.value)
+            self.init(id: id, name: title ?? id, isGame: row.flexibleBool(.isGame) ?? row.flexibleBool(.is_game), aliases: alternatives,
+                      iconSVG: (try? row.decode(String.self, forKey: .icon_svg)) ?? (try? row.decode(String.self, forKey: .iconSVG)))
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var row = encoder.container(keyedBy: CodingKeys.self)
+            try row.encode(id, forKey: .id)
+            try row.encode(name, forKey: .name)
+            try row.encodeIfPresent(isGame, forKey: .isGame)
+            try row.encodeIfPresent(aliases, forKey: .aliases)
+            try row.encodeIfPresent(iconSVG, forKey: .icon_svg)
+        }
     }
 
 	public init(from decoder: any Decoder) throws {
@@ -99,12 +182,22 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
 			)
 		}
 		
-        var categories = try container.decodeIfPresent([CatalogCategory].self, forKey: .categories) ?? []
-        let gameCategories = try container.decodeIfPresent([CatalogCategory].self, forKey: .gameCategories)
-        for var game in gameCategories ?? [] {
+        func decodeCategories(_ key: CodingKeys) -> [CatalogCategory] {
+            if let rows = try? container.decode([ASOptionalRecord<CatalogCategory>].self, forKey: key) {
+                return rows.compactMap(\.value)
+            }
+            if let rows = try? container.decode([String: String].self, forKey: key) {
+                return rows.keys.sorted().compactMap { id in rows[id].map { CatalogCategory(id: id, name: $0) } }
+            }
+            return []
+        }
+        var categories = decodeCategories(.categories)
+        for var game in decodeCategories(.gameCategories) {
             game.isGame = true
-            if let index = categories.firstIndex(where: { $0.id == game.id }) {
-                categories[index] = game
+            if let index = categories.firstIndex(where: { $0.id.caseInsensitiveCompare(game.id) == .orderedSame }) {
+                categories[index].isGame = true
+                if categories[index].name == categories[index].id { categories[index].name = game.name }
+                if let aliases = game.aliases { categories[index].aliases = (categories[index].aliases ?? []) + aliases }
             } else {
                 categories.append(game)
             }
@@ -115,11 +208,11 @@ public struct ASRepository: Sendable, Decodable, Hashable, Identifiable {
             game.isGame = true
             return game
         }
-        let gameKeys = Set(games.map(\.stableCatalogIdentifier))
-        self.apps = (decodedApps ?? []).filter { !gameKeys.contains($0.stableCatalogIdentifier) } + games
+        let gameKeys = Set(games.map(\.catalogRowKey))
+        self.apps = (decodedApps ?? []).filter { !gameKeys.contains($0.catalogRowKey) } + games
 		self.featuredApps =
 			try container.decodeIfPresent([App.ID].self, forKey: .featuredApps) ?? []
-		self.news = try container.decodeIfPresent([News].self, forKey: .news) ?? []
+		self.news = (try? container.decode([ASOptionalRecord<News>].self, forKey: .news))?.compactMap(\.value) ?? []
 	}
 
 	public enum CodingKeys: String, CodingKey {
@@ -157,6 +250,13 @@ extension ASRepository {
         // Keep the actual bundle ID unchanged for Apple lookups and signing.
         public var catalogID: String?
         public var stableCatalogIdentifier: String { catalogID ?? id ?? currentName }
+        public var catalogRowKey: String {
+            if let catalogID, !catalogID.isEmpty { return "id:" + catalogID }
+            return [id ?? "", currentName, currentDownloadUrl?.absoluteString ?? currentVersion ?? ""].joined(separator: "\u{1F}")
+        }
+        public var downloadKey: String {
+            catalogRowKey + "\u{1F}" + (currentDownloadUrl?.absoluteString ?? "")
+        }
 
 		public var subtitle: String?
 		public var description: String?
@@ -184,6 +284,8 @@ extension ASRepository {
 		public var size: Int64?
 
 		public var category: String?
+        public var categoryReferences: [String]
+        public var artworkURL: URL?
         public var isGame: Bool?
         public var skipAppStoreLookup: Bool?
 
@@ -326,11 +428,35 @@ extension ASRepository {
 					.flatMap { Int64($0) }
 
 			self.skipAppStoreLookup = try container.decodeIfPresent(Bool.self, forKey: .skipAppStoreLookup)
-            self.category = (try? container.decodeIfPresent(String.self, forKey: .category))
-                ?? (try? container.decodeIfPresent(Int.self, forKey: .category)).map { String($0) }
-
-            self.isGame = (try? container.decodeIfPresent(Bool.self, forKey: .isGame))
-                ?? (try? container.decodeIfPresent(Bool.self, forKey: .isGameSnakeCase))
+            let categoryKeys: [CodingKeys] = [.category, .categoryId, .category_id, .primaryGenre, .primaryGenreName,
+                .genre, .primaryGenreId, .genreId, .categories, .genres, .genreIds]
+            var references: [String] = []
+            var seen = Set<String>()
+            for key in categoryKeys {
+                let values: [String]
+                if let list = try? container.decode([ASCategoryReference].self, forKey: key) {
+                    values = list.compactMap(\.value)
+                } else if let value = (try? container.decode(ASCategoryReference.self, forKey: key))?.value {
+                    values = [value]
+                } else { values = [] }
+                for value in values {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty, seen.insert(trimmed.lowercased()).inserted { references.append(trimmed) }
+                }
+            }
+            self.categoryReferences = references
+            self.category = references.first
+            let artworkKeys: [CodingKeys] = [.artworkURL, .bannerURL, .headerURL, .banner_url, .header_url]
+            self.artworkURL = artworkKeys.lazy.compactMap { key -> URL? in
+                guard let raw = container.categoryText(key), let url = URL(string: raw),
+                      url.scheme?.lowercased() == "https", url.host != nil,
+                      url.user == nil, url.password == nil else { return nil }
+                return url
+            }.first
+            let type = (container.categoryText(.type) ?? container.categoryText(.contentType))?.lowercased()
+            let typed: Bool? = ["game", "games", "gaming"].contains(type ?? "") ? true :
+                ["app", "apps", "application"].contains(type ?? "") ? false : nil
+            self.isGame = container.flexibleBool(.isGame) ?? container.flexibleBool(.isGameSnakeCase) ?? typed
 
 			self.beta =
 				(try? container.decodeIfPresent(Bool.self, forKey: .beta)) ?? false
@@ -375,6 +501,8 @@ extension ASRepository {
 			     localizedDescription, iconURL, tintColor, size, category, beta, skipAppStoreLookup
 			case isGame
 			case isGameSnakeCase = "is_game"
+            case categoryId, category_id, categories, primaryGenre, primaryGenreName, genre, primaryGenreId, genreId, genres, genreIds
+            case type, contentType, artworkURL, bannerURL, headerURL, banner_url, header_url
 			case permissions, appPermissions
 			case screenshots, screenshotURLs
 			case marketplaceID
@@ -427,6 +555,14 @@ extension ASRepository {
 			public var size: UInt?
 			public var minOSVersion: OSVersion?
 
+            public init(version: String, date: DateParsed?, localizedDescription: String?, downloadURL: URL?, size: UInt?) {
+                self.version = version
+                self.date = date
+                self.localizedDescription = localizedDescription
+                self.downloadURL = downloadURL
+                self.size = size
+            }
+
 			public init(from decoder: any Decoder) throws {
 				let container = try decoder.container(keyedBy: CodingKeys.self)
 				self.version = try container.decode(String.self, forKey: .version)
@@ -478,33 +614,38 @@ extension ASRepository {
 		public var id: String
 		public var title: String
 		public var caption: String
+        public var badge: String?
 		public var tintColor: Color?
 		public var imageURL: URL?
 		public var url: URL?
-		public var appID: App.ID?
+		public var appID: String?
 		public var date: DateParsed?
 		public var notify: Bool
 
 		public init(from decoder: any Decoder) throws {
 			let container = try decoder.container(keyedBy: CodingKeys.self)
-			self.id = try container.decode(String.self, forKey: .id)
-			self.title = try container.decode(String.self, forKey: .title)
-			self.caption = try container.decode(String.self, forKey: .caption)
-			self.tintColor = try container.decodeIfPresent(
-				Color.self,
-				forKey: .tintColor
-			)
-			self.imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
-			self.url = try container.decodeIfPresent(URL.self, forKey: .url)
-			self.appID = try container.decodeIfPresent(App.ID.self, forKey: .appID)
-			self.date = try container.decodeIfPresent(DateParsed.self, forKey: .date)
-			self.notify =
-				try container.decodeIfPresent(Bool.self, forKey: .notify) ?? false
+            guard let title = container.categoryText(.title) else {
+                throw DecodingError.dataCorruptedError(forKey: .title, in: container, debugDescription: "Missing news title.")
+            }
+            let appID = container.categoryText(.appID)
+            let imageURL = container.categoryText(.imageURL).flatMap(URL.init(string:))
+            self.id = container.categoryText(.id) ?? container.categoryText(.legacyID) ??
+                ("news:" + [appID ?? "", title, imageURL?.absoluteString ?? ""].joined(separator: "\u{1F}"))
+            self.title = title
+            self.caption = container.categoryText(.caption) ?? ""
+            self.badge = container.categoryText(.badge) ?? (container.flexibleBool(.showBadge) == false ? nil : container.categoryText(.badgeText))
+            self.tintColor = try? container.decodeIfPresent(Color.self, forKey: .tintColor)
+            self.imageURL = imageURL
+            self.url = container.categoryText(.url).flatMap(URL.init(string:))
+            self.appID = appID
+            self.date = try? container.decodeIfPresent(DateParsed.self, forKey: .date)
+            self.notify = container.flexibleBool(.notify) ?? false
 		}
 
 		public enum CodingKeys: String, CodingKey {
 			case id = "identifier"
-			case title, caption, tintColor, imageURL, url, appID, date, notify
+            case legacyID = "id"
+			case title, caption, badge, badgeText, showBadge, tintColor, imageURL, url, appID, date, notify
 		}
 	}
 }

@@ -39,18 +39,24 @@ final class SigningHandler: NSObject {
 		super.init()
 	}
 	
-	func copy() async throws {
-		let storedURL = await MainActor.run { Storage.shared.getAppDirectory(for: self._app) }
-		guard let appUrl = storedURL else {
-			throw SigningFileHandlerError.appNotFound
-		}
+    private var executableCandidates: [URL] = []
+    private var libraries: [URL] = []
+    private var priorSignatures: [URL] = []
 
-		try XSignIPAExtractor.validateTree(appUrl)
+    func copy(from appUrl: URL) throws {
         try XSignPrivateFiles.createDirectory(_uniqueWorkDir)
-		
-		let movedAppURL = _uniqueWorkDir.appendingPathComponent(appUrl.lastPathComponent)
-		
-		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
+        let movedAppURL = _uniqueWorkDir.appendingPathComponent(appUrl.lastPathComponent)
+        try XSignPrivateFiles.copyToWork(appUrl, to: movedAppURL)
+        let snapshotDepth = movedAppURL.pathComponents.count
+        try XSignIPAExtractor.validateTree(movedAppURL) { item in
+            let relative = item.pathComponents.dropFirst(snapshotDepth)
+            if item.lastPathComponent.hasSuffix("_CodeSignature") { priorSignatures.append(item) }
+            if ["dylib", "framework"].contains(item.pathExtension) { libraries.append(item) }
+            if ["app", "appex", "framework", "dylib"].contains(item.pathExtension.lowercased()),
+               !relative.contains(where: { $0.hasPrefix(".") }) {
+                executableCandidates.append(item)
+            }
+        }
 		_movedAppPath = movedAppURL
 		Logger.misc.info("[\(self._uuid)] Prepared private signing workspace")
 	}
@@ -62,15 +68,16 @@ final class SigningHandler: NSObject {
 		
         let infoDictionary = try XSignAppMetadata.readInfo(at: movedAppPath.appendingPathComponent("Info.plist"))
         if _options.signingOption == .default {
-            try XSignMachOEncryption.verifyPayload(at: movedAppPath.deletingLastPathComponent())
+            try XSignMachOEncryption.verifyBundle(at: movedAppPath, candidates: executableCandidates)
         }
 
-		if
-			let identifier = _options.appIdentifier,
-			let oldIdentifier = infoDictionary["CFBundleIdentifier"] as? String
-		{
+        let oldIdentifier = infoDictionary["CFBundleIdentifier"] as? String
+        if let identifier = try XSignAppMetadata.validated(_options.appIdentifier, field: .bundleIdentifier, original: oldIdentifier),
+           let oldIdentifier {
 			try await _modifyPluginIdentifiers(old: oldIdentifier, new: identifier, for: movedAppPath)
 		}
+        let originalName = infoDictionary["CFBundleDisplayName"] as? String ?? infoDictionary["CFBundleName"] as? String
+        let newName = try XSignAppMetadata.validated(_options.appName, field: .name, original: originalName)
 		
 		try await _modifyDict(using: infoDictionary, with: _options, to: movedAppPath)
 		
@@ -78,7 +85,7 @@ final class SigningHandler: NSObject {
 			try await _modifyDict(using: infoDictionary, for: icon, to: movedAppPath)
 		}
 		
-		if let name = _options.appName {
+		if _options.changeLanguageFilesForCustomDisplayName, let name = newName {
 			try await _modifyLocalesForName(name, for: movedAppPath)
 		}
 		
@@ -93,30 +100,29 @@ final class SigningHandler: NSObject {
 			try await _locateMachosAndChangeToSDK26(for: movedAppPath)
 		}
 		
-		if _options.experiment_replaceSubstrateWithEllekit {
-			try await _inject(for: movedAppPath, with: _options)
-		} else {
-			if !_options.injectionFiles.isEmpty {
-				try await _inject(for: movedAppPath, with: _options)
-			}
-		}
-		
-		// iOS "26" (19) needs special treatment
-		try await _locateMachosAndFixupArm64eSlice(for: movedAppPath)
+        let didInject = _options.experiment_replaceSubstrateWithEllekit || !_options.injectionFiles.isEmpty
+        if didInject {
+            try await _inject(for: movedAppPath, with: _options)
+        }
+
+        let librariesForFixup = didInject ? _enumerateFiles(at: movedAppPath) {
+            $0.hasSuffix(".dylib") || $0.hasSuffix(".framework")
+        } : libraries.filter { _fileManager.fileExists(atPath: $0.path) }
+        _fixupArm64eSlices(for: librariesForFixup)
 		
 		if _options.mergeEntitlements && _options.appEntitlementsFile == nil {
 			try await _mergeEntitlements(for: movedAppPath, with: _options)
 		}
 		
-		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate)
+		let handler = ZsignHandler(appUrl: movedAppPath, options: _options)
 		try await handler.disinject()
 		try await checkPolicy()
 		
-		if
-			_options.signingOption == .default,
-			appCertificate != nil
-		{
-			try await handler.sign()
+		if _options.signingOption == .default {
+            let credentials = try await signingCredentials()
+            let started = ProcessInfo.processInfo.systemUptime
+            try await handler.sign(with: credentials)
+            Logger.misc.info("Zsign native duration (s): \(ProcessInfo.processInfo.systemUptime - started)")
 //		} else if _options.signingOption == .adhoc {
 //			try await handler.adhocSign()
 		} else if _options.signingOption == .onlyModify {
@@ -130,6 +136,22 @@ final class SigningHandler: NSObject {
         try await self.move()
         try await self.addToDatabase()
 	}
+
+    @MainActor
+    private func signingCredentials() throws -> ZsignHandler.Credentials {
+        guard let certificate = appCertificate else { throw SigningFileHandlerError.missingCertifcate }
+        let storage = Storage.shared
+        guard !certificate.isDeleted, !certificate.revoked, certificate.expiration.map({ $0 > Date() }) ?? false,
+              let provision = storage.getFile(.provision, from: certificate),
+              let key = storage.getFile(.certificate, from: certificate),
+              _fileManager.isReadableFile(atPath: provision.path),
+              _fileManager.isReadableFile(atPath: key.path) else {
+            throw NSError(domain: "XSign.Signing", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "الشهادة غير متاحة أو منتهية أو ملغاة. اختر شهادة صالحة."])
+        }
+        return .init(provisionPath: provision.path, certificatePath: key.path,
+                     password: try storage.signingPassword(for: certificate))
+    }
 
     private func checkPolicy() async throws {
         if !isVerifiedSelfUpdate, let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
@@ -231,34 +253,39 @@ extension SigningHandler {
 	
 	private func _modifyDict(using infoDictionary: NSMutableDictionary, for image: UIImage, to app: URL) async throws {
 		let imageSizes = [
-			(width: 120, height: 120, name: "FRIcon60x60@2x.png"),
-			(width: 152, height: 152, name: "FRIcon76x76@2x~ipad.png")
+            (width: 120, height: 120, name: "FRIcon60x60@2x.png"),
+            (width: 180, height: 180, name: "FRIcon60x60@3x.png"),
+            (width: 152, height: 152, name: "FRIcon76x76@2x~ipad.png"),
+            (width: 167, height: 167, name: "FRIcon83.5x83.5@2x~ipad.png")
 		]
 		
 		for imageSize in imageSizes {
 			let resizedImage = image.resize(imageSize.width, imageSize.height)
-			let imageData = resizedImage.pngData()
+			guard let imageData = resizedImage.pngData() else { throw CocoaError(.fileWriteUnknown) }
 			let fileURL = app.appendingPathComponent(imageSize.name)
 			
-			try imageData?.write(to: fileURL)
+			try imageData.write(to: fileURL, options: .atomic)
 		}
 		
 		let cfBundleIcons: [String: Any] = [
 			"CFBundlePrimaryIcon": [
-				"CFBundleIconFiles": ["FRIcon60x60"],
-				"CFBundleIconName": "FRIcon"
+				"CFBundleIconFiles": ["FRIcon60x60"]
 			]
 		]
 		
 		let cfBundleIconsIpad: [String: Any] = [
 			"CFBundlePrimaryIcon": [
-				"CFBundleIconFiles": ["FRIcon60x60", "FRIcon76x76"],
-				"CFBundleIconName": "FRIcon"
+				"CFBundleIconFiles": ["FRIcon60x60", "FRIcon76x76", "FRIcon83.5x83.5"]
 			]
 		]
 		
-		infoDictionary["CFBundleIcons"] = cfBundleIcons
-		infoDictionary["CFBundleIcons~ipad"] = cfBundleIconsIpad
+        for key in ["CFBundleIconName", "CFBundleIconFile", "CFBundleIconFiles",
+                    "CFBundleIconFiles~iphone", "CFBundleIconFiles~ipad"] {
+            infoDictionary.removeObject(forKey: key)
+        }
+        infoDictionary["CFBundleIcons"] = cfBundleIcons
+        infoDictionary["CFBundleIcons~iphone"] = cfBundleIcons
+        infoDictionary["CFBundleIcons~ipad"] = cfBundleIconsIpad
 		
 		try infoDictionary.write(to: app.appendingPathComponent("Info.plist"))
 	}
@@ -268,18 +295,15 @@ extension SigningHandler {
 			.contentsOfDirectory(at: app, includingPropertiesForKeys: nil)
 			.filter { $0.pathExtension == "lproj" }
 		
-		localizationBundles.forEach { bundleURL in
+		for bundleURL in localizationBundles {
 			let plistURL = bundleURL.appendingPathComponent("InfoPlist.strings")
 			
-			guard
-				_fileManager.fileExists(atPath: plistURL.path),
-				let dictionary = NSMutableDictionary(contentsOf: plistURL)
-			else {
-				return
-			}
+            guard _fileManager.fileExists(atPath: plistURL.path) else { continue }
+            let dictionary = try XSignAppMetadata.readInfo(at: plistURL)
 			
 			dictionary["CFBundleDisplayName"] = name
-			dictionary.write(toFile: plistURL.path, atomically: true)
+            dictionary["CFBundleName"] = name
+            try dictionary.write(to: plistURL)
 		}
 	}
 	
@@ -288,7 +312,12 @@ extension SigningHandler {
 		new newIdentifier: String,
 		for app: URL
 	) async throws {
-		let pluginBundles = _enumerateFiles(at: app) {
+        func updatedIdentifier(_ value: String) -> String {
+            if value == oldIdentifier { return newIdentifier }
+            guard value.hasPrefix(oldIdentifier + ".") else { return value }
+            return newIdentifier + value.dropFirst(oldIdentifier.count)
+        }
+        let pluginBundles = _enumerateFiles(at: app) {
 			$0.hasSuffix(".app") || $0.hasSuffix(".appex")
 		}
 		
@@ -303,7 +332,7 @@ extension SigningHandler {
 			
 			// CFBundleIdentifier
 			if let oldValue = infoDict["CFBundleIdentifier"] as? String {
-				let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+				let newValue = updatedIdentifier(oldValue)
 				if oldValue != newValue {
 					infoDict["CFBundleIdentifier"] = newValue
 					didChange = true
@@ -312,7 +341,7 @@ extension SigningHandler {
 			
 			// WKCompanionAppBundleIdentifier
 			if let oldValue = infoDict["WKCompanionAppBundleIdentifier"] as? String {
-				let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+				let newValue = updatedIdentifier(oldValue)
 				if oldValue != newValue {
 					infoDict["WKCompanionAppBundleIdentifier"] = newValue
 					didChange = true
@@ -321,12 +350,13 @@ extension SigningHandler {
 			if let extensionDict = (infoDict["NSExtension"] as? NSDictionary)?.mutableCopy() as? NSMutableDictionary {
 				// NSExtension → NSExtensionAttributes → WKAppBundleIdentifier
 				if
-					let attributes = extensionDict["NSExtensionAttributes"] as? NSMutableDictionary,
+					let attributes = (extensionDict["NSExtensionAttributes"] as? NSDictionary)?.mutableCopy() as? NSMutableDictionary,
 					let oldValue = attributes["WKAppBundleIdentifier"] as? String
 				{
-					let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+					let newValue = updatedIdentifier(oldValue)
 					if oldValue != newValue {
 						attributes["WKAppBundleIdentifier"] = newValue
+                        extensionDict["NSExtensionAttributes"] = attributes
 						didChange = true
 					}
 				}
@@ -335,7 +365,7 @@ extension SigningHandler {
 				if
 					let oldValue = extensionDict["NSExtensionFileProviderDocumentGroup"] as? String
 				{
-					let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+					let newValue = updatedIdentifier(oldValue)
 					if oldValue != newValue {
 						extensionDict["NSExtensionFileProviderDocumentGroup"] = newValue
 						didChange = true
@@ -345,9 +375,7 @@ extension SigningHandler {
 				infoDict["NSExtension"] = extensionDict
 			}
 			
-			if didChange {
-				infoDict.write(to: infoPlistURL, atomically: true)
-			}
+            if didChange { try infoDict.write(to: infoPlistURL) }
 		}
 	}
 	
@@ -361,7 +389,7 @@ extension SigningHandler {
 			app.appendingPathComponent($0)
 		}
 		
-		await files += try _locateCodeSignatureDirectories(for: app)
+        files += priorSignatures
 		
 		for file in files {
 			try _fileManager.removeFileIfNeeded(at: file)
@@ -405,21 +433,12 @@ extension SigningHandler {
 	
 	private func _locateMachosAndChangeToSDK26(for app: URL) async throws {
 		if let url = Bundle(url: app)?.executableURL {
-			LCPatchMachOForSDK26(app.appendingPathComponent(url.relativePath).relativePath)
+			LCPatchMachOForSDK26(url.path)
 		}
 	}
 	
-	private func _locateCodeSignatureDirectories(for app: URL) async throws -> [URL] {
-		_enumerateFiles(at: app) { $0.hasSuffix("_CodeSignature") }
-	}
-	
-	// this is mainly for CydiaSubstrate where it often contains legacy arm64e slices
-	// which cause the app to crash when loaded on ios 26+,
-	// avoids `(cpu type/subtype in slice (arm64e.old) does not match fat header (arm64e))`
-	private func _locateMachosAndFixupArm64eSlice(for app: URL) async throws {
-		let machoFiles = _enumerateFiles(at: app) {
-			$0.hasSuffix(".dylib") || $0.hasSuffix(".framework")
-		}
+    // Older arm64e slices need to match their fat headers on iOS 26.
+    private func _fixupArm64eSlices(for machoFiles: [URL]) {
 		
 		for fileURL in machoFiles {
 			switch fileURL.pathExtension {

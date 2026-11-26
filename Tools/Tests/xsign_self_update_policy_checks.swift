@@ -43,13 +43,55 @@ import Foundation
         precondition(!XSignReleaseVersion.requiresUpdate(currentVersion:"1.0.0",currentBuild:"5",installedOrigin:nil,targetVersion:"1.0",targetBuild:"5",targetOrigin:target))
         precondition(XSignReleaseVersion.requiresUpdate(currentVersion:"1.0",currentBuild:"5",installedOrigin:"old",targetVersion:"1.0",targetBuild:"5",targetOrigin:target))
         precondition(!XSignReleaseVersion.requiresUpdate(currentVersion:"1.0",currentBuild:"5",installedOrigin:target,targetVersion:"1.0",targetBuild:"5",targetOrigin:target))
+        func approved(_ version: String, _ build: String, _ origin: String?, _ strict: Bool) -> Bool {
+            XSignReleaseVersion.isApproved(currentVersion: version, currentBuild: build, installedOrigin: origin,
+                targetVersion: "1.0", targetBuild: "15", targetOrigin: target, requireOrigin: strict)
+        }
+        precondition(approved("1.0.0", "15", target, true))
+        precondition(approved("1.1", "15", nil, true))
+        precondition(approved("1.0", "16", nil, true))
+        precondition(XSignReleaseVersion.isApproved(currentVersion: "1.0", currentBuild: "54", installedOrigin: nil,
+            targetVersion: "1.0", targetBuild: "47", targetOrigin: target, requireOrigin: true,
+            installedRequest: nil, targetRequest: "previous-build"))
+        precondition(!approved("1.0", "14", target, true))
+        precondition(!approved("1.0", "15", nil, true))
+        precondition(!approved("1.0", "15", "different", true))
+        precondition(approved("1.0", "15", "different", false))
+        precondition(approved("1.0", "15", "", false))
+        precondition(XSignReleaseVersion.isApproved(currentVersion: "1.0", currentBuild: "15", installedOrigin: nil,
+            targetVersion: "1.0", targetBuild: "15", targetOrigin: target, requireOrigin: true,
+            installedRequest: "this-build", targetRequest: "this-build", allowUnstampedIPA: true))
+        precondition(!XSignReleaseVersion.isApproved(currentVersion: "1.0", currentBuild: "15", installedOrigin: target,
+            targetVersion: "1.0", targetBuild: "15", targetOrigin: target, requireOrigin: false,
+            installedRequest: "old-build", targetRequest: "this-build"))
+        precondition(!XSignReleaseVersion.isApproved(currentVersion: "1.0", currentBuild: "15", installedOrigin: "old-link",
+            targetVersion: "1.0", targetBuild: "15", targetOrigin: target, requireOrigin: true,
+            installedRequest: "this-build", targetRequest: "this-build", allowUnstampedIPA: true))
+        precondition(XSignReleaseVersion.requiresUpdate(currentVersion: "1.0", currentBuild: "15", installedOrigin: nil,
+            targetVersion: "1.0", targetBuild: "15", targetOrigin: target,
+            installedRequest: "old-build", targetRequest: "this-build"))
+        precondition(XSignReleaseVersion.acceptsPreparedOrigin(nil, targetOrigin: target, requireOrigin: false, targetRequest: nil))
+        precondition(XSignReleaseVersion.acceptsPreparedOrigin("", targetOrigin: target, requireOrigin: true, targetRequest: "this-build"))
+        precondition(XSignReleaseVersion.acceptsPreparedOrigin(target, targetOrigin: target, requireOrigin: true, targetRequest: nil))
+        precondition(!XSignReleaseVersion.acceptsPreparedOrigin(nil, targetOrigin: target, requireOrigin: true, targetRequest: nil))
+        precondition(!XSignReleaseVersion.acceptsPreparedOrigin("wrong-link", targetOrigin: target, requireOrigin: false, targetRequest: nil))
         let previous=URL(string:"https://github.com/owner/repo/releases/download/old/app.ipa")!
         let next=URL(string:"https://github.com/owner/repo/releases/download/new/app.ipa")!
-        precondition(XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentURL:previous,targetURL:next))
-        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentURL:next,targetURL:next))
-        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"3.0",targetVersion:"2.0",currentURL:previous,targetURL:next))
-        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentURL:nil,targetURL:next))
-        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentURL:previous,targetURL:URL(string:"https://example.com/app.ipa?token=changed")!))
+        let previousFingerprint = XSignReleaseVersion.downloadFingerprint(previous)
+        let nextFingerprint = XSignReleaseVersion.downloadFingerprint(next)
+        let signedURL = URL(string: "https://example.com/app.ipa?token=changed")!
+        let signedFingerprint = XSignReleaseVersion.downloadFingerprint(signedURL)
+        precondition(signedFingerprint?.range(of: "^sha256:[a-f0-9]{64}$", options: .regularExpression) != nil)
+        precondition(signedFingerprint == XSignReleaseVersion.downloadFingerprint(signedURL))
+        precondition(previousFingerprint != nextFingerprint)
+        precondition(XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:previousFingerprint,targetURL:next))
+        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:nextFingerprint,targetURL:next))
+        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"3.0",targetVersion:"2.0",currentFingerprint:previousFingerprint,targetURL:next))
+        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:nil,targetURL:next))
+        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:previousFingerprint,targetURL:signedURL))
+        let protected = URL(string: "https://xsign.example.test/v1/packages/" + String(repeating: "a", count: 64))!
+        precondition(XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:nextFingerprint,targetURL:protected,isProtectedPackage:true))
+        precondition(!XSignReleaseVersion.catalogNeedsUpdate(currentVersion:"2.0",targetVersion:"2.0",currentFingerprint:nextFingerprint,targetURL:protected))
         print("PASS: self-update version/build ordering, team/prefix/bundle preservation, expiry and conservative device coverage")
     }
 }

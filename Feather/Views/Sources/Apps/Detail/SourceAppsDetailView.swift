@@ -6,22 +6,14 @@
 //
 
 import SwiftUI
-import Combine
 import AltSourceKit
 import NimbleViews
 import NukeUI
 
 // MARK: - SourceAppsDetailView
 struct SourceAppsDetailView: View {
-	@ObservedObject var downloadManager = DownloadManager.shared
-	@State private var _downloadProgress: Double = 0
-	@State var cancellable: AnyCancellable? // Combine
 	@State private var _isScreenshotPreviewPresented: Bool = false
 	@State private var _selectedScreenshotIndex: Int = 0
-
-	var currentDownload: Download? {
-		downloadManager.getDownload(by: app.currentUniqueId)
-	}
 
 	let sourceURL: URL?
 	let source: ASRepository
@@ -36,7 +28,7 @@ struct SourceAppsDetailView: View {
 			VStack(alignment: .leading, spacing: 10) {
 				HStack(spacing: 10) {
 					if let iconURL = app.iconURL {
-						LazyImage(url: iconURL) { state in
+						LazyImage(request: xsignImageRequest(iconURL)) { state in
 							if let image = state.image {
 								image.appIconStyle(size: 111, isCircle: false)
 							} else {
@@ -76,34 +68,21 @@ struct SourceAppsDetailView: View {
 					Divider()
 				}
 
-				if
-					let currentVer = app.currentVersion,
-					let whatsNewDesc = app.currentAppVersion?.localizedDescription
-				{
-					NBSection(.localized("What's New")) {
-						AppVersionInfo(
-							version: currentVer,
-							date: app.currentDate?.date,
-							description: whatsNewDesc
-						)
-						if let versions = app.versions {
-							NavigationLink(
-								destination: VersionHistoryView(
-									sourceURL: sourceURL,
-									source: source,
-									app: app,
-									versions: versions
-								)
-									.navigationTitle(.localized("Version History"))
-									.navigationBarTitleDisplayMode(.large)
-							) {
-								Text(.localized("Version History"))
-							}
-						}
-					}
-
-					Divider()
-				}
+                if let currentVersion = app.currentVersion,
+                   let notes = app.currentAppVersion?.localizedDescription {
+                    NBSection(.localized("What's New")) {
+                        AppVersionInfo(version: currentVersion, date: app.currentDate?.date, description: notes)
+                    }
+                }
+                if let versions = app.versions, !versions.isEmpty {
+                    NavigationLink {
+                        VersionHistoryView(sourceURL: sourceURL, source: source, app: app, versions: versions)
+                            .navigationTitle(.localized("Version History"))
+                    } label: {
+                        Label(xsignText("سجل الإصدارات"), systemImage: "clock.arrow.circlepath")
+                    }
+                    Divider()
+                }
 
 				if let appDesc = app.localizedDescription {
 					NBSection(.localized("Description")) {
@@ -223,7 +202,7 @@ extension SourceAppsDetailView {
 	private func _header() -> some View {
 		ZStack {
 			if let iconURL = source.currentIconURL {
-				LazyImage(url: iconURL) { state in
+				LazyImage(request: xsignImageRequest(iconURL)) { state in
 					if let image = state.image {
 						image.resizable()
 							.aspectRatio(contentMode: .fill)
@@ -237,18 +216,9 @@ extension SourceAppsDetailView {
 				standardHeader
 			}
 
-			NBVariableBlurView()
-				.rotationEffect(.degrees(-180))
-				.overlay(
-					LinearGradient(
-						gradient: Gradient(colors: [
-							Color.black.opacity(0.8),
-							Color.black.opacity(0)
-						]),
-						startPoint: .top,
-						endPoint: .bottom
-					)
-				)
+            LinearGradient(colors: [.black.opacity(0.8), .clear],
+                           startPoint: .top, endPoint: .bottom)
+                .allowsHitTesting(false)
 		}
 	}
 
@@ -295,7 +265,7 @@ extension SourceAppsDetailView {
 			HStack(spacing: 12) {
 				ForEach(screenshotURLs.indices, id: \.self) { index in
 					let url = screenshotURLs[index]
-					LazyImage(url: url) { state in
+					LazyImage(request: xsignImageRequest(url)) { state in
 						if let image = state.image {
 							image
 								.resizable()

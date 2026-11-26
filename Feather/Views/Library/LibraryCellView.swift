@@ -148,7 +148,7 @@ extension LibraryCellView {
 						.foregroundStyle(.white, Color.accentColor)
 						.background(
 							Circle()
-								.fill(Color(.systemBackground))
+								.fill(AppStoreTheme.cardSurface)
 								.frame(width: 20, height: 20)
 						)
 						.offset(x: 5, y: -5)
@@ -198,10 +198,12 @@ extension LibraryCellView {
 					Label(.localized("Open"), systemImage: "app.badge.checkmark")
 				}
 			}
-			Button {
-				XSignInstallation.shared.install(app)
+			Menu {
+				ForEach(XSignOTAInstallMode.allCases, id: \.rawValue) { method in
+					Button(method.title) { XSignInstallation.shared.install(app, mode: method) }
+				}
 			} label: {
-				Label(.localized("Install"), systemImage: "square.and.arrow.down")
+				Label("التثبيت", systemImage: "square.and.arrow.down")
 			}
 			Button {
 				selectedSigningAppPresenting = AnyApp(base: app)
@@ -231,12 +233,9 @@ extension LibraryCellView {
 						_signedUpdateConfirmation = update
 						_isSignedUpdateConfirmationPresented = true
 					} label: {
-						FRExpirationPillView(
-							title: .localized("Install"),
-							revoked: certRevoked,
-							expiration: certInfo
-						)
+						Text("تثبيت")
 					}
+					.buttonStyle(XSignInstallButtonStyle())
 				} else {
 					Button {
 						_startUpdateDownload(update)
@@ -249,14 +248,14 @@ extension LibraryCellView {
 					}
 				}
 			} else if app.isSigned {
-				Button {
-					XSignInstallation.shared.install(app)
+				Menu {
+					ForEach(XSignOTAInstallMode.allCases, id: \.rawValue) { method in
+						Button(method.title) { XSignInstallation.shared.install(app, mode: method) }
+					}
 				} label: {
-					FRExpirationPillView(
-						title: .localized("Install"),
-						revoked: certRevoked,
-						expiration: certInfo
-					)
+					Label("تثبيت", systemImage: "chevron.down")
+						.labelStyle(.titleAndIcon)
+						.xsignInstallPill()
 				}
 			} else {
 				Button {

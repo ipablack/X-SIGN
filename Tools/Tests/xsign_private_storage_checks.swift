@@ -16,6 +16,12 @@ import Foundation
         }
         try Data("private-pairing-fixture".utf8).write(to: documents.appendingPathComponent("pairingFile.plist"))
         try fm.createDirectory(at: work, withIntermediateDirectories: true)
+        let original = documents.appendingPathComponent("Unsigned")
+        let copy = work.appendingPathComponent("unsigned-copy")
+        try XSignPrivateFiles.copyToWork(original, to: copy)
+        try Data("new contents".utf8).write(to: copy.appendingPathComponent("fixture"))
+        let originalData = try Data(contentsOf: original.appendingPathComponent("fixture"))
+        precondition(originalData == Data("preserve-Unsigned".utf8))
         try Data("stale-install-package".utf8).write(to: work.appendingPathComponent("stale.ipa"))
         try XSignPrivateFiles.migrateLegacyDirectories(documents: documents, privateRoot: library, work: work)
         for name in ["Signed", "Unsigned", "Certificates", "Archives"] {

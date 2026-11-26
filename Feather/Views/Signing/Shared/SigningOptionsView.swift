@@ -188,7 +188,7 @@ struct SigningOptionsView: View {
 				systemImage: "pencil",
 				isOn: $options.experiment_replaceSubstrateWithEllekit,
 				temporaryValue: temporaryOptions?.experiment_replaceSubstrateWithEllekit
-			).disabled(policy.locks.lock_dylib_injection ?? true)
+			).disabled(!policy.locks.allowsLibraryInjection)
 			
 			_toggle(
 				.localized("Disable Liquid Glass"),

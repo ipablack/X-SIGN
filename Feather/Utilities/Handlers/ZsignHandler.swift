@@ -10,20 +10,20 @@ import Zsign
 import UIKit
 
 final class ZsignHandler {
+    struct Credentials: Sendable {
+        let provisionPath: String
+        let certificatePath: String
+        let password: String
+    }
+
 	var hadError: Error?
 	
 	private var _appUrl: URL
 	private var _options: Options
-	private var _certificate: CertificatePair?
 	
-	init(
-		appUrl: URL,
-		options: Options = OptionsManager.shared.options,
-		cert: CertificatePair? = nil
-	) {
+	init(appUrl: URL, options: Options = OptionsManager.shared.options) {
 		self._appUrl = appUrl
 		self._options = options
-		self._certificate = cert
 	}
 	
 	func disinject() async throws {
@@ -39,21 +39,7 @@ final class ZsignHandler {
 		}
 	}
 	
-	func sign() async throws {
-		guard let cert = _certificate else {
-			throw SigningFileHandlerError.missingCertifcate
-		}
-
-        let credentials = try await MainActor.run { () throws -> (String, String, String) in
-            guard !cert.revoked, cert.expiration.map({ $0 > Date() }) ?? false,
-                  let provision = Storage.shared.getFile(.provision, from: cert),
-                  let key = Storage.shared.getFile(.certificate, from: cert),
-                  FileManager.default.isReadableFile(atPath: provision.path),
-                  FileManager.default.isReadableFile(atPath: key.path) else {
-                throw NSError(domain: "XSign.Signing", code: 401, userInfo: [NSLocalizedDescriptionKey: "الشهادة غير متاحة أو منتهية أو ملغاة. اختر شهادة صالحة."])
-            }
-            return (provision.path, key.path, try Storage.shared.signingPassword(for: cert))
-        }
+	func sign(with credentials: Credentials) async throws {
         // Let the embedded Zsign engine validate the real P12/profile assets.
         // Do not reject unrelated apps based on a second Swift App ID check.
         if let entitlements = _options.appEntitlementsFile {
@@ -61,9 +47,9 @@ final class ZsignHandler {
         }
         let success = Zsign.sign(
             appPath: _appUrl.relativePath,
-            provisionPath: credentials.0,
-            p12Path: credentials.1,
-            p12Password: credentials.2,
+            provisionPath: credentials.provisionPath,
+            p12Path: credentials.certificatePath,
+            p12Password: credentials.password,
 			entitlementsPath: _options.appEntitlementsFile?.path ?? "",
 			removeProvision: _options.removeProvisioning,
 			completion: { _ in }

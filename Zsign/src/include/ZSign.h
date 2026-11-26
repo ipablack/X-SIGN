@@ -10,5 +10,6 @@
 
 #include "../../swift/zsign.hpp"
 #include "../../swift/utils.hpp"
+#include "XSignZipReader.h"
 
 #endif /* ZSign_h */

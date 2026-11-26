@@ -6,29 +6,36 @@
 //  Copyright (c) 2024 Samara M (khcrysalis)
 //
 
+import Combine
 import SwiftUI
 
 @available(iOS 18, *)
 struct ExtendedTabbarView: View {
     @AppStorage("Feather.tabCustomization") private var customization = TabViewCustomization()
-    @ObservedObject private var remote = XSignRemoteManager.shared
-    @State private var selection: TabEnum = .today
+    private let remote = XSignRemoteManager.shared
+    @State private var tabs = TabEnum.visibleTabs(for: XSignRemoteManager.shared.config?.dashboard)
+    @Binding var selection: TabEnum
     @State private var searchQuery = ""
 
     var body: some View {
-        let tabs = TabEnum.visibleTabs(for: remote.config?.dashboard)
         Group {
-            if #available(iOS 26, *), tabs.contains(.search) {
-                tabView(tabs, usesNativeSearch: true)
-                    .searchable(text: $searchQuery, prompt: "الألعاب والتطبيقات والمزيد…")
-                    .tabViewSearchActivation(.automatic)
+            if #available(iOS 26, *) {
+                if tabs.contains(.search) {
+                    tabView(tabs, usesNativeSearch: true)
+                        .searchable(text: $searchQuery, prompt: "الألعاب والتطبيقات والمزيد…")
+                        .tabViewSearchActivation(.automatic)
+                } else {
+                    tabView(tabs, usesNativeSearch: false)
+                }
             } else {
                 tabView(tabs, usesNativeSearch: false)
             }
         }
-        .environment(\.layoutDirection, .rightToLeft)
-        .onAppear { selectVisibleTab(tabs) }
-        .onChange(of: tabs, perform: selectVisibleTab)
+
+        .onReceive(remote.$config.map { TabEnum.visibleTabs(for: $0?.dashboard) }.removeDuplicates()) { updated in
+            if tabs != updated { tabs = updated }
+            selectVisibleTab(updated)
+        }
     }
 
     private func tabView(_ tabs: [TabEnum], usesNativeSearch: Bool) -> some View {

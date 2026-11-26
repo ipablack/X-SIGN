@@ -10,49 +10,23 @@ import AltSourceKit
 
 // MARK: - VersionHistoryView
 struct VersionHistoryView: View {
-	@Environment(\.dismiss) var dismiss
-	
 	let sourceURL: URL?
 	let source: ASRepository
 	let app: ASRepository.App
 	let versions: [ASRepository.App.Version]
     
-	var body: some View {
-		ScrollView {
-			LazyVStack(spacing: 12) {
-				ForEach(versions) { version in
-					AppVersionInfo(
-						version: version.version,
-						date: version.date?.date,
-						description: version.localizedDescription ?? .localized("No release notes available")
-					)
-					.padding(.horizontal)
-					.background(Color(.systemBackground))
-					.contextMenu {
-						if let downloadURL = version.downloadURL {
-							Button {
-								_ = DownloadManager.shared.startDownload(
-									from: downloadURL,
-									id: app.currentUniqueId,
-									sourceProvenance: SourceAppProvenance(
-										sourceURL: sourceURL,
-										repository: source,
-										app: app,
-										version: version
-									)
-								)
-								dismiss()
-							} label: {
-								Label(version.version, systemImage: "arrow.down")
-							}
-
-						}
-					}
-                    
-					Divider().padding(.horizontal)
-				}
-			}
-			.padding(.top, 8)
-		}
-	}
+    var body: some View {
+        List {
+            ForEach(Array(versions.enumerated()), id: \.offset) { _, version in
+                VStack(alignment: .leading, spacing: 10) {
+                    AppVersionInfo(version: version.version, date: version.date?.date,
+                        description: version.localizedDescription ?? xsignText("No release notes available"))
+                    DownloadButtonView(url: version.downloadURL, provenance: SourceAppProvenance(
+                        sourceURL: sourceURL, repository: source, app: app, version: version))
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        .xsignListBackground()
+    }
 }

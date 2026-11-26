@@ -24,6 +24,8 @@ class Download: Identifiable, @unchecked Sendable {
 	
 	var task: URLSessionDownloadTask?
 	var resumeData: Data?
+    var protectedTransfer: UUID?
+    var importTask: Task<Void, Never>?
 	
 	let id: String
 	let url: URL
@@ -52,7 +54,13 @@ class Download: Identifiable, @unchecked Sendable {
 class DownloadManager: NSObject, ObservableObject {
 	static let shared = DownloadManager()
 	
-	@Published var downloads: [Download] = []
+    @Published var downloads: [Download] = []
+    private var completedSourceImports: [String] = []
+    private static let sourceImportPrefix = "xsign-source-import:"
+
+    static func sourceImportID(for url: URL) -> String { sourceImportPrefix + url.absoluteString }
+
+    func didCompleteSourceImport(_ id: String) -> Bool { completedSourceImports.contains(id) }
 	
 	var manualDownloads: [Download] {
 		downloads.filter { isManualDownload($0.id) }
@@ -90,7 +98,8 @@ class DownloadManager: NSObject, ObservableObject {
 	
 	override init() {
 		super.init()
-		let configuration = URLSessionConfiguration.default
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.urlCache = nil
 		_session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
 	}
 	
@@ -100,9 +109,12 @@ class DownloadManager: NSObject, ObservableObject {
 		sourceProvenance: SourceAppProvenance? = nil,
         requireUnencryptedBinary: Bool = false
 	) -> Download {
-		let requestHasSourceProvenance = sourceProvenance != nil
+        let sourceImport = id.hasPrefix(Self.sourceImportPrefix)
+        let requestHasSourceProvenance = sourceProvenance != nil
 		if let existingDownload = downloads.first(where: {
-			$0.url == url && ($0.sourceProvenance != nil) == requestHasSourceProvenance && $0.requireUnencryptedBinary == requireUnencryptedBinary
+            $0.id == id || (!sourceImport && !$0.id.hasPrefix(Self.sourceImportPrefix)
+                && $0.url == url && ($0.sourceProvenance != nil) == requestHasSourceProvenance &&
+                $0.requireUnencryptedBinary == requireUnencryptedBinary)
 		}) {
             // The original request may be checking policy, downloading or importing.
             // A repeated tap must not create a second transfer for the same file.
@@ -111,19 +123,17 @@ class DownloadManager: NSObject, ObservableObject {
 		
 		let download = Download(id: id, url: url, sourceProvenance: sourceProvenance, requireUnencryptedBinary: requireUnencryptedBinary)
 		
-		let task = _session.downloadTask(with: url)
-		attach(task, to: download)
-        Task { @MainActor in
-            if let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
-                self.cancelDownload(download)
-                UIAlertController.showAlertWithOk(title: "تنبيه", message: reason)
-            } else if self.downloads.contains(where: { $0.id == download.id }) {
-                task.resume()
-            }
+        guard XSignManagedSource.httpsURL(url.absoluteString) != nil else {
+            UIAlertController.showAlertWithOk(title: xsignText("تعذّر تنزيل IPA"), message: xsignText("يلزم رابط HTTPS صالح للملف."))
+            return download
         }
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+		let task = _session.downloadTask(with: request)
+		attach(task, to: download)
 		
-		downloads.append(download)
-		
+        completedSourceImports.removeAll { $0 == id }
+        downloads.append(download)
+
 		#if !targetEnvironment(macCatalyst)
 		if #available(iOS 26.0, *) {
 			BackgroundTaskManager.shared.startTask(for: id, filename: url.lastPathComponent)
@@ -131,6 +141,7 @@ class DownloadManager: NSObject, ObservableObject {
 			_updateBackgroundAudioState()
 		}
 		#endif
+        prepareAndResume(task, for: download)
 		
 		return download
 	}
@@ -150,42 +161,69 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 	
 	func resumeDownload(_ download: Download) {
-        if download.task?.state == .running { return }
-		if let resumeData = download.resumeData {
-			let task = _session.downloadTask(withResumeData: resumeData)
-			attach(task, to: download)
+        guard downloads.contains(where: { $0 === download }),
+              download.importTask == nil, download.task?.state != .running else { return }
+        let task: URLSessionDownloadTask
+        if let resumeData = download.resumeData {
+            task = _session.downloadTask(withResumeData: resumeData)
             download.resumeData = nil
-            Task { @MainActor in
-                if let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
-                    self.cancelDownload(download)
-                    UIAlertController.showAlertWithOk(title: "تنبيه", message: reason)
-                } else if self.downloads.contains(where: { $0.id == download.id }) { task.resume() }
-            }
-			
-			#if !targetEnvironment(macCatalyst)
-			_updateBackgroundAudioState()
-			#endif
-		} else if let url = download.task?.originalRequest?.url {
-			let task = _session.downloadTask(with: url)
-			attach(task, to: download)
-            Task { @MainActor in
-                if let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
-                    self.cancelDownload(download)
-                    UIAlertController.showAlertWithOk(title: "تنبيه", message: reason)
-                } else if self.downloads.contains(where: { $0.id == download.id }) { task.resume() }
-            }
-			
-			#if !targetEnvironment(macCatalyst)
-			_updateBackgroundAudioState()
-			#endif
-		}
+        } else {
+            guard XSignManagedSource.httpsURL(download.url.absoluteString) != nil else { return }
+            download.resumeData = nil
+            let request = URLRequest(url: download.url, cachePolicy: .reloadIgnoringLocalCacheData)
+            task = _session.downloadTask(with: request)
+        }
+        let previousTask = download.task
+        attach(task, to: download)
+        previousTask?.cancel()
+        prepareAndResume(task, for: download)
+        #if !targetEnvironment(macCatalyst)
+        _updateBackgroundAudioState()
+        #endif
 	}
+
+    private func prepareAndResume(_ task: URLSessionDownloadTask, for download: Download) {
+        Task { @MainActor in
+            guard self.ownsTask(task, for: download) else { return }
+            let reason = await XSignRemoteManager.shared.prepareProtectedOperation()
+            guard self.ownsTask(task, for: download) else { return }
+            let security = XSignSecurityEnforcer.shared
+            if let reason {
+                self.cancelDownload(download)
+                security.reportInstallationFailure(reason)
+                return
+            }
+            security.finishProtectedTransfer(download.protectedTransfer)
+            download.protectedTransfer = security.startProtectedTransfer { [weak self, weak download] _ in
+                if let download { self?.cancelDownload(download) }
+            }
+            guard download.protectedTransfer != nil else { return }
+            task.resume()
+        }
+    }
+
+    @MainActor
+    private func ownsTask(_ task: URLSessionDownloadTask, for download: Download) -> Bool {
+        download.task === task && downloads.contains { $0 === download }
+    }
+
+    @MainActor
+    func applyRemotePolicy() {
+        for download in downloads where download.task != nil { cancelDownload(download) }
+    }
 	
-	func cancelDownload(_ download: Download) {
-		download.task?.cancel()
+    func cancelDownload(_ download: Download) {
+        download.importTask?.cancel()
+        download.importTask = nil
+        download.task?.cancel()
         if let task = download.task { forget(task) }
+        let transfer = download.protectedTransfer
+        download.protectedTransfer = nil
+        if transfer != nil {
+            Task { @MainActor in XSignSecurityEnforcer.shared.finishProtectedTransfer(transfer) }
+        }
 		
-		if let index = downloads.firstIndex(where: { $0.id == download.id }) {
+		if let index = downloads.firstIndex(where: { $0 === download }) {
 			downloads.remove(at: index)
 			
 			#if !targetEnvironment(macCatalyst)
@@ -219,32 +257,47 @@ class DownloadManager: NSObject, ObservableObject {
 
 extension DownloadManager: URLSessionDownloadDelegate {
 	
-	func handlePachageFile(url: URL, dl: Download) throws {
-		FR.handlePackageFile(url, download: dl, consumeTemporaryFile: true) { err in
+    @MainActor
+	func handlePackageFile(url: URL, dl: Download) {
+        dl.importTask = FR.importPackageFile(url, download: dl, consumeTemporaryFile: true) { result in
+            dl.importTask = nil
             try? FileManager.default.removeItem(at: url)
-			if err != nil {
-				let generator = UINotificationFeedbackGenerator()
-				generator.notificationOccurred(.error)
-                UIAlertController.showAlertWithOk(title: "تعذّر استيراد IPA", message: err?.localizedDescription ?? "ملف التطبيق غير صالح.")
-			}
-			
-			DispatchQueue.main.async {
-				if let index = DownloadManager.shared.getDownloadIndex(by: dl.id) {
-					DownloadManager.shared.downloads.remove(at: index)
-					
-					#if !targetEnvironment(macCatalyst)
-					if #available(iOS 26.0, *) {
-						BackgroundTaskManager.shared.updateProgress(for: dl.id, progress: 1.0)
-                        BackgroundTaskManager.shared.stopTask(for: dl.id, success: err == nil)
-					}
-					
-					self._updateBackgroundAudioState()
-					#endif
-				}
-			}
+            guard let index = self.downloads.firstIndex(where: { $0 === dl }) else {
+                if case .success(let uuid) = result { Storage.shared.deleteInterruptedImport(uuid: uuid) }
+                return
+            }
+            XSignSecurityEnforcer.shared.finishProtectedTransfer(dl.protectedTransfer)
+            dl.protectedTransfer = nil
+            let succeeded: Bool
+            switch result {
+            case .success:
+                succeeded = true
+                XSignImportNotices.completed()
+                if dl.id.hasPrefix(Self.sourceImportPrefix) {
+                    self.completedSourceImports.append(dl.id)
+                    if self.completedSourceImports.count > 64 { self.completedSourceImports.removeFirst() }
+                }
+            case .failure(let error):
+                succeeded = false
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                UIAlertController.showAlertWithOk(title: xsignText("تعذّر استيراد IPA"), message: xsignText(error.localizedDescription))
+            }
+            self.downloads.remove(at: index)
+            #if !targetEnvironment(macCatalyst)
+            if #available(iOS 26.0, *) {
+                if succeeded { BackgroundTaskManager.shared.updateProgress(for: dl.id, progress: 1) }
+                BackgroundTaskManager.shared.stopTask(for: dl.id, success: succeeded)
+            }
+            self._updateBackgroundAudioState()
+            #endif
 		}
 	}
 	
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(XSignCatalogueEndpoint.mayRedirect(task, to: request) ? request : nil)
+    }
+
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
         defer { forget(downloadTask) }
@@ -255,6 +308,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		do {
             guard let response = downloadTask.response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
                 throw URLError(.badServerResponse)
+            }
+            let size = try location.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size > 0 else { throw XSignIPAExtractor.InvalidArchive.corrupt }
+            guard Int64(size) <= XSignIPAExtractor.maximumArchiveBytes else {
+                throw XSignIPAExtractor.InvalidArchive.tooLarge
             }
 			try FileManager.default.createDirectoryIfNeeded(at: customTempDir)
 			
@@ -268,27 +326,56 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			try FileManager.default.removeFileIfNeeded(at: destinationURL)
 			try FileManager.default.moveItem(at: location, to: destinationURL)
 			
-			try handlePachageFile(url: destinationURL, dl: download)
+            Task { @MainActor in
+                XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+                guard self.ownsTask(downloadTask, for: download) else {
+                    try? FileManager.default.removeItem(at: destinationURL)
+                    return
+                }
+                if let reason = XSignRemoteManager.shared.blockingReason {
+                    try? FileManager.default.removeItem(at: destinationURL)
+                    self.cancelDownload(download)
+                    XSignSecurityEnforcer.shared.reportInstallationFailure(reason)
+                    return
+                }
+                download.progress = 1
+                download.bytesDownloaded = Int64(size)
+                download.totalBytes = Int64(size)
+                self.handlePackageFile(url: destinationURL, dl: download)
+            }
 		} catch {
             DispatchQueue.main.async {
+                XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+                guard self.ownsTask(downloadTask, for: download) else { return }
                 self.cancelDownload(download)
-                UIAlertController.showAlertWithOk(title: "تعذّر تنزيل IPA", message: error.localizedDescription)
+                UIAlertController.showAlertWithOk(title: xsignText("تعذّر تنزيل IPA"), message: error.localizedDescription)
             }
 		}
 	}
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
+        let limit = XSignIPAExtractor.maximumArchiveBytes
+        if max(totalBytesWritten, totalBytesExpectedToWrite) > limit {
+            downloadTask.cancel()
+            DispatchQueue.main.async {
+                guard self.ownsTask(downloadTask, for: download) else { return }
+                self.cancelDownload(download)
+                UIAlertController.showAlertWithOk(title: xsignText("تعذّر تنزيل IPA"),
+                    message: XSignIPAExtractor.InvalidArchive.tooLarge.localizedDescription)
+            }
+            return
+        }
         let tick = totalBytesExpectedToWrite > 0
             ? Int(min(100, max(0, Double(totalBytesWritten) / Double(totalBytesExpectedToWrite) * 100)))
             : Int(totalBytesWritten / 262_144)
         guard download.transferProgressGate.shouldPublish(tick) else { return }
 		
 		DispatchQueue.main.async {
-            guard self.downloads.contains(where: { $0.id == download.id }) else { return }
+            guard self.ownsTask(downloadTask, for: download) else { return }
 			download.progress = totalBytesExpectedToWrite > 0
-			? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-			: 0
+			? min(1, Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+            : 0
 			download.bytesDownloaded = totalBytesWritten
 			download.totalBytes = totalBytesExpectedToWrite
 			
@@ -302,7 +389,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	
 	func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
 		guard
-			let _ = error,
+			let error,
 			let downloadTask = task as? URLSessionDownloadTask,
 			let download = getDownloadTask(by: downloadTask)
 		else {
@@ -310,9 +397,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		}
         forget(downloadTask)
 		DispatchQueue.main.async {
+            XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
+            guard self.ownsTask(downloadTask, for: download) else { return }
             self.cancelDownload(download)
-            if let error, (error as? URLError)?.code != .cancelled {
-                UIAlertController.showAlertWithOk(title: "تعذّر تنزيل IPA", message: error.localizedDescription)
+            if (error as? URLError)?.code != .cancelled {
+                UIAlertController.showAlertWithOk(title: xsignText("تعذّر تنزيل IPA"), message: error.localizedDescription)
             }
 		}
 	}

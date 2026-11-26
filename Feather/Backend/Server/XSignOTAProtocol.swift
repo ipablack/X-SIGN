@@ -17,7 +17,7 @@ enum XSignOTAError: LocalizedError {
 }
 
 enum XSignOTAInstallMode: String, CaseIterable, Sendable {
-    case palera, semiLocal
+    case palera, xsignDirect
 
     static let storageKey = "XSign.installationMode"
     static var selected: Self {
@@ -25,13 +25,14 @@ enum XSignOTAInstallMode: String, CaseIterable, Sendable {
     }
 
     static func resolve(_ value: String?) -> Self {
-        value.flatMap(Self.init(rawValue:)) ?? .palera
+        if value == "xsignDomain" { return .xsignDirect }
+        return value.flatMap(Self.init(rawValue:)) ?? .palera
     }
 
     var title: String {
         switch self {
-        case .palera: return "محلي (افتراضي)"
-        case .semiLocal: return "محلي جزئي (Zsign)"
+        case .palera: return "التثبيت المحلي"
+        case .xsignDirect: return "تثبيت XSign المباشر"
         }
     }
 }
@@ -153,6 +154,7 @@ actor XSignOTATransfers {
         intervals = merged
         downloaded = intervals.count == 1 && intervals[0].lower == 0 && intervals[0].upper >= size - 1
     }
+    var hasStarted: Bool { attempts > 0 }
     var isDownloaded: Bool { downloaded }
     func stop() { stopped = true }
 }
@@ -160,20 +162,59 @@ actor XSignOTATransfers {
 // Only metadata and the short-lived loopback URL are sent to the manifest service.
 struct XSignManifestBridge {
     private static let paleraURL = URL(string: "https://api.palera.in/genPlist")!
-    private static let zsignURL = URL(string: "https://vip.appiraq.com/Zsign.php")!
+    private static let xsignPrepareURL = URL(string: "https://x-sign.web.app/native/prepare")!
+
+    private struct PrepareResponse: Decodable { let manifestURL: URL }
 
     static func prepare(_ descriptor: XSignOTADescriptor, mode: XSignOTAInstallMode, session: URLSession) async throws -> URL {
         try descriptor.validate()
-        let endpoint = mode == .palera ? paleraURL : zsignURL
-        var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+        if mode == .xsignDirect {
+            do {
+                return try await prepareXSign(descriptor, session: session)
+            } catch XSignOTAError.domainNotReady {
+                try Task.checkCancellation()
+            } catch let error as URLError where error.code != .cancelled {
+                try Task.checkCancellation()
+            }
+        }
+        return try await preparePalera(descriptor, session: session)
+    }
+
+    private static func prepareXSign(_ descriptor: XSignOTADescriptor, session: URLSession) async throws -> URL {
+        var request = URLRequest(url: xsignPrepareURL, timeoutInterval: 5)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.httpBody = try JSONEncoder().encode(descriptor)
+        let (data, response) = try await XSignBoundedHTTP.fetch(request, using: session, limit: 32768)
+        guard response.url == xsignPrepareURL else { throw XSignOTAError.invalidManifest }
+        guard response.statusCode == 200 else {
+            if [404, 408, 429, 500, 502, 503, 504].contains(response.statusCode) { throw XSignOTAError.domainNotReady }
+            throw XSignOTAError.invalidManifest
+        }
+        guard let reply = try? JSONDecoder().decode(PrepareResponse.self, from: data),
+              let parts = URLComponents(url: reply.manifestURL, resolvingAgainstBaseURL: false),
+              parts.scheme == "https", parts.host == xsignPrepareURL.host, parts.port == nil,
+              parts.user == nil, parts.password == nil, parts.fragment == nil, parts.path == "/native/manifest.plist",
+              let items = parts.queryItems, items.count == 1, items[0].name == "ticket",
+              let ticket = items[0].value, !ticket.isEmpty, ticket.utf8.count <= 8192,
+              ticket.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-").contains($0) }) else {
+            throw XSignOTAError.invalidManifest
+        }
+        return try await verifiedLink(for: reply.manifestURL, descriptor: descriptor,
+            title: descriptor.title, timeout: 8, session: session)
+    }
+
+    private static func preparePalera(_ descriptor: XSignOTADescriptor, session: URLSession) async throws -> URL {
+        var components = URLComponents(url: paleraURL, resolvingAgainstBaseURL: false)!
         let unreserved = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
         let title = descriptor.title.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
         let fields = [("bundleid", descriptor.bundleIdentifier), ("name", title),
                       ("version", descriptor.bundleVersion), ("fetchurl", descriptor.payloadURL.absoluteString)]
         components.percentEncodedQuery = fields.map { name, value in
-            // Palera inserts parameter values into XML text. Zsign performs its own XML escaping.
-            let field = mode == .palera ? escapedXMLText(value) : value
+            let field = escapedXMLText(value)
             return name + "=" + (field.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "")
         }.joined(separator: "&")
         guard let manifestURL = components.url else { throw XSignOTAError.invalidManifest }
@@ -197,6 +238,10 @@ struct XSignManifestBridge {
         let (manifest, result) = try await XSignBoundedHTTP.fetch(request, using: session, limit: 32_768)
         guard result.statusCode == 200, result.url == manifestURL else { throw XSignOTAError.domainNotReady }
         try validate(manifest, expected: descriptor, title: title)
+        return try installationLink(for: manifestURL)
+    }
+
+    static func installationLink(for manifestURL: URL) throws -> URL {
         var link = URLComponents()
         link.scheme = "itms-services"
         link.host = ""

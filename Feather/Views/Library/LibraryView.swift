@@ -26,10 +26,10 @@ struct LibraryView: View {
     @State private var _isImporterDismissing = false
     @State private var _pendingCertificateApps: [any AppInfoPresentable] = []
 	@State private var _isSettingsPresenting = false
-	@State private var _alertDownloadString: String = ""
 
 	@State private var _signingInProgressUUIDs: Set<String> = []
     @State private var signingErrors: [String: String] = [:]
+    @ObservedObject private var signingSecurity = XSignSecurityEnforcer.shared
 	@State private var _oneClickStatusMessage: String? = nil
 
 	@State private var _selectedAppUUIDs: Set<String> = []
@@ -85,7 +85,7 @@ struct LibraryView: View {
 	) private var _certificates: FetchedResults<CertificatePair>
 
 	var body: some View {
-		NBNavigationView("التوقيع") {
+		NBNavigationView(xsignText("التوقيع")) {
 			NBListAdaptable {
                 Section {
                     if Storage.shared.activeSigningCertificate() == nil {
@@ -105,7 +105,7 @@ struct LibraryView: View {
 				Section {
 					Picker("العرض", selection: $_selectedScope) {
 						ForEach(Scope.allCases, id: \.displayName) { scope in
-							Text(scope.displayName).tag(scope)
+							Text(xsignText(scope.displayName)).tag(scope)
 						}
 					}
 					.pickerStyle(.segmented)
@@ -120,7 +120,7 @@ struct LibraryView: View {
 						HStack(spacing: 10) {
 							ProgressView()
 								.tint(Color(hex: userTintHex))
-							Text(status)
+							Text(xsignText(status))
 								.font(.subheadline.weight(.semibold))
 								.foregroundStyle(.primary)
 							Spacer()
@@ -130,7 +130,7 @@ struct LibraryView: View {
 				}
 
 				if !_filteredImportedApps.isEmpty && (_selectedScope == .all || _selectedScope == .imported) {
-					NBSection("جاهزة للتوقيع اللحظي", secondary: _filteredImportedApps.count.description) {
+					NBSection(xsignText("جاهزة للتوقيع اللحظي"), secondary: _filteredImportedApps.count.description) {
 						ForEach(_filteredImportedApps, id: \.uuid) { app in
 							VStack(spacing: 8) {
 								LibraryCellView(
@@ -162,10 +162,7 @@ struct LibraryView: View {
 										.foregroundStyle(AppStoreTheme.contrastingText(forHex: userTintHex))
 										.frame(maxWidth: .infinity)
 										.padding(.vertical, 8)
-										.background(
-											Capsule(style: .continuous)
-												.fill(Color(hex: userTintHex))
-										)
+                                            .xsignGlassControl(in: Capsule(), tint: Color(hex: userTintHex))
 									}
 									.buttonStyle(.plain)
 									.disabled(_signingInProgressUUIDs.contains(app.uuid ?? ""))
@@ -176,13 +173,15 @@ struct LibraryView: View {
 										Image(systemName: "slider.horizontal.3")
 											.font(.footnote.weight(.bold))
 											.foregroundStyle(.secondary)
-											.frame(width: 36, height: 32)
-											.background(AppStoreTheme.controlSurface, in: Capsule())
+											.frame(width: 44, height: 44)
+											.xsignGlassControl(in: Circle())
 									}
 									.buttonStyle(.plain)
+									.accessibilityLabel("تخصيص النسخة قبل التوقيع")
 								}
-                                if let message = signingErrors[app.uuid ?? ""] {
-                                    Text(message).font(.caption).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
+                                if let message = signingErrors[app.uuid ?? ""],
+                                   message != XSignSecurityEnforcer.vpnFailure || signingSecurity.packageNetworkFailure != nil {
+                                    Text(xsignText(message)).font(.caption).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
                                 }
 							}
 							.padding(.vertical, 2)
@@ -191,7 +190,7 @@ struct LibraryView: View {
 				}
 
 				if !_filteredSignedApps.isEmpty && (_selectedScope == .all || _selectedScope == .signed) {
-					NBSection("الموقعة والجاهزة للتثبيت", secondary: _filteredSignedApps.count.description) {
+					NBSection(xsignText("الموقعة والجاهزة للتثبيت"), secondary: _filteredSignedApps.count.description) {
 						ForEach(_filteredSignedApps, id: \.uuid) { app in
 							LibraryCellView(
 								app: app,
@@ -205,7 +204,7 @@ struct LibraryView: View {
 				}
 			}
 			.xsignListBackground()
-			.searchable(text: $_searchText, placement: .platform(), prompt: "بحث في التوقيع (عربي / إنجليزي)...")
+			.searchable(text: $_searchText, placement: .platform(), prompt: Text(xsignText("بحث في التوقيع (عربي / إنجليزي)...")))
 			.xsignDismissKeyboardOnScroll()
 			.toolbar {
 				ToolbarItem(placement: .navigationBarLeading) {
@@ -240,7 +239,7 @@ struct LibraryView: View {
 							Button {
 								_isDownloadingPresenting = true
 							} label: {
-								Label("استيراد وتوقيع من رابط مباشر", systemImage: "link")
+								Label(xsignText("استيراد من رابط"), systemImage: "link")
 							}
 						} label: {
 							Image(systemName: "arrow.down.doc.fill")
@@ -296,25 +295,14 @@ struct LibraryView: View {
 			.sheet(isPresented: $_isSettingsPresenting, onDismiss: { XSignInstallation.shared.resumeIfPossible() }) {
 				AppStore2026SettingsPopup()
 			}
-			.alert("استيراد وتوقيع من رابط مباشر", isPresented: $_isDownloadingPresenting) {
-				TextField("https://example.com/app.ipa", text: $_alertDownloadString)
-					.textInputAutocapitalization(.never)
-				Button("إلغاء", role: .cancel) {
-					_alertDownloadString = ""
-				}
-				Button("تنزيل وتوقيع") {
-					if let url = URL(string: _alertDownloadString) {
-						_ = downloadManager.startDownload(from: url, id: "FeatherManualDownload_\(UUID().uuidString)")
-					}
-				}
-			}
+            .sheet(isPresented: $_isDownloadingPresenting) { XSignLinkImportView() }
 			.onChange(of: _editMode) { mode in
 				if mode == .inactive {
 					_selectedAppUUIDs.removeAll()
 				}
 			}
 		}
-		.environment(\.layoutDirection, .rightToLeft)
+
 	}
 
 	// MARK: - Direct Native Importer + Instant Auto-Sign
@@ -348,6 +336,7 @@ struct LibraryView: View {
                 }
             }
             _oneClickStatusMessage = nil
+            if !imported.isEmpty { XSignImportNotices.completed() }
             let presentResult = {
                 _signImportedApps(imported)
             }

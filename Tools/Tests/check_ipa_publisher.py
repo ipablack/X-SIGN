@@ -59,6 +59,13 @@ class ReleaseFixture:
 
 
 class PublisherChecks(unittest.TestCase):
+    def test_a_published_category_alias_and_bundle_case_keep_the_existing_app(self):
+        metadata = {'category': 'old-tools'}
+        publisher.choose_category({'categories': [{'id': 'tools', 'aliases': ['old-tools']}]}, metadata)
+        self.assertEqual(metadata['category'], 'tools')
+        existing = {'bundleIdentifier': 'COM.Example.App', 'name': 'Fixture'}
+        self.assertIs(publisher.match_app([existing], {'bundleIdentifier': 'com.example.app'}, metadata), existing)
+
     def run_release(self, fixture, failure=None):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -94,6 +101,19 @@ class PublisherChecks(unittest.TestCase):
         with patch.object(publisher, 'streamed_asset_digest', return_value=digest) as read:
             publisher.verify_asset({'id': 42, 'name':'app.ipa', 'size':10, 'state':'uploaded'}, 'app.ipa', 10, digest)
         read.assert_called_once_with(42, 10)
+
+    def test_empty_queue_records_a_noop_without_modifying_github(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            summary = folder / 'summary.txt'
+            environment = {'GITHUB_REF_TYPE': 'branch', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                           'INPUTS_JSON': '{}', 'GITHUB_STEP_SUMMARY': str(summary)}
+            with patch.object(publisher, 'REPO', 'ipablack/repo'), patch.object(publisher, 'WORK', folder), \
+                 patch.object(publisher.Path, 'glob', return_value=[]), patch.dict(os.environ, environment), \
+                 patch.object(publisher, 'api', return_value={}) as api:
+                publisher.main()
+            api.assert_called_once_with('')
+            self.assertIn('No IPA files to process', summary.read_text())
 
     def test_standalone_workflow_embeds_the_tested_engine(self):
         encoded = re.search(r'XSIGN_IPA_ENGINE_B64: ([A-Za-z0-9+/=]+)', (delivery / 'ipa_manager.yml').read_text())[1]

@@ -50,17 +50,15 @@ actor XSignAppleAppLookup {
 @MainActor
 final class XSignAppStoreLinkModel: ObservableObject {
     @Published private(set) var isLoading = false
-    @Published private(set) var isRequestingIPA = false
     @Published private(set) var app: XSignAppleApp?
     @Published private(set) var message: String?
     @Published private(set) var reference: XSignAppStoreReference?
     private var task: Task<Void, Never>?
     private var generation: UInt64 = 0
-    private var requestedAppID: Int64?
 
     func resolve(_ text: String) {
         cancel()
-        app = nil; message = nil; requestedAppID = nil
+        app = nil; message = nil
         guard let reference = XSignAppStoreReference.parse(text) else {
             self.reference = nil
             message = "ألصق رابطًا صحيحًا من apps.apple.com يحتوي على رقم التطبيق."
@@ -83,30 +81,7 @@ final class XSignAppStoreLinkModel: ObservableObject {
         }
     }
 
-    func requestIPA() {
-        guard let app, !isLoading, !isRequestingIPA, requestedAppID != app.trackId else { return }
-        let current = generation
-        isRequestingIPA = true; message = nil
-        task = Task { @MainActor [weak self] in
-            do {
-                if let reason = await XSignRemoteManager.shared.prepareProtectedOperation() {
-                    throw NSError(domain: "XSign.Policy", code: 403, userInfo: [NSLocalizedDescriptionKey: reason])
-                }
-                let url = try await XSignIPAProvider.shared.resolve(bundleID: app.bundleId, name: app.trackName, appStoreID: String(app.trackId))
-                guard let self, !Task.isCancelled, current == self.generation else { return }
-                _ = DownloadManager.shared.startDownload(from: url, id: "FeatherManualDownload_" + UUID().uuidString, requireUnencryptedBinary: true)
-                self.requestedAppID = app.trackId
-                self.message = "بدأ التنزيل. بعد فحص الملف واستيراده سيظهر في قسم التوقيع؛ يمكنك تعديل الاسم والبندل والإصدار قبل توقيعه."
-                self.isRequestingIPA = false
-            } catch {
-                guard let self, !Task.isCancelled, current == self.generation else { return }
-                self.message = error.localizedDescription
-                self.isRequestingIPA = false
-            }
-        }
-    }
-
-    func cancel() { generation &+= 1; task?.cancel(); task = nil; isLoading = false; isRequestingIPA = false }
+    func cancel() { generation &+= 1; task?.cancel(); task = nil; isLoading = false }
 }
 
 struct XSignAppStoreLinkView: View {
@@ -142,13 +117,6 @@ struct XSignAppStoreLinkView: View {
                                 Text(app.bundleId).font(.caption).foregroundStyle(.secondary)
                             }
                         }
-                        Button { model.requestIPA() } label: {
-                            HStack {
-                                Label("تنزيل IPA", systemImage: "arrow.down.app")
-                                Spacer()
-                                if model.isRequestingIPA { ProgressView() }
-                            }
-                        }.disabled(model.isRequestingIPA || model.isLoading)
                     } header: { Text("التطبيق المرتبط بالرابط") } footer: {
                         Text("يظهر الملف في قسم التوقيع بعد تنزيله وفحصه. قد تكون النسخ المتاحة مختلفة عن إصدار App Store؛ راجع اسم النسخة وإصدارها.")
                     }
@@ -163,12 +131,12 @@ struct XSignAppStoreLinkView: View {
                                     Text(item.app.currentVersion ?? "").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                AppStore2026DownloadButton(app: item.app)
+                                AppStore2026DownloadButton(app: item.app, provenance: item.downloadProvenance())
                             }
                         }
                     }
                 }
-                if let message = model.message { Section { Text(message).font(.subheadline) } }
+                if let message = model.message { Section { Text(xsignText(message)).font(.subheadline) } }
                 if let reference = model.reference {
                     Section { Link(destination: reference.url) { Label("فتح في App Store", systemImage: "arrow.up.right.square") } }
                 }
@@ -176,7 +144,7 @@ struct XSignAppStoreLinkView: View {
             .navigationTitle("رابط App Store").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("إغلاق") { dismiss() } } }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+
         .onDisappear { model.cancel() }
     }
 }

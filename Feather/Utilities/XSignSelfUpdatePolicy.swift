@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 // Pure rules shared by the update gate, eligibility checks and regression tests.
 enum XSignReleaseVersion {
@@ -10,30 +11,60 @@ enum XSignReleaseVersion {
     }
 
     static func requiresUpdate(currentVersion: String, currentBuild: String, installedOrigin: String?,
-                               targetVersion: String, targetBuild: String?, targetOrigin: String) -> Bool {
+                               targetVersion: String, targetBuild: String?, targetOrigin: String,
+                               installedRequest: String? = nil, targetRequest: String? = nil) -> Bool {
         guard let comparison = compare(currentVersion, targetVersion) else { return false }
         if comparison != 0 { return comparison < 0 }
         if let targetBuild {
             guard let buildComparison = compare(currentBuild, targetBuild) else { return false }
             if buildComparison != 0 { return buildComparison < 0 }
         }
-        // Older builds and some externally signed releases have no origin stamp.
-        // Accept a matching version/build in that case to avoid a reinstall loop.
+        if let targetRequest, installedRequest != targetRequest { return true }
+        // Directly installed builds can carry the release ID before acquiring a URL stamp.
         guard let installedOrigin, !installedOrigin.isEmpty else { return false }
         return installedOrigin != targetOrigin
     }
 
-    // Immutable Release URLs distinguish republished builds without inventing versions.
-    static func catalogNeedsUpdate(currentVersion:String?,targetVersion:String,currentURL:URL?,targetURL:URL)->Bool {
+    static func isApproved(currentVersion: String, currentBuild: String, installedOrigin: String?,
+                           targetVersion: String, targetBuild: String, targetOrigin: String,
+                           requireOrigin: Bool, installedRequest: String? = nil,
+                           targetRequest: String? = nil, allowUnstampedIPA: Bool = false) -> Bool {
+        guard let versionOrder = compare(currentVersion, targetVersion) else { return false }
+        if versionOrder != 0 { return versionOrder > 0 }
+        guard let buildOrder = compare(currentBuild, targetBuild) else { return false }
+        if buildOrder != 0 { return buildOrder > 0 }
+        if let targetRequest, installedRequest != targetRequest { return false }
+        if !requireOrigin || installedOrigin == targetOrigin { return true }
+        return allowUnstampedIPA && (installedOrigin ?? "").isEmpty && targetRequest != nil
+    }
+
+    static func acceptsPreparedOrigin(_ origin: String?, targetOrigin: String,
+                                      requireOrigin: Bool, targetRequest: String?) -> Bool {
+        if let origin, !origin.isEmpty { return origin == targetOrigin }
+        return !requireOrigin || targetRequest != nil
+    }
+
+    // Store a fingerprint instead of the full package address or its query parameters.
+    static func downloadFingerprint(_ url: URL?) -> String? {
+        guard let url else { return nil }
+        let hash = SHA256.hash(data: Data(url.absoluteString.utf8))
+        return "sha256:" + hash.map { String(format: "%02x", $0) }.joined()
+    }
+
+    // Immutable package URLs distinguish republished builds with the same version.
+    static func catalogNeedsUpdate(currentVersion: String?, targetVersion: String, currentFingerprint: String?,
+                                   targetURL: URL, isProtectedPackage: Bool = false) -> Bool {
         guard let currentVersion else { return true }
         if let order=compare(currentVersion,targetVersion) {
             if order != 0 { return order < 0 }
         } else if currentVersion != targetVersion { return true }
-        guard let currentURL,currentURL != targetURL,
-              targetURL.scheme == "https",targetURL.host?.lowercased() == "github.com",
-              targetURL.user == nil,targetURL.password == nil,
-              targetURL.path.contains("/releases/download/") else { return false }
-        return true
+        guard let currentFingerprint, targetURL.scheme == "https", targetURL.user == nil,
+              targetURL.password == nil, targetURL.fragment == nil,
+              currentFingerprint != downloadFingerprint(targetURL) else { return false }
+        if isProtectedPackage {
+            return targetURL.path.range(of: "^/v1/packages/[a-f0-9]{64}$", options: .regularExpression) != nil
+        }
+        return targetURL.host?.lowercased() == "github.com" && targetURL.path.contains("/releases/download/")
     }
     static func valid(_ value:String)->Bool {
         value.range(of:"^[0-9]{1,9}(\\.[0-9]{1,9}){0,3}$",options:.regularExpression) != nil

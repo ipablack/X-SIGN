@@ -20,6 +20,7 @@ struct SourceAppsTableRepresentableView: UIViewRepresentable {
 		let tableView = UITableView(frame: .zero, style: .plain)
 		tableView.delegate = context.coordinator
 		tableView.dataSource = context.coordinator
+        tableView.backgroundColor = AppStoreTheme.baseUIColor
 		tableView.register(XSignSourceAppTableCell.self, forCellReuseIdentifier: "AppCell")
 		tableView.register(UITableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: "SectionHeader")
 

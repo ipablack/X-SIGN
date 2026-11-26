@@ -26,6 +26,18 @@ import Foundation
         precondition(XSignCertificateSelection.index(in: [valid], preferred: 0, bundleMatches: [], now: now) == 0)
         precondition(XSignCertificateSelection.index(in: [expired, valid], preferred: 0, bundleMatches: [true, false], now: now) == 1)
         precondition(XSignCertificateSelection.index(in: [revoked], preferred: 0, bundleMatches: [true], now: now) == nil)
+        var inspected: [Int] = []
+        let selected = XSignCertificateSelection.index(in: [valid, expired, valid, valid], preferred: 2, now: now) {
+            inspected.append($0)
+            return $0 == 2
+        }
+        precondition(selected == 2 && inspected == [2])
+        inspected.removeAll()
+        let compatible = XSignCertificateSelection.index(in: [expired, valid, valid, valid], preferred: 0, now: now) {
+            inspected.append($0)
+            return $0 == 2
+        }
+        precondition(compatible == 2 && inspected == [1, 2])
         print("Certificate selection checks passed")
     }
 }

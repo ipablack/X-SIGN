@@ -1,72 +1,73 @@
-//
-//  SwiftAR.swift
-//  SwiftAR
-//
-//  Created by nekohaxx on 8/18/24.
-//
+// SwiftAR — originally created by nekohaxx on 8/18/24.
 
 import Foundation
 
-class AR: NSObject {
-	private var _data: Data
-	
-	init(with url: URL) {
-		self._data = try! Data(contentsOf: url)
-		super.init()
-	}
-	
-	func extract() async throws -> [ARFileModel] {
-		if [UInt8](_data.subdata(in: Range(0...7))) != [0x21, 0x3c, 0x61, 0x72, 0x63, 0x68, 0x3e, 0x0a] {
-			throw ARError.badArchive("Invalid magic")
-		}
-		
-		let data = _data.subdata(in: 8..<_data.endIndex)
-		
-		var offset = 0
-		var files: [ARFileModel] = []
-		while offset < data.count {
-			let fileInfo = try _getFileInfo(data, offset)
-			files.append(fileInfo)
-			offset += fileInfo.size + 60
-			offset += offset % 2
-		}
-		return files
-	}
-	
-	private func _getFileInfo(_ data: Data, _ offset: Int) throws -> ARFileModel {
-		let size = Int(_removePadding(String(data: data.subdata(in: offset+48..<offset+48+10), encoding: .ascii) ?? "0"))!
-		if size < 1 {
-			throw ARError.badArchive("Invalid size")
-		}
-		
-		let name = _removePadding(String(data: data.subdata(in: offset..<offset+16), encoding: .ascii) ?? "")
-		guard name != "" else {
-			throw ARError.badArchive("Invalid name")
-		}
-		
-		return ARFileModel(
-			name: name,
-			modificationDate: NSDate(timeIntervalSince1970: Double(_removePadding(String(data: data.subdata(in: offset+16..<offset+16+12), encoding: .ascii) ?? "0"))!) as Date,
-			ownerId: Int(_removePadding(String(data: data.subdata(in: offset+28..<offset+28+6), encoding: .ascii) ?? "0"))!,
-			groupId: Int(_removePadding(String(data: data.subdata(in: offset+34..<offset+34+6), encoding: .ascii) ?? "0"))!,
-			mode: Int(_removePadding(String(data: data.subdata(in: offset+40..<offset+40+8), encoding: .ascii) ?? "0"))!,
-			size: size,
-			content: data.subdata(in: offset+60..<offset+60+size)
-		)
-	}
-	
-	private func _removePadding(_ paddedString: String) -> String {
-		let data = paddedString.data(using: .utf8)!
-		
-		guard let firstNonSpaceIndex = data.firstIndex(of: UInt8(ascii: " ")) else {
-			return paddedString
-		}
-		
-		let actualData = data[..<firstNonSpaceIndex]
-		return String(data: actualData, encoding: .utf8)!
-	}
+final class AR {
+    private let url: URL
+    private static let magic = Data("!<arch>\n".utf8)
+    private static let maximumBytes = 256 * 1024 * 1024
+
+    init(with url: URL) {
+        self.url = url
+    }
+
+    func member(named candidates: Set<String>) throws -> (name: String, data: Data) {
+        let attributes = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard attributes.isRegularFile == true, attributes.isSymbolicLink != true,
+              let fileSize = attributes.fileSize, fileSize <= Self.maximumBytes else {
+            throw ARError.invalidArchive
+        }
+        let file = try FileHandle(forReadingFrom: url)
+        defer { try? file.close() }
+
+        func read(_ count: Int) throws -> Data {
+            guard let data = try file.read(upToCount: count), data.count == count else {
+                throw ARError.invalidArchive
+            }
+            return data
+        }
+
+        guard fileSize >= Self.magic.count, try read(Self.magic.count) == Self.magic else {
+            throw ARError.invalidArchive
+        }
+        var offset = Self.magic.count
+        var contents: (name: String, data: Data)?
+        var entries = 0
+        while offset < fileSize {
+            try Task.checkCancellation()
+            entries += 1
+            guard entries <= 512, fileSize - offset >= 60 else { throw ARError.invalidArchive }
+            let header = try read(60)
+            guard header[58] == 0x60, header[59] == 0x0a,
+                  let rawName = String(data: header.prefix(16), encoding: .ascii),
+                  let sizeField = String(data: header[48..<58], encoding: .ascii),
+                  let size = Int(sizeField.trimmingCharacters(in: .whitespaces)),
+                  size >= 0, size <= fileSize - offset - 60 else { throw ARError.invalidArchive }
+
+            var name = rawName.trimmingCharacters(in: .whitespaces)
+            if name.hasSuffix("/") { name.removeLast() }
+            offset += 60 + size
+            guard offset + size % 2 <= fileSize else { throw ARError.invalidArchive }
+            if candidates.contains(name) {
+                guard contents == nil, size > 0 else { throw ARError.invalidArchive }
+                contents = (name, try read(size))
+            }
+            offset += size % 2
+            try file.seek(toOffset: UInt64(offset))
+        }
+        guard let contents else { throw ARError.missingPayload }
+        return contents
+    }
+
 }
 
-enum ARError: Error {
-	case badArchive(String)
+enum ARError: LocalizedError {
+    case invalidArchive, missingPayload
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidArchive: return "ملف DEB غير صالح أو حجمه أكبر من الحد المدعوم."
+        case .missingPayload: return "ملف DEB يفتقد حزمة البيانات المدعومة."
+        }
+    }
 }

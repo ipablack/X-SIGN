@@ -9,6 +9,10 @@ def create(name, extras):
         for path,data in base.items():archive.writestr(path,data)
         for path,data in extras:archive.writestr(path,data)
 create('valid',[])
+create('signed-update',[('Payload/Test.app/embedded.mobileprovision',b'provision'),
+                        ('Payload/Test.app/_CodeSignature/CodeResources',b'signature')])
+create('update-multiple-apps',[('Payload/Other.app/Info.plist',b'other')])
+create('update-metadata-collision',[('Payload/Test.app/info.plist',b'other')])
 create('traversal',[('../outside.txt',b'overwrite')])
 create('absolute',[('/outside.txt',b'overwrite')])
 create('backslash',[('Payload/Test.app/..\\..\\outside.txt',b'overwrite')])

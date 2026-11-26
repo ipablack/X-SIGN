@@ -51,7 +51,7 @@
     {
       "id": "xsign.iosboom.buildstore",
       "name": "Build Store",
-      "url": "https://raw.githubusercontent.com/drphe/KhoIPA/refs/heads/main/upload/repo.buildstore.json",
+      "url": "https://raw.githubusercontent.com/drphe/KhoIPA/main/upload/repo.buildstore.json",
       "enabled": false,
       "format": "auto",
       "http_status": 200,

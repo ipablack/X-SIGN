@@ -164,11 +164,10 @@ extension Storage {
         }
         let profiles = certificates.map { getFile(.provision, from: $0) }
         let selected = await Task.detached(priority: .userInitiated) {
-            let matches = profiles.map { url -> Bool in
-                guard let url, let profile = try? XSignProvisioningProfile.read(at: url) else { return false }
+            XSignCertificateSelection.index(in: candidates, preferred: preferredIndex) { index in
+                guard let url = profiles[index], let profile = try? XSignProvisioningProfile.read(at: url) else { return false }
                 return (try? profile.identifier(for: bundleID, matchExactID: false)) != nil
             }
-            return XSignCertificateSelection.index(in: candidates, preferred: preferredIndex, bundleMatches: matches)
         }.value
         guard let selected, certificates.indices.contains(selected), !certificates[selected].isDeleted else { return nil }
         return certificates[selected]

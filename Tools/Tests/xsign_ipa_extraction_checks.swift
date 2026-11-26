@@ -7,9 +7,20 @@ struct IPAExtractionChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try checkDebianArchive(in: root)
         let sentinel = root.appendingPathComponent("outside.txt")
         try Data("preserve".utf8).write(to: sentinel)
         let source = URL(fileURLWithPath: fixtures)
+        let unsigned = try XSignIPAExtractor.readUpdateMetadata(source.appendingPathComponent("valid.ipa"))
+        precondition(unsigned.info == Data("fixture".utf8) && unsigned.provision == nil)
+        let ready = try XSignIPAExtractor.readUpdateMetadata(source.appendingPathComponent("signed-update.ipa"))
+        precondition(ready.info == unsigned.info && ready.provision == Data("provision".utf8))
+        for name in ["update-multiple-apps", "update-metadata-collision", "traversal", "symlink"] {
+            do {
+                _ = try XSignIPAExtractor.readUpdateMetadata(source.appendingPathComponent(name + ".ipa"))
+                fatalError("Unsafe update archive accepted: \(name)")
+            } catch is XSignIPAExtractor.InvalidArchive {}
+        }
         let good = root.appendingPathComponent("Good")
         try XSignIPAExtractor.extract(source.appendingPathComponent("valid.ipa"), to: good)
         precondition(FileManager.default.fileExists(atPath: good.appendingPathComponent("Payload/Test.app/Test").path))
@@ -35,6 +46,32 @@ struct IPAExtractionChecks {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: root)
         do { try XSignIPAExtractor.validateTree(good); fatalError("Legacy symlink was accepted by native signing preflight") }
         catch XSignIPAExtractor.InvalidArchive.unsupportedLink {}
-        print("PASS: valid IPA, path traversal, absolute paths, symlinks, case collisions, CRC corruption and expansion limits")
+        print("PASS: valid IPA, path validation, CRC, expansion limits and safe DEB parsing")
+    }
+
+    private static func checkDebianArchive(in root: URL) throws {
+        func member(_ name: String, _ value: String) -> Data {
+            let field = name.padding(toLength: 16, withPad: " ", startingAt: 0)
+            let size = String(value.utf8.count).padding(toLength: 10, withPad: " ", startingAt: 0)
+            return Data((field + String(repeating: " ", count: 32) + size + "`\n" + value
+                + (value.utf8.count.isMultiple(of: 2) ? "" : "\n")).utf8)
+        }
+        let package = root.appendingPathComponent("example.deb")
+        var bytes = Data("!<arch>\n".utf8)
+        bytes.append(member("debian-binary/", "2.0\n"))
+        bytes.append(member("data.tar/", "abc"))
+        bytes.append(member("control.tar/", "meta"))
+        try bytes.write(to: package)
+        let payload = try AR(with: package).member(named: ["data.tar"])
+        precondition(payload.name == "data.tar" && payload.data == Data("abc".utf8))
+        do {
+            _ = try AR(with: package).member(named: ["data.tar.gz"])
+            fatalError("Missing DEB payload was accepted")
+        } catch ARError.missingPayload {}
+        try Data().write(to: package)
+        do {
+            _ = try AR(with: package).member(named: ["data.tar"])
+            fatalError("Empty DEB was accepted")
+        } catch ARError.invalidArchive {}
     }
 }

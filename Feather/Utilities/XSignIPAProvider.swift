@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Public request contract observed in the user-supplied reference IPA.
 /// This client requests a file URL; it does not decrypt an Apple executable.
@@ -18,18 +21,16 @@ enum XSignIPAProviderError: LocalizedError {
 
 actor XSignIPAProvider {
     static let shared = XSignIPAProvider()
-    static let providerName = "vip.appiraq.com"
-    private let endpoint: URL
+    private let endpoint: URL?
     private let session: URLSession
 
-    init(endpoint: URL = URL(string: "https://vip.appiraq.com/api/appstore/get-ipa.php")!, session: URLSession? = nil) {
+    init(endpoint: URL? = nil, session: URLSession? = nil) {
         self.endpoint = endpoint
         if let session { self.session = session }
         else {
             let config = URLSessionConfiguration.ephemeral
             config.timeoutIntervalForRequest = 20
             config.timeoutIntervalForResource = 30
-            config.waitsForConnectivity = false
             config.urlCache = nil
             self.session = URLSession(configuration: config)
         }
@@ -76,6 +77,7 @@ actor XSignIPAProvider {
     }
 
     func resolve(bundleID: String, name: String, appStoreID: String) async throws -> URL {
+        guard let endpoint else { throw XSignIPAProviderError.permissionDenied }
         let url = try Self.requestURL(endpoint: endpoint, bundleID: bundleID, name: name, appStoreID: appStoreID)
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")

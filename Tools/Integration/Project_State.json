@@ -8,12 +8,12 @@
   "source_repository": "ipablack/repo",
   "source_priority": [
     "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
-    "https://supapi.trystore.net/rest/v1/plus_library_apps"
+    "https://appiraq.com/source.php?action=getAll"
   ],
   "sources_can_be_added_removed_or_hidden": true,
-  "built_in_sources_are_removable": true,
+  "built_in_sources_are_removable": false,
   "non_altstore_json_sources_supported": true,
-  "configuration_authority": "https://raw.githubusercontent.com/ipablack/repo/main/repo.json",
+  "configuration_authority": "https://raw.githubusercontent.com/ipablack/repo/main/xsign-config.json",
   "installer": "Feather Server / Semi Local",
   "native_signing": true,
   "pairing_required": false,
@@ -26,22 +26,15 @@
   "native_build_verified_here": false,
   "physical_device_install_verified_here": false,
   "future_work": "Change panel writer, Swift reader and shared contract together; publish only the canonical workflow and unified package.",
-  "source_setup_supported": true,
-  "source_setup_secret": "XSIGN_CONTROL_TOKEN",
+  "source_setup_supported": false,
   "source_repository_preview": {
-    "commit": "f81a27d",
-    "revision": 2,
-    "apps": 0,
-    "plan_revision": 3,
-    "missing_files": [
-      ".github/workflows/ipa_manager.yml",
-      "xsign-config.json",
-      "studio.html"
-    ]
+    "revision": 37,
+    "verified_file": "xsign-config.json",
+    "maintenance_enabled": true,
+    "owned_apps": 0
   },
   "request_audit": "Tools/Delivery/Request_Audit_AR.md",
-  "local_swift_syntax_files_checked": 86,
-  "local_swift_syntax_only": true,
+  "local_swift_syntax_only": false,
   "empty_application_repository_recovery": {
     "supported": true,
     "public_base_commit": "84bb3b8f22ac07b963a5a4ef8ad38f3e44bb8ca8",
@@ -49,8 +42,13 @@
     "workflows_restored": false
   },
   "build_runner": {
-    "default": "macos-15-intel",
-    "alternative": "macos-26-intel",
-    "reason": "Run 42270819790 was not acquired; GitHub reported macOS arm64 capacity constraints before any build step."
-  }
+    "default": "macos-26-intel",
+    "alternative": "macos-15-intel",
+    "repository_variable": "XSIGN_MACOS_RUNNER",
+    "reason": "Run 14 used macos-26-intel and completed the native build. Older ARM64 jobs stalled before a runner was assigned."
+  },
+  "studio_build_and_verification": "Studio saves app identity to xsign-build.json. Actions builds from that commit with zero manual inputs. Studio inspects the uploaded IPA and publishes the verified update policy.",
+  "store_access_code": false,
+  "reviewed_repository_commit": "943686b5f2d931da6db151d69a0a58c91ad67f94",
+  "reviewed_native_build": 23
 }

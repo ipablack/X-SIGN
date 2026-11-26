@@ -2,7 +2,7 @@
 const Store=XSignStore;
 Object.assign(connection,{configPath:'xsign-config.json',workflow:'ipa_manager.yml',processingRepo:'',processingBranch:'',uploadAdapter:'auto'});
 Object.assign(PAGE_META,{
-  overview:['لوحة المعلومات','STORE OPERATIONS','كتالوج التطبيقات، حالة العمليات، والتغييرات المنتظرة للنشر.'],
+  overview:['لوحة التحكم','STORE OPERATIONS',''],
   apps:['كتالوج التطبيقات','CATALOGUE / APPLICATIONS','حرّر الإصدارات، رتّب الظهور، وأدر عدة تطبيقات في خطوة واحدة.'],
   ingest:['رفع ومعالجة IPA','CATALOGUE / IMPORT','أرسل رابطاً أو ملفاً إلى محرك المستودع بعد فحص عقده.'],
   operations:['مركز العمليات','OPERATIONS / ACTIVITY','تابع حالات المعالجة الفعلية، ثم زامن نتائجها مع الكتالوج.']
@@ -10,10 +10,12 @@ Object.assign(PAGE_META,{
 const SYNC_KEY='xsign.studio.sync.v4';
 let loadedDraftRaw=undefined,externalDraftChanged=false;
 let selectedApps=new Set(),visibleApps=[],uploadMode='url',preparedUpload=null,runData=null,runContext='',runsFetchedAt=null,runBusy=false,iconTarget=null,transferBusy=false;
+let privateIPAStorage='';
 let appEditorGeneration=0;
 const openAppEditorOriginal=openAppEditor;openAppEditor=function(app=null){appEditorGeneration++;openAppEditorOriginal(app);};
 const catalogueKey=app=>String(app.catalogID||app.bundleIdentifier+'\u001f'+app.name);
 const currentProcessing=()=>{
+  if(privateIPAStorage===connectionKey(connection))return XSIGN_BUILD_REPO;
   const repo=connection.processingRepo.trim();let c={...connection};
   if(repo){const [owner,name,...extra]=repo.split('/');if(extra.length||!owner||!name)throw Error('مستودع المعالجة يجب أن يكون بصيغة owner/repo.');c.owner=owner;c.repo=name;}
   c.branch=connection.processingBranch.trim()||connection.branch;return validateConnection(c);
@@ -30,7 +32,12 @@ async function github(c,path,method='GET',body,token=$('ghToken').value.trim(),t
   try{
     const response=await fetch(apiBase(c)+(path?'/'+path:''),{method,headers:{...apiHeaders(token),'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer'});
     const value=response.status===204?null:await response.json().catch(()=>null);
-    if(!response.ok){const error=await apiError(response,'تعذر تنفيذ طلب GitHub');error.status=response.status;throw error;}
+    if(!response.ok){const error=await apiError(response,'تعذر تنفيذ طلب GitHub');error.status=response.status;
+      if(response.status===403&&/account was suspended/i.test(value?.message||'')){
+        error.message='أوقف GitHub الحساب المرتبط. راجع صلاحية الحساب للمستودع.';
+        error.accountSuspended=true;
+      }
+      throw error;}
     return value;
   }catch(error){if(error.name==='AbortError')throw Error('انتهت مهلة الاتصال. تحقق من الحالة قبل إعادة إرسال العملية.');if(error instanceof TypeError)throw Error('تعذر الاتصال بـ GitHub. تحقق من الشبكة وسياسة CORS.');throw error;}
   finally{clearTimeout(timer);}
@@ -44,10 +51,6 @@ async function repositoryFile(c,path,ref,token,optional=false){
   let encoded=file.content;if(file.encoding!=='base64'||typeof encoded!=='string'){const blob=await github(c,'git/blobs/'+encodeURIComponent(file.sha),'GET',undefined,token);if(blob?.encoding!=='base64'||typeof blob.content!=='string')throw Error('تعذر قراءة الملف بترميز مدعوم.');encoded=blob.content;}
   const source=decodeBase64(encoded);if(new TextEncoder().encode(source).length>15*1024*1024)throw Error('الملف أكبر من 15 MB.');return {sha:file.sha,source};
 }
-function isLiveAppTarget(c){
-  return c.owner.toLowerCase()==='ipablack'&&c.repo.toLowerCase()==='repo'&&
-    c.branch==='main'&&c.path==='repo.json'&&c.configPath==='xsign-config.json';
-}
 async function readCatalogueSnapshot(c,token){
   const ref=await github(c,'git/ref/heads/'+branchPath(c.branch),'GET',undefined,token);
   if(!ref?.object?.sha)throw Error('تعذر تحديد رأس الفرع المختار.');
@@ -55,15 +58,29 @@ async function readCatalogueSnapshot(c,token){
   if(!commit?.tree?.sha)throw Error('تعذر قراءة شجرة المستودع.');
   const [file,projectionFile]=await Promise.all([
     repositoryFile(c,c.path,ref.object.sha,token,true),
-    isLiveAppTarget(c)?repositoryFile(c,c.configPath,ref.object.sha,token,true):null
+    c.branch==='main'&&c.path==='repo.json'&&c.configPath==='xsign-config.json'
+      ?repositoryFile(c,c.configPath,ref.object.sha,token,true):null
   ]);
   let data=null,parseError='',liveRevision=0;
-  if(file){try{data=normalizeState(JSON.parse(file.source.replace(/^\uFEFF/,'')));}catch(error){parseError=error instanceof SyntaxError?'الملف الحي ليس JSON صالحاً.':error.message;}}
+  if(file){
+    try {data=JSON.parse(file.source.replace(/^\uFEFF/,''));}
+    catch(error){parseError='الملف الحي ليس JSON صالحاً.';}
+  }
   if(projectionFile){
     try{
       const projection=JSON.parse(projectionFile.source.replace(/^\uFEFF/,''));
-      if(isObject(projection)&&Number.isSafeInteger(projection.repo_revision_id)&&projection.repo_revision_id>0)liveRevision=projection.repo_revision_id;
+      if(isObject(projection?.xsign_config)&&Number.isSafeInteger(projection.repo_revision_id)&&projection.repo_revision_id>0){
+        liveRevision=projection.repo_revision_id;
+        if(isObject(data)&&liveRevision>=(data.repo_revision_id||0)){
+          for(const key of ['name','identifier','subtitle','description','iconURL','tintColor','repo_revision_id','xsign_config','categories']){
+            if(own(projection,key))data[key]=projection[key];
+          }
+        }
+      }
     }catch{}
+  }
+  if(data!==null){
+    try{data=normalizeState(data);}catch(error){data=null;parseError=error.message;}
   }
   return {head:ref.object.sha,tree:commit.tree.sha,sha:file?.sha||null,data,missing:!file,parseError,liveRevision};
 }
@@ -79,27 +96,66 @@ persist=function(){
 const loadLocalOriginal=loadLocal;
 loadLocal=function(){loadLocalOriginal();try{loadedDraftRaw=localStorage.getItem(STORAGE_KEY);}catch{}try{const raw=sessionStorage.getItem(SYNC_KEY);if(raw){const saved=JSON.parse(raw);if(saved.key===connectionKey()&&saved.data){saved.data=normalizeState(saved.data);remoteBaseline=saved;baseline=JSON.stringify(saved.data);}}}catch{remoteBaseline=null;}};
 const updateStatusOriginal=updateStatus;
-updateStatus=function(){updateStatusOriginal();if(transferBusy){$$('[data-action="prepare-publish"],[data-action="pull"],#prepareIngest,#sendIngest,[data-select-icon]').forEach(b=>b.disabled=true);}else if(!operationBusy){$$('#prepareIngest,[data-select-icon]').forEach(b=>b.disabled=false);}$('sendIngest').disabled=transferBusy||operationBusy||!preparedUpload;if($('localDraftConflict'))$('localDraftConflict').hidden=!externalDraftChanged;if(externalDraftChanged){$('saveIndicatorText').textContent='تعارض مع نافذة أخرى';$$('[data-action="prepare-publish"],[data-action="pull"]').forEach(b=>b.disabled=true);}};
+updateStatus=function(){updateStatusOriginal();$('studioStoreOnlyPublish').disabled=transferBusy||operationBusy||externalDraftChanged;if(transferBusy){$$('[data-action="prepare-publish"],[data-action="pull"],#prepareIngest,#sendIngest,[data-select-icon]').forEach(b=>b.disabled=true);}else if(!operationBusy){$$('#prepareIngest,[data-select-icon]').forEach(b=>b.disabled=false);}$('sendIngest').disabled=transferBusy||operationBusy||!preparedUpload;if($('localDraftConflict'))$('localDraftConflict').hidden=!externalDraftChanged;if(externalDraftChanged){$('saveIndicatorText').textContent='تعارض مع نافذة أخرى';$$('[data-action="prepare-publish"],[data-action="pull"]').forEach(b=>b.disabled=true);}};
 function showConflict(error){
   const detail=error.name==='MergeConflict'?'\nالحقل: '+error.path+'\nلم تُحذف المسودة ولم يُستبدل الملف الحي. نزّل نسختك وراجع الاختلاف قبل المزامنة.':'';
   toast(error.message+detail,'error');
 }
+async function fetchCatalogueForSync(c,token){
+  try{return await readCatalogueSnapshot(c,token);}
+  catch(error){
+    const publicCatalogue=(c.owner+'/'+c.repo).toLowerCase()==='ipablack/repo';
+    if(!token||!publicCatalogue||![401,403].includes(error.status))throw error;
+    // Read the public catalogue without the rejected token. Publishing still needs write access.
+    return readCatalogueSnapshot(c,'');
+  }
+}
 requestPull=async function(){
-  if(operationBusy||transferBusy)return;
-  const execute=async()=>{
-    operationBusy=true;updateStatus();
-    try{
-      const c=validateConnection({...connection}),before=JSON.stringify(state),token=$('ghToken').value.trim().replace(/^(Bearer|token)\s+/i,''),remote=await readCatalogueSnapshot(c,token);
-      if(JSON.stringify(c)!==JSON.stringify(connection))throw Error('تغيرت وجهة الاتصال أثناء الجلب. أعد المزامنة للوجهة الحالية.');
-      if(remote.missing)throw Error('لا يوجد '+c.path+' على هذا الفرع. يمكنك إنشاؤه من مراجعة النشر.');
-      if(remote.parseError)throw Error(remote.parseError+' لم تتغير مسودتك.');
-      const canMerge=remoteBaseline?.key===connectionKey(c)&&remoteBaseline.data;
-      if(!canMerge&&JSON.stringify(state)!==before)throw Error('تغيرت المسودة أثناء الجلب. لم تُستبدل؛ أعد المزامنة بعد حفظها.');
-      const merged=canMerge?mergeCatalogue(remoteBaseline.data,state,remote.data):remote.data;
-      state=merged;setRemoteSnapshot(c,remote);selectedApps.clear();appPage=1;resetCategoryEditor();addActivity(canMerge&&isDirty()?'مزامنة الكتالوج مع إبقاء التعديلات المحلية':'جلب النسخة الحية من الكتالوج');persist();renderAll();toast(isDirty()?'تم دمج التحديثات؛ بقيت تعديلات محلية جاهزة للمراجعة.':'تمت مزامنة الكتالوج بنجاح.');
-    }catch(error){showConflict(error);}finally{operationBusy=false;updateStatus();}
+  if(operationBusy||transferBusy||externalDraftChanged)return;
+  const status=$('catalogueSyncStatus');
+  const report=(message,failed=false)=>{
+    status.textContent=message;
+    status.hidden=false;
+    status.classList.toggle('note-warning',failed);
   };
-  if(isDirty()&&!(remoteBaseline?.key===connectionKey()&&remoteBaseline.data))confirmAction('مزامنة دون نسخة أساس','لا توجد نسخة مزامنة موثوقة لهذه الوجهة في الجلسة. سيستبدل الجلب المسودة المحلية. نزّلها أولاً إن كنت تريد الاحتفاظ بها.',execute,'جلب واستبدال',false);else await execute();
+  operationBusy=true;updateStatus();
+  report('جارٍ جلب الكتالوج الحي من GitHub…');
+  try{
+    const c=validateConnection({...connection}),before=JSON.stringify(state);
+    const token=$('ghToken').value.trim().replace(/^(Bearer|token)\s+/i,'');
+    const remote=await fetchCatalogueForSync(c,token);
+    const checkTarget=()=>{
+      if(JSON.stringify(c)!==JSON.stringify(connection))throw Error('تغيرت وجهة الاتصال أثناء الجلب. أعد المزامنة للوجهة الحالية.');
+      if(externalDraftChanged)throw Error('توجد مسودة أحدث في نافذة أخرى. حمّلها قبل المزامنة.');
+    };
+    checkTarget();
+    if(remote.parseError)throw Error(remote.parseError+' لم تتغير مسودتك.');
+    if(remote.missing||!remote.data)throw Error('تعذّر العثور على '+c.path+' على الفرع المحدد.');
+    const base=remoteBaseline?.key===connectionKey(c)?remoteBaseline.data:null;
+    const checkDraft=()=>{
+      if(JSON.stringify(state)!==before)throw Error('تغيرت المسودة أثناء الجلب. لم تُستبدل؛ أعد المزامنة بعد حفظها.');
+    };
+    const apply=()=>{
+      checkTarget();
+      if(!base)checkDraft();
+      state=base?mergeCatalogue(base,state,remote.data):remote.data;
+      setRemoteSnapshot(c,remote);selectedApps.clear();appPage=1;resetCategoryEditor();addActivity('مزامنة الكتالوج الحي');persist();renderAll();
+      const message=isDirty()?'تمت المزامنة وبقيت تعديلاتك المحلية جاهزة للمراجعة.':'تمت مزامنة الكتالوج · المراجعة '+remote.data.repo_revision_id;
+      report(message);toast(message);
+    };
+    if(!base)checkDraft();
+    if(!base&&isDirty()&&!Store.same(state,remote.data)){
+      const awaiting='تم جلب الكتالوج. اختر اعتماد النسخة الحية أو نزّل مسودتك من نافذة التأكيد.';
+      report(awaiting);
+      confirmAction('اعتماد النسخة الحية','سيصبح الكتالوج المجلوب هو مسودة اللوحة. نزّل نسخة من مسودتك الحالية إذا تريد الاحتفاظ بتعديلاتك.',()=>{
+        try{apply();}catch(error){report(error.message,true);showConflict(error);}
+      },'اعتماد النسخة الحية',false,true);
+      $('confirmDialog').addEventListener('close',()=>{
+        if(status.textContent===awaiting)report('أُلغي اعتماد الكتالوج. مسودتك الحالية محفوظة.');
+      },{once:true});
+    }else apply();
+  }catch(error){report(error.message,true);showConflict(error);}
+  finally{operationBusy=false;updateStatus();}
 };
 function metricRow(label,value){const row=text('div','','review-metric');row.append(text('span',label),text('strong',value));return row;}
 function appendChangeSummary(container,before,after){
@@ -107,27 +163,55 @@ function appendChangeSummary(container,before,after){
   for(const [key,label] of [['apps','التطبيقات'],['categories','التصنيفات'],['news','الأخبار']]){const item=changes.lists[key],row=text('div','','change-row');row.append(text('span',label),text('span','+'+item.added+' / ~'+item.updated+' / −'+item.removed));box.append(row);}
   const note=text('p',changes.fields.length?'الحقول المتغيرة: '+changes.fields.slice(0,8).join('، '):'لا توجد فروق في المحتوى.','field-hint');note.style.overflowWrap='anywhere';box.append(note);container.append(box);
 }
-preparePublish=async function(){
-  if(operationBusy||transferBusy)return;
-  const errors=validateState(state);if(errors.length){openPage('publish');toast('راجع ملاحظات الملف قبل النشر.','error');return;}
+function withReleaseSettings(target,source){
+  const result=clone(target),published=source.xsign_config,config=result.xsign_config;
+  config.force_update=clone(published.force_update);
+  for(const field of ['update','bundle_updates','compatibility_update_bundle']){
+    if(own(published.dashboard,field))config.dashboard[field]=clone(published.dashboard[field]);
+    else delete config.dashboard[field];
+  }
+  return result;
+}
+function storeSettingsDraft(data){
+  return withReleaseSettings(data,normalizeState(createDefaultState()));
+}
+preparePublish=async function(storeOnly=false){
+  if(operationBusy||transferBusy||externalDraftChanged)return;
+  const errors=validateState(storeOnly?storeSettingsDraft(state):state);
+  if(errors.length){
+    openPage('publish');
+    const releaseOnly=!storeOnly&&validateState(storeSettingsDraft(state)).length===0;
+    toast(releaseOnly?'أكمل بيانات الإصدار أو اختر نشر المتجر فقط.':'راجع ملاحظات الملف قبل النشر.','error');
+    return;
+  }
   let token;try{token=requireToken();}catch(error){openPage('sources');$('ghToken').focus();toast(error.message,'info');return;}
   operationBusy=true;updateStatus();
   try{
     const c=validateConnection({...connection}),remote=await readCatalogueSnapshot(c,token);
     if(JSON.stringify(c)!==JSON.stringify(connection))throw Error('تغيرت وجهة النشر أثناء المراجعة. أعد فتح المراجعة للوجهة الحالية.');
     const hasBase=remoteBaseline?.key===connectionKey(c)&&remoteBaseline.data;
-    if(remote.parseError&&hasBase)throw Error(remote.parseError+' تعذر الدمج؛ لم تتغير مسودتك.');
-    let snapshot=hasBase&&remote.data?mergeCatalogue(remoteBaseline.data,state,remote.data):clone(state);
+    if(remote.parseError)throw Error(remote.parseError+' تعذر الدمج؛ لم تتغير مسودتك.');
+    if(!hasBase&&!remote.missing&&c.branch==='main'&&c.path==='repo.json'&&c.configPath==='xsign-config.json'){
+      throw Error('زامن الكتالوج الحي أولاً حتى تبني النشر على التطبيقات والسياسة الحالية.');
+    }
+    const local=clone(state);
+    const draft=storeOnly?withReleaseSettings(local,hasBase?remoteBaseline.data:remote.data||normalizeState(createDefaultState())):local;
+    let snapshot=hasBase&&remote.data?mergeCatalogue(remoteBaseline.data,draft,remote.data):draft;
     snapshot.repo_revision_id=Math.max(safeInteger(snapshot.repo_revision_id),safeInteger(remote.data?.repo_revision_id,0),remote.liveRevision||0)+1;
     const problems=validateState(snapshot);if(problems.length)throw Error('النسخة المدمجة تحتاج مراجعة: '+problems[0]);
-    pendingPublish={connection:c,snapshot,remote,local:clone(state),localAtReview:JSON.stringify(state)};
+    if(typeof validateReleasePublication==='function')validateReleasePublication(snapshot,remote.data);
+    pendingPublish={connection:c,snapshot,remote,local,localAtReview:JSON.stringify(state),storeOnly};
     const review=$('publishReview');review.replaceChildren(metricRow('المستودع',c.owner+'/'+c.repo),metricRow('الفرع',c.branch),metricRow('المراجعة الجديدة',snapshot.repo_revision_id));
+    if(typeof releasePublicationSummary==='function'){
+      const release=releasePublicationSummary(snapshot);
+      review.append(metricRow('بندل التحديث',release.bundle),metricRow('حالة التحديث المنشورة',release.mode));
+    }
     for(const path of [c.path,c.configPath])review.append(text('div',path,'publish-file'));
     appendChangeSummary(review,remote.data||normalizeState(createDefaultState()),snapshot);
     const warnings=[];
+    if(storeOnly)warnings.push('سيُنشر المتجر وتبقى سياسة التحديث المنشورة كما هي. تبقى مسودة الإصدار محفوظة على الجهاز.');
     if(!hasBase&&!remote.missing)warnings.push('هذه المسودة ليست مبنية على مزامنة موثوقة في الجلسة. سيستبدل النشر محتوى الملف الحالي. يفضّل جلبه أولاً.');
-    if(remote.parseError)warnings.push(remote.parseError+' سيتم استبداله بملف صالح.');
-    if(!isLiveAppTarget(c))warnings.push('هذا البناء يقرأ repo.json وxsign-config.json من ipablack/repo على main. لن يظهر هذا النشر في التطبيق من الوجهة الحالية.');
+    if(c.branch!=='main'||c.path!=='repo.json'||c.configPath!=='xsign-config.json')warnings.push('خدمة المتجر الحالية تقرأ repo.json وxsign-config.json من فرع main.');
     warnings.push('ينشر ملفا الكتالوج والإعدادات المختصرة معاً في التزام واحد.');
     $('publishWarning').textContent=warnings.join('\n');$('publishWarning').hidden=false;$('publishError').hidden=true;$('publishDialog').showModal();
   }catch(error){showConflict(error);}finally{operationBusy=false;updateStatus();}
@@ -150,27 +234,36 @@ publishNow=async function(){
   operationBusy=true;$('publishNow').disabled=true;$('publishNow').textContent='جارٍ نشر الملفين…';updateStatus();
   try{
     let remote=job.remote,data=clone(job.snapshot),written;
+    const storage=await github(job.connection,'','GET',undefined,token);
+    if(storage?.private===true&&typeof validatePrivateCatalogReleases==='function')validatePrivateCatalogReleases(data,job.connection);
     for(let attempt=0;attempt<3;attempt++){
-      const entries=[{path:job.connection.path,mode:'100644',type:'blob',content:JSON.stringify(data,null,2)+'\n'},{path:job.connection.configPath,mode:'100644',type:'blob',content:JSON.stringify(Store.project(data),null,2)+'\n'}];
+      const configuration=typeof publicationConfiguration==='function'?publicationConfiguration(data):Store.project(data);
+      const catalogue={...data,xsign_config:configuration.xsign_config};
+      const entries=[{path:job.connection.path,mode:'100644',type:'blob',content:JSON.stringify(catalogue,null,2)+'\n'},{path:job.connection.configPath,mode:'100644',type:'blob',content:JSON.stringify(configuration,null,2)+'\n'}];
       try{written=await writeAtomicFiles(job.connection,remote,entries,'Update X-SIGN catalogue and configuration (Rev '+data.repo_revision_id+')',token);break;}
       catch(error){
         if(!error.refUpdate||![409,422].includes(error.status)||attempt===2)throw error;
         const latest=await readCatalogueSnapshot(job.connection,token);if(!latest.data||latest.parseError)throw Error('تغير الملف الحي إلى نسخة لا يمكن دمجها؛ لم تُنشر المسودة.');
         if(!remote.data)throw Error('ظهر ملف كتالوج جديد أثناء النشر. زامنه أولاً.');
         data=mergeCatalogue(remote.data,data,latest.data);data.repo_revision_id=Math.max(data.repo_revision_id,latest.data.repo_revision_id,latest.liveRevision||0)+1;
-        const errors=validateState(data);if(errors.length)throw Error('تحتاج النسخة المدمجة إلى مراجعة: '+errors[0]);remote=latest;
+        const errors=validateState(data);if(errors.length)throw Error('تحتاج النسخة المدمجة إلى مراجعة: '+errors[0]);
+        if(storage?.private===true&&typeof validatePrivateCatalogReleases==='function')validatePrivateCatalogReleases(data,job.connection);
+        if(typeof validateReleasePublication==='function')validateReleasePublication(data,latest.data);
+        remote=latest;
       }
     }
     if(!written)throw Error('لم تكتمل عملية النشر.');
-    state=normalizeState(data);setRemoteSnapshot(job.connection,{...written,sha:null,data:state});lastPublishedAt=new Date().toISOString();addActivity('نشر ملفي الكتالوج والتكوين · مراجعة '+state.repo_revision_id);persist();renderAll();$('publishDialog').close();pendingPublish=null;toast('تم نشر repo.json وملف التكوين معاً بنجاح.');
-    if(typeof observePublishedProjection==='function')void observePublishedProjection(job.connection,state.repo_revision_id);
+    const published=normalizeState(data);
+    state=job.storeOnly?withReleaseSettings(published,job.local):published;
+    setRemoteSnapshot(job.connection,{...written,sha:null,data:published});lastPublishedAt=new Date().toISOString();addActivity('نشر ملفي الكتالوج والتكوين · مراجعة '+state.repo_revision_id);persist();renderAll();$('publishDialog').close();pendingPublish=null;toast(job.storeOnly?'تم نشر المتجر. بقيت مسودة الإصدار محفوظة.':'تم نشر repo.json وملف التكوين معاً بنجاح.');
+    if(typeof showPublicationStatus==='function')showPublicationStatus(job.connection,state.repo_revision_id,storage?.private===true);
   }catch(error){$('publishError').textContent=error.message;$('publishError').hidden=false;}
   finally{operationBusy=false;$('publishNow').disabled=false;$('publishNow').replaceChildren(icon('cloud'),document.createTextNode('نشر الآن'));updateStatus();}
 };
 const renderOverviewOriginal=renderOverview;
 renderOverview=function(){
   renderOverviewOriginal();const box=$('categoryDistribution');box.replaceChildren();
-  const counts=new Map();for(const app of state.apps){const label=categoryName(app.category);counts.set(label,(counts.get(label)||0)+1);}
+  const counts=new Map(),categories=categoryIndex();for(const app of state.apps){const label=categoryName(app,categories);counts.set(label,(counts.get(label)||0)+1);}
   if(!state.apps.length){const empty=text('div','','distribution-empty');empty.append(icon('apps'),text('span','لا توجد بيانات للعرض بعد. أضف تطبيقاً أو زامن مستودعك.'));box.append(empty);}
   [...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([label,count])=>{const row=text('div','','distribution-row'),track=text('div','','distribution-track'),bar=text('span','');bar.style.width=(count/state.apps.length*100)+'%';track.append(bar);row.append(text('span',label),track,text('span',count,'mono'));box.append(row);});
   const ready=state.apps.filter(app=>appReady(app)).length;$('catalogueReadyLabel').textContent=state.apps.length?ready+' من '+state.apps.length+' تطبيق جاهز بالبيانات الأساسية':'ابدأ من كتالوج التطبيقات أو رفع IPA';
@@ -179,11 +272,17 @@ renderOverview=function(){
 const renderAllOriginal=renderAll;
 renderAll=function(){renderAllOriginal();renderIngestContext();renderStoreCategories();if(activePage==='operations')renderRuns();};
 const renderPublishOriginal=renderPublish;
-renderPublish=function(){renderPublishOriginal();let box=$('localChangeSummary');if(!box){box=text('div','','');box.id='localChangeSummary';$('validationSummary').after(box);}box.replaceChildren();try{appendChangeSummary(box,remoteBaseline?.key===connectionKey()&&remoteBaseline.data?remoteBaseline.data:normalizeState(createDefaultState()),state);}catch(error){box.append(text('p',error.message,'field-hint'));}};
-function appReady(app){return !!(String(app.name||'').trim()&&/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(app.bundleIdentifier||'')&&String(app.version||app.versions?.[0]?.version||'').trim()&&httpsUrl(app.downloadURL||app.versions?.[0]?.downloadURL)&&(!app.iconURL||httpsUrl(app.iconURL)));}
+renderPublish=function(){
+  renderPublishOriginal();
+  $('studioStoreOnlyNotice').hidden=validateState(state).length===0||validateState(storeSettingsDraft(state)).length!==0;
+  let box=$('localChangeSummary');if(!box){box=text('div','','');box.id='localChangeSummary';$('validationSummary').after(box);}box.replaceChildren();try{appendChangeSummary(box,remoteBaseline?.key===connectionKey()&&remoteBaseline.data?remoteBaseline.data:normalizeState(createDefaultState()),state);}catch(error){box.append(text('p',error.message,'field-hint'));}};
+function appReady(app){return !!(String(app.name||'').trim()&&/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(app.bundleIdentifier||'')&&String(app.version||app.versions?.[0]?.version||'').trim()&&httpsUrl(app.downloadURL||app.versions?.[0]?.downloadURL)&&(!app.iconURL||httpsUrl(app.iconURL)));}
 function catalogueResults(){
   const query=$('appSearch').value.trim().toLocaleLowerCase(),category=$('categoryFilter').value,readiness=$('appReadiness').value,sort=$('appSort').value;
-  const list=state.apps.filter(app=>(!category||app.category===category)&&(!query||[app.name,app.bundleIdentifier,app.category].some(v=>String(v||'').toLocaleLowerCase().includes(query)))&&(!readiness||(readiness==='ready')===appReady(app)));
+  const categories=categoryIndex();
+  const list=state.apps.filter(app=>(!category||appCategoryReferences(app).some(ref=>categories.get(categoryKey(ref))?.id===category))&&
+    (!query||[app.name,app.bundleIdentifier,categoryName(app,categories),...appCategoryReferences(app)].some(v=>String(v||'').toLocaleLowerCase().includes(query)))&&
+    (!readiness||(readiness==='ready')===appReady(app)));
   if(sort==='name')list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
   if(sort==='updated')list.sort((a,b)=>String(b.versionDate||b.versions?.[0]?.date||'').localeCompare(String(a.versionDate||a.versions?.[0]?.date||'')));
   if(sort==='size')list.sort((a,b)=>(Number(b.size||b.versions?.[0]?.size)||0)-(Number(a.size||a.versions?.[0]?.size)||0));
@@ -195,7 +294,7 @@ renderApps=function(){
   $('appsTotal').textContent=state.apps.length;$('appsResultText').textContent=filtered.length+' من '+state.apps.length+' تطبيق';$('pageNumber').textContent=appPage+' / '+pages;$('previousPage').disabled=appPage<=1;$('nextPage').disabled=appPage>=pages;
   const box=$('appsList');box.replaceChildren();
   if(!filtered.length){const empty=text('div','','empty'),symbol=text('div','','empty-symbol');symbol.append(icon(state.apps.length?'search':'apps'));empty.append(symbol,text('h3',state.apps.length?'لا توجد نتائج مطابقة':'ابدأ كتالوج IPA BLACK.'),text('p',state.apps.length?'غيّر البحث أو التصنيف أو حالة الجاهزية.':'أضف بيانات تطبيق يدوياً، أو أرسل IPA إلى محرك المعالجة في مستودعك.'));if(!state.apps.length){const actions=text('div','','row wrap');actions.append(button('إضافة تطبيق',()=>openAppEditor(),'plus','btn btn-primary'),button('رفع IPA',()=>openPage('ingest'),'download','btn'));empty.append(actions);}box.append(empty);}
-  const fragment=document.createDocumentFragment(),canReorder=$('appSort').value==='manual'&&!$('appSearch').value.trim()&&!$('categoryFilter').value&&!$('appReadiness').value;
+  const fragment=document.createDocumentFragment(),canReorder=$('appSort').value==='manual'&&!$('appSearch').value.trim()&&!$('categoryFilter').value&&!$('appReadiness').value,categories=categoryIndex();
   for(const app of visibleApps){
     const key=catalogueKey(app),row=text('div','','app-row'+(selectedApps.has(key)?' selected':''));
     const cell=text('label','','select-cell'),check=document.createElement('input');check.type='checkbox';check.checked=selectedApps.has(key);check.setAttribute('aria-label','تحديد '+app.name);check.addEventListener('change',()=>{if(check.checked)selectedApps.add(key);else selectedApps.delete(key);renderApps();});cell.append(check);
@@ -203,7 +302,7 @@ renderApps=function(){
     if(src){const img=document.createElement('img');img.src=src;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.remove(),{once:true});avatar.append(img);}
     const info=text('div','');info.style.minWidth='0';info.append(text('h3',app.name||'دون اسم'),text('p',app.bundleIdentifier||'—'));
     const meta=text('div','','app-meta-row');meta.append(text('span',appReady(app)?'جاهز':'بيانات ناقصة','tag '+(appReady(app)?'tag-green':'tag-yellow')),text('span',(app.versions?.length||1)+' إصدار'));info.append(meta);identity.append(avatar,info);
-    row.append(cell,identity,text('div',categoryName(app.category),'app-cell app-category-cell'),text('div','v'+(app.version||app.versions?.[0]?.version||'—'),'app-cell latin app-version-cell'),text('div',bytes(app.size||app.versions?.[0]?.size),'app-cell latin app-size-cell'));
+    row.append(cell,identity,text('div',categoryName(app,categories),'app-cell app-category-cell'),text('div','v'+(app.version||app.versions?.[0]?.version||'—'),'app-cell latin app-version-cell'),text('div',bytes(app.size||app.versions?.[0]?.size),'app-cell latin app-size-cell'));
     const actions=text('div','','app-actions');
     for(const [delta,label] of [[-1,'أعلى'],[1,'أسفل']]){const b=button(delta===-1?'↑':'↓',()=>moveCatalogueApp(app,delta),null);b.disabled=!canReorder||state.apps.indexOf(app)+delta<0||state.apps.indexOf(app)+delta>=state.apps.length;b.title='نقل '+label;b.setAttribute('aria-label','نقل '+app.name+' '+label);actions.append(b);}
     const edit=button('',()=>openAppEditor(app),'edit'),del=button('',()=>deleteApp(app),'trash');edit.title='تعديل';edit.setAttribute('aria-label','تعديل '+app.name);del.title='حذف';del.setAttribute('aria-label','حذف '+app.name);actions.append(edit,del);row.append(actions);fragment.append(row);
@@ -217,7 +316,13 @@ function renderStoreCategories(){
 }
 const renderCategoryOptionsOriginal=renderCategoryOptions;
 renderCategoryOptions=function(){renderCategoryOptionsOriginal();renderStoreCategories();};
-function applyBulkCategory(){const category=$('bulkCategory').value;if(!category||!state.categories.some(c=>c.id===category)){toast('اختر تصنيفاً موجوداً أولاً.','info');return;}const count=selectedApps.size;mutate(()=>state.apps.forEach(app=>{if(selectedApps.has(catalogueKey(app)))app.category=category;}),'تغيير تصنيف '+count+' تطبيق');toast('تم تحديث تصنيف التطبيقات المحددة في المسودة.');}
+function applyBulkCategory(){
+  const category=$('bulkCategory').value;
+  if(!category||!state.categories.some(c=>c.id===category)){toast('اختر تصنيفاً موجوداً أولاً.','info');return;}
+  const count=selectedApps.size,index=categoryIndex();
+  mutate(()=>state.apps.forEach(app=>{if(selectedApps.has(catalogueKey(app)))setAppCategory(app,category,index);}), 'تغيير تصنيف '+count+' تطبيق');
+  toast('تم تحديث تصنيف التطبيقات المحددة في المسودة.');
+}
 function deleteSelectedApps(){if(!selectedApps.size)return;const count=selectedApps.size;confirmAction('حذف التطبيقات المحددة','سيتم حذف '+count+' تطبيق من المسودة. لا يصل الحذف إلى المستودع حتى تنشر التغييرات.',()=>{mutate(()=>state.apps=state.apps.filter(app=>!selectedApps.has(catalogueKey(app))),'حذف '+count+' تطبيق من المسودة');selectedApps.clear();renderApps();toast('تم حذف التطبيقات المحددة من المسودة.');},'حذف '+count+' تطبيق');}
 function renderIngestContext(){try{const c=currentProcessing();$('ingestTarget').textContent=c.owner+' / '+c.repo;$('ingestWorkflow').textContent=c.branch+' · '+c.workflow;}catch{$('ingestTarget').textContent='تحقق من إعدادات الاتصال';$('ingestWorkflow').textContent='';}}
 function setPipeline(stage,message){$$('.pipeline-step').forEach(el=>{el.classList.toggle('done',Number(el.dataset.stage)<stage);el.classList.toggle('active',Number(el.dataset.stage)===stage);});$('uploadPhaseText').textContent=message;}
@@ -238,6 +343,39 @@ async function inspectEngine(c,token){
 }
 async function activeWorkflowRuns(c,token){const lists=await Promise.all(['queued','in_progress','waiting','pending','requested'].map(async status=>{const data=await github(c,'actions/workflows/'+encodeURIComponent(c.workflow)+'/runs?per_page=1&branch='+encodeURIComponent(c.branch)+'&status='+status,'GET',undefined,token);if(!Array.isArray(data?.workflow_runs))throw Error('تعذر فحص طابور المعالجة.');return data.workflow_runs.filter(r=>r.head_branch===c.branch&&r.status!=='completed');}));return lists.flat();}
 async function getRuns(c,token,perPage=30){const data=await github(c,'actions/workflows/'+encodeURIComponent(c.workflow)+'/runs?per_page='+perPage+'&branch='+encodeURIComponent(c.branch),'GET',undefined,token);if(!Array.isArray(data?.workflow_runs))throw Error('لم يعد GitHub قائمة عمليات صالحة.');return data.workflow_runs.filter(run=>run.head_branch===c.branch);}
+async function requirePrivateIPAStorage(target,token,repository=null){
+  if(target.branch!=='main'||target.path!=='repo.json'||(target.configPath||'xsign-config.json')!=='xsign-config.json')
+    throw Error('معالجة IPA الخاصة تتطلب فرع main وملفات الكتالوج الافتراضية.');
+  if((repository||await github(target,'','GET',undefined,token))?.private!==true)
+    throw Error('حدّد مستودع التخزين الخاص في المصادر والاتصال أولاً.');
+  const publicRepository=await github(XSIGN_BUILD_REPO,'','GET',undefined,token);
+  if(publicRepository?.private!==false||publicRepository.default_branch!==XSIGN_BUILD_REPO.branch)
+    throw Error('افتح مستودع المعالجة العام وتحقق من أن main فرعه الافتراضي.');
+  await verifyStudioWorkflow(token);
+  privateIPAStorage=connectionKey(target);
+  return target;
+}
+function privateIPARelease(url,storage){
+  if(!validReleaseURL(url))return false;
+  const link=new URL(url),parts=link.pathname.split('/').slice(1);
+  return link.origin==='https://github.com'&&!link.search&&!link.hash&&parts.length===6&&
+    parts.slice(0,2).join('/').toLowerCase()===(storage.owner+'/'+storage.repo).toLowerCase()&&
+    parts[2]==='releases'&&parts[3]==='download'&&/^[A-Za-z0-9._-]+$/.test(parts[4])&&/^[A-Za-z0-9._-]+\.ipa$/i.test(parts[5]);
+}
+async function submitPrivateIPA(storage,record,requestId,token,file){
+  const ref=await github(storage,'git/ref/heads/main','GET',undefined,token);
+  const commit=await github(storage,'git/commits/'+ref.object.sha,'GET',undefined,token);
+  const path='.xsign-queue/requests/'+requestId;
+  const entries=[{path:path+'.json',mode:'100644',type:'blob',content:JSON.stringify(record)}];
+  if(file){
+    const blob=await github(storage,'git/blobs','POST',{content:encodeBase64Bytes(new Uint8Array(await file.arrayBuffer())),encoding:'base64'},token,120000);
+    if(!blob?.sha)throw Error('تعذّر تخزين ملف IPA في المستودع الخاص.');
+    entries.push({path:path+'.ipa',mode:'100644',type:'blob',sha:blob.sha});
+  }
+  await writeAtomicFiles(storage,{head:ref.object.sha,tree:commit.tree.sha},entries,'Queue private IPA for processing',token);
+  const event=record.kind==='inspect'?'xsign-inspect-ipa':'xsign-publish-ipa';
+  await github(XSIGN_BUILD_REPO,'dispatches','POST',{event_type:event,client_payload:{request_id:requestId}},token);
+}
 async function prepareIngest(event){
   event?.preventDefault();if(operationBusy||transferBusy)return;
   $('ingestError').hidden=true;setPipeline(1,'التحقق من الرابط والبيانات…');
@@ -249,7 +387,34 @@ async function prepareIngest(event){
     if(metadata.icon&&!httpsUrl(metadata.icon))throw Error('رابط الأيقونة اليدوية يجب أن يكون HTTPS.');
     const token=requireToken();
     transferBusy=true;updateStatus();setPipeline(2,'قراءة المحرك والتحقق من فرعه ومدخلاته…');
-    const inspected=await inspectEngine(c,token),runs=await activeWorkflowRuns(c,token);
+    const storage=validateConnection({...connection});
+    const repository=await github(storage,'','GET',undefined,token);
+    if(repository?.private===true){
+      await requirePrivateIPAStorage(storage,token,repository);
+      if(uploadMode==='url'&&!privateIPARelease(url,storage))throw Error('اختر رابط IPA من Releases في مستودع التخزين الخاص.');
+      if(metadata.icon)throw Error('اترك رابط الأيقونة فارغاً لاستخراج الأيقونة من الملف وإبقائها خاصة.');
+      if(metadata.category){
+        const published=await readCatalogueSnapshot(storage,token);
+        if(!published.data?.categories?.some(item=>item.id===metadata.category||item.aliases?.includes(metadata.category)))
+          throw Error('انشر التصنيف في الكتالوج الخاص أولاً.');
+      }
+      preparedUpload={storage,c:XSIGN_BUILD_REPO,mode:uploadMode,file,url,metadata};
+      $('ingestReviewBody').replaceChildren(metricRow('التنفيذ العام',XSIGN_BUILD_REPO.owner+'/'+XSIGN_BUILD_REPO.repo),
+        metricRow('التخزين الخاص',storage.owner+'/'+storage.repo));
+      $('ingestReviewWarning').textContent='يبقى IPA والتقرير والأيقونة في GitHub الخاص. العملية العامة تستلم رقم الطلب فقط.';
+      $('ingestReviewError').hidden=true;$('ingestReviewDialog').showModal();
+      setPipeline(2,'اكتمل الفحص. بانتظار مراجعتك للإرسال.');
+      return;
+    }
+    const inspected=await inspectEngine(c,token);
+    const category=metadata.category;
+    if(category){
+      const publisher=await readCatalogueSnapshot({...c,path:'repo.json',configPath:'xsign-config.json'},token);
+      if(publisher.parseError||!publisher.data?.categories.some(item=>item.id===category||item.aliases?.includes(category))){
+        throw Error('انشر التصنيف المحدد في كتالوج مستودع المعالجة قبل رفع التطبيق.');
+      }
+    }
+    const runs=await activeWorkflowRuns(c,token);
     if(runs.some(run=>run.status!=='completed'))throw Error('توجد عملية معالجة غير مكتملة على الفرع المختار. تابعها من مركز العمليات أولاً.');
     let inputs=null,contract=null,path=null,head=null;
     if(uploadMode==='url')inputs=Store.dispatchInputs(inspected.engine,{ipa_url:url,custom_name:metadata.name,custom_desc:metadata.desc,custom_icon:metadata.icon,category_id:metadata.category,skip_appstore:metadata.skip_appstore,operation:'publish'});
@@ -279,6 +444,17 @@ async function sendIngest(){
   transferBusy=true;updateStatus();$('sendIngest').textContent='جارٍ الإرسال…';$('ingestReviewError').hidden=true;
   try{
     const token=requireToken();
+    if(job.storage){
+      await requirePrivateIPAStorage(job.storage,token);
+      setPipeline(3,'حفظ الطلب الخاص وتشغيل المعالجة العامة…');
+      const record={kind:'publish',metadata:job.metadata};
+      if(job.mode==='url')record.ipa_url=job.url;
+      await submitPrivateIPA(job.storage,record,newReleaseRequest(),token,job.mode==='file'?job.file:null);
+      setPipeline(4,'أُرسل الطلب. تابع مركز العمليات ثم زامن الكتالوج الخاص بعد نجاحه.');
+      addActivity('إرسال عملية IPA خاصة');persist();$('ingestReviewDialog').close();
+      preparedUpload=null;runData=null;renderOverview();toast('أُرسلت العملية إلى المحرك العام.');
+      return;
+    }
     // Recheck the queue immediately before the external mutation.
     const active=await activeWorkflowRuns(job.c,token);if(active.some(r=>r.status!=='completed'))throw Error('بدأت عملية أخرى بعد المراجعة. حدّث الحالة ثم أعد الإرسال.');
     setPipeline(3,'إرسال العملية إلى GitHub…');
@@ -300,22 +476,41 @@ function encodeBase64Bytes(bytes){let binary='';for(let i=0;i<bytes.length;i+=16
 async function uploadImage(file,target){
   if(operationBusy||transferBusy)return;
   const editorGenerationAtStart=appEditorGeneration;
+  const isBuildIcon=target==='buildIconURL';
+  if(isBuildIcon&&file?.type!=='image/png'){toast('اختر صورة PNG مربعة لأيقونة بناء XSign.','error');return;}
+  const previousBuildIcon=isBuildIcon?$('buildIconURL').value:null;
   if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size===0||file.size>5*1024*1024){toast('اختر PNG أو JPEG أو WebP غير فارغ، بحجم لا يتجاوز 5 MB.','error');return;}
   transferBusy=true;updateStatus();
   try{
-    const c=validateConnection({...connection}),token=requireToken(),repo=await github(c,'','GET',undefined,token);
-    if(repo.private)throw Error('المستودع خاص. رابط الصورة الخام لن يكون متاحاً للتطبيق دون مصادقة؛ استخدم رابط صورة عاماً بدلاً من الرفع هنا.');
+    let c=validateConnection({...connection});
+    const token=requireToken();
+    let repo=await github(c,'','GET',undefined,token);
+    if(repo?.private===true&&isBuildIcon){
+      c=XSIGN_BUILD_REPO;
+      repo=await github(c,'','GET',undefined,token);
+    }
+    if(repo?.private!==false)throw Error('استخدم رابط HTTPS عاماً للصورة. الوجهة الحالية تحفظ الملفات بصلاحيات خاصة.');
     const ext={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[file.type],path='assets/icons/img_'+uid()+'.'+ext;
     const result=await github(c,'contents/'+path,'PUT',{message:'Upload catalogue icon via X-SIGN STUDIO',branch:c.branch,content:encodeBase64Bytes(new Uint8Array(await file.arrayBuffer()))},token,60000);
     if(!result?.content?.sha)throw Error('تعذر تأكيد رفع الصورة.');
     const uploadedUrl='https://raw.githubusercontent.com/'+encodeURIComponent(c.owner)+'/'+encodeURIComponent(c.repo)+'/'+branchPath(c.branch)+'/'+path;
     if(target==='appIcon'&&editorGenerationAtStart!==appEditorGeneration){toast('رُفعت الصورة، لكن نافذة التطبيق تغيرت. الرابط: '+uploadedUrl,'info');return;}
-    $(target).value=uploadedUrl;$(target).dispatchEvent(new Event('input',{bubbles:true}));toast('تم رفع الصورة. احفظ التطبيق أو انشر إعدادات الهوية لاعتماد الرابط.');
+    if(isBuildIcon&&$('buildIconURL').value!==previousBuildIcon){toast('رُفعت الصورة، وحقل الأيقونة تغيّر أثناء الرفع. الرابط: '+uploadedUrl,'info');return;}
+    $(target).value=uploadedUrl;$(target).dispatchEvent(new Event(isBuildIcon?'change':'input',{bubbles:true}));
+    toast(isBuildIcon?'تم رفع الأيقونة. اضغط حفظ وبناء IPA لتطبيقها.':'تم رفع الصورة. احفظ التطبيق أو انشر إعدادات الهوية لاعتماد الرابط.');
   }catch(error){toast(error.message,'error');}finally{transferBusy=false;updateStatus();}
 }
 async function refreshRuns(){
   if(runBusy||operationBusy||transferBusy)return;runBusy=true;$('refreshRuns').disabled=true;
-  try{const c=currentProcessing(),data=await getRuns(c,requireToken());runData=data;runContext=workflowKey(c);runsFetchedAt=new Date().toISOString();renderRuns();}
+  try{
+    const token=requireToken(),storage=validateConnection({...connection});
+    const info=await github(storage,'','GET',undefined,token);
+    const isPrivate=info?.private===true;
+    if(isPrivate)privateIPAStorage=connectionKey(storage);
+    const c=currentProcessing(),data=await getRuns(c,token);
+    runData=isPrivate?data.filter(run=>run.event==='repository_dispatch'):data;
+    runContext=workflowKey(c);runsFetchedAt=new Date().toISOString();renderRuns();renderIngestContext();
+  }
   catch(error){toast(error.message,'error');}finally{runBusy=false;$('refreshRuns').disabled=false;}
 }
 function runState(run){if(run.status!=='completed')return 'active';if(run.conclusion==='success')return 'success';return 'failed';}
@@ -354,7 +549,7 @@ function bindStoreEvents(){
   $('ingestFile').addEventListener('change',()=>{const file=$('ingestFile').files?.[0];$('ingestFileLabel').textContent=file?file.name+' · '+bytes(file.size):'اختر ملف IPA من الجهاز';preparedUpload=null;});
   $('ingestForm').addEventListener('submit',prepareIngest);$('sendIngest').addEventListener('click',sendIngest);
   $('refreshRuns').addEventListener('click',refreshRuns);$('runsFilter').addEventListener('change',renderRuns);
-  $$('[data-select-icon]').forEach(b=>b.addEventListener('click',()=>{iconTarget=b.dataset.selectIcon;$('iconFile').click();}));
+  $$('[data-select-icon]').forEach(b=>b.addEventListener('click',()=>{iconTarget=b.dataset.selectIcon;const picker=$('iconFile');picker.accept=iconTarget==='buildIconURL'?'image/png,.png':'image/png,image/jpeg,image/webp';picker.click();}));
   $('iconFile').addEventListener('change',()=>{const file=$('iconFile').files?.[0];$('iconFile').value='';if(file&&iconTarget)uploadImage(file,iconTarget);});
   $('openRawEditor').addEventListener('click',()=>{$('rawEditor').value=JSON.stringify(state,null,2);$('rawError').hidden=true;$('rawDialog').showModal();});$('applyRaw').addEventListener('click',applyRaw);
   $('restoreDisplay').addEventListener('click',()=>confirmAction('استعادة إعدادات العرض','سيُوقف وضع الصيانة والتحديث الإجباري، وتُستعاد إعدادات حركة الإقلاع الافتراضية في المسودة. تبقى التطبيقات وألوان الهوية كما هي.',()=>{mutate(()=>{state.xsign_config.maintenance.enabled=false;state.xsign_config.force_update.enabled=false;state.xsign_config.splash_screen={...state.xsign_config.splash_screen,...createDefaultState().xsign_config.splash_screen,engine:'native_vector'};},'استعادة إعدادات العرض');syncInputs();},'تطبيق على المسودة',false));

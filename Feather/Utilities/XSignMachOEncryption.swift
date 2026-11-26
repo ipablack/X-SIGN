@@ -106,6 +106,11 @@ enum XSignMachOEncryption {
         let apps = try fm.contentsOfDirectory(at: payload, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension.lowercased() == "app" }
         guard apps.count == 1, let app = apps.first else { throw InspectionError.missingExecutable }
+        try verifyBundle(at: app)
+    }
+
+    static func verifyBundle(at app: URL, candidates: [URL]? = nil) throws {
+        let fm = FileManager.default
         var executables = Set<URL>()
         func addBundle(_ bundle: URL, required: Bool) throws {
             let infoURL = bundle.appendingPathComponent("Info.plist")
@@ -119,15 +124,18 @@ enum XSignMachOEncryption {
             executables.insert(bundle.appendingPathComponent(name).standardizedFileURL)
         }
         try addBundle(app, required: true)
-        if let iterator = fm.enumerator(at: app, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            for case let item as URL in iterator {
-                switch item.pathExtension.lowercased() {
-                case "app", "appex": try addBundle(item, required: true)
-                case "framework": try addBundle(item, required: false)
-                case "dylib": executables.insert(item.standardizedFileURL)
-                default: break
-                }
+        let addCandidate: (URL) throws -> Void = { item in
+            switch item.pathExtension.lowercased() {
+            case "app", "appex": try addBundle(item, required: true)
+            case "framework": try addBundle(item, required: false)
+            case "dylib": executables.insert(item.standardizedFileURL)
+            default: break
             }
+        }
+        if let candidates {
+            for candidate in candidates { try addCandidate(candidate) }
+        } else if let iterator = fm.enumerator(at: app, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let item as URL in iterator { try addCandidate(item) }
         }
         for executable in executables {
             if try isEncrypted(executable: executable) { throw InspectionError.encryptedExecutable }

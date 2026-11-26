@@ -29,7 +29,7 @@ struct SourceAppsCellView: View {
 				)
 				.overlay(alignment: .bottomLeading) {
 					if let iconURL = source.currentIconURL {
-						LazyImage(url: iconURL) { state in
+						LazyImage(request: xsignImageRequest(iconURL)) { state in
 							if let image = state.image {
 								image
 									.appIconStyle(size: 20, isCircle: true, background: Color(uiColor: .secondarySystemBackground))

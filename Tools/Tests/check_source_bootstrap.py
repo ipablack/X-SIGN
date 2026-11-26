@@ -16,15 +16,44 @@ PRIORITY = json.loads((ROOT / 'Tools/Integration/contract.json').read_text())['s
 
 
 class SourceBootstrapChecks(unittest.TestCase):
-    def test_previous_plus_default_migrates_without_resurrecting_an_empty_list(self):
+    def test_explicit_legacy_sources_survive_without_resurrecting_defaults(self):
         current = copy.deepcopy(DEFAULTS)
         dashboard = current['xsign_config']['dashboard']
         dashboard.pop('catalog_profile')
-        dashboard['sources'] = [{'id': 'xsign.core.primary', 'name': 'Plus', 'url': 'https://supapi.trystore.net/rest/v1/plus_library_apps'}]
+        plus = 'https://supapi.trystore.net/rest/v1/plus_library_apps'
+        dashboard['sources'] = [{'id': 'xsign.core.primary', 'name': 'Plus', 'url': plus}]
         result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
-        self.assertEqual([source['url'] for source in result['xsign_config']['dashboard']['sources']], PRIORITY[1:])
+        self.assertEqual([source['url'] for source in result['xsign_config']['dashboard']['sources']], [PRIORITY[0], plus])
         dashboard['sources'] = []
-        self.assertEqual(module.normalize_catalogue(current, DEFAULTS, PRIORITY)['xsign_config']['dashboard']['sources'], [])
+        self.assertEqual(module.normalize_catalogue(current, DEFAULTS, PRIORITY)['xsign_config']['dashboard']['sources'],
+                         [DEFAULTS['xsign_config']['dashboard']['sources'][0]])
+
+    def test_today_layout_upgrade_only_once(self):
+        current = copy.deepcopy(DEFAULTS)
+        dash = current['xsign_config']['dashboard']
+        dash['experience_version'] = 2
+        dash['sections'] = [dash['sections'][0]]
+        result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
+        migrated = result['xsign_config']['dashboard']
+        self.assertEqual([row['id'] for row in migrated['sections']], ['today-news', 'today-featured', 'today-apps'])
+        migrated['sections'] = []
+        migrated['today_show_date'] = False
+        new = module.normalize_catalogue(result, DEFAULTS, PRIORITY)['xsign_config']['dashboard']
+        self.assertEqual(new['sections'], [])
+        self.assertFalse(new['today_show_date'])
+
+    def test_existing_sections_stay_in_their_original_order(self):
+        current = copy.deepcopy(DEFAULTS)
+        dashboard = current['xsign_config']['dashboard']
+        dashboard.pop('catalog_profile')
+        sections = [
+            {'id': 'apps-sources', 'title': 'مصادري', 'kind': 'sources', 'page': 'apps'},
+            {'id': 'games-list', 'title': 'الألعاب', 'kind': 'apps', 'page': 'games'},
+            {'id': 'games-categories', 'title': 'التصنيفات', 'kind': 'categories', 'page': 'games', 'enabled': False},
+        ]
+        dashboard['sections'] = sections
+        result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
+        self.assertEqual(result['xsign_config']['dashboard']['sections'], sections)
 
     def test_old_catalogue_gains_contract_without_losing_apps_or_unknown_fields(self):
         current = {'apps': [{'bundleIdentifier': 'com.fixture.app', 'versions': [{'version': '1'}], 'future': 7}],
@@ -40,13 +69,13 @@ class SourceBootstrapChecks(unittest.TestCase):
         current = copy.deepcopy(DEFAULTS)
         current['xsign_config']['dashboard']['sources'] = []
         result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
-        self.assertEqual(result['xsign_config']['dashboard']['sources'], [])
-        self.assertEqual(result['xsign_config']['app_control']['core_sources'], [])
+        self.assertEqual(result['xsign_config']['dashboard']['sources'], [DEFAULTS['xsign_config']['dashboard']['sources'][0]])
+        self.assertEqual([row['url'] for row in result['xsign_config']['app_control']['core_sources']], [PRIORITY[0]])
         custom = {'id': 'json', 'name': 'JSON source', 'url': 'https://example.test/api', 'format': 'json',
             'root_path': 'data.items', 'fields': {'downloadURL': 'files.ipa'}, 'icon_url': 'https://example.test/icon.png'}
         current['xsign_config']['dashboard']['sources'] = [custom]
         result = module.normalize_catalogue(current, DEFAULTS, PRIORITY)
-        self.assertEqual(result['xsign_config']['dashboard']['sources'], [custom])
+        self.assertEqual(result['xsign_config']['dashboard']['sources'][1:], [custom])
 
     def api_fixture(self, current=None, files=None, reject_ref=False):
         calls = []
@@ -94,6 +123,21 @@ class SourceBootstrapChecks(unittest.TestCase):
         self.assertEqual(catalogue['repo_revision_id'], projection['repo_revision_id'])
         self.assertNotIn('apps', projection)
         self.assertEqual(len([c for c in calls if c[1] == 'PATCH']), 1)
+
+    def test_newer_projection_keeps_policy_while_catalogue_keeps_apps(self):
+        catalogue = copy.deepcopy(DEFAULTS)
+        catalogue['apps'] = [{'bundleIdentifier': 'com.fixture.app'}]
+        projection = {key: copy.deepcopy(catalogue[key]) for key in module.PROJECTION_FIELDS if key in catalogue}
+        projection['repo_revision_id'] = 8
+        projection['xsign_config']['security_locks']['anti_vpn_proxy'] = True
+        calls, api = self.api_fixture(current=catalogue, files={'xsign-config.json': module.encode(projection)})
+        result = module.bootstrap(ROOT, 'fixture-not-a-token', call=api)
+        self.assertEqual(result['revision'], 9)
+        tree = next(payload for path, method, payload in calls if path == 'git/trees' and method == 'POST')
+        files = {row['path']: json.loads(row['content']) for row in tree['tree'] if row['path'].endswith('.json')}
+        self.assertEqual(files['repo.json']['apps'], catalogue['apps'])
+        self.assertTrue(files['repo.json']['xsign_config']['security_locks']['anti_vpn_proxy'])
+        self.assertEqual(files['repo.json']['xsign_config'], files['xsign-config.json']['xsign_config'])
 
     def test_custom_publisher_is_not_overwritten(self):
         calls, api = self.api_fixture(files={'.github/workflows/ipa_manager.yml': b'custom user workflow'})

@@ -33,6 +33,15 @@ enum XSignAppMetadata {
         explicitPermission ?? true
     }
 
+    nonisolated static func cloneIdentifier(from original: String, nonce: UUID = UUID()) -> String? {
+        let token = nonce.uuidString.lowercased()
+        let base = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !base.isEmpty else { return nil }
+        let candidate = base + ".xsign-" + token
+        if errorMessage(for: candidate, field: .bundleIdentifier) == nil { return candidate }
+        return "com.xsign.copy-" + token
+    }
+
     nonisolated static func errorMessage(for value: String, field: Field) -> String? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return "أدخل قيمة أو استخدم القيمة الأصلية." }

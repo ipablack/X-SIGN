@@ -517,6 +517,9 @@ jobs:
         python3 Tools/StudioSource/scripts/build.py
         cp Tools/StudioSource/dist/index.html Tools/XSign_Studio.html
         cp Tools/StudioSource/dist/index.html Tools/XSign_Studio_v2.html
+    - name: Install the pinned icon preparer
+      shell: bash
+      run: 'python3 -m pip install --disable-pip-version-check --only-binary=:all: Pillow==13.0.0'
     - name: Verify dashboard, backend and website-preserving merge
       shell: bash
       run: |

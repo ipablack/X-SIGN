@@ -1209,16 +1209,29 @@ final class AppStoreCacheManager: ObservableObject {
         return dir
     }
 
+    private nonisolated static let bundledLaunchSeedPayloads: [String: String] = [:] // __XSIGN_BUNDLE_SEED__
+
     private func restoreBoundedLaunchPreviews() {
-        // Bound synchronous launch work; the background reader restores all enabled feeds.
-        for target in Self.coreTargets.prefix(3) where directLoadedRepos[target.urlStr] == nil {
-            guard URL(string: target.urlStr) != nil else { continue }
+        // Bound synchronous launch work; use fresh device previews first, then ultra-light build-time seed for 0ms first launch.
+        for target in Self.coreTargets.prefix(6) where directLoadedRepos[target.urlStr] == nil {
+            guard let url = URL(string: target.urlStr) else { continue }
             let path = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
-            guard let size = (try? path.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
-                  size <= 131_072, let data = try? Data(contentsOf: path),
-                  let record = try? XSignCatalogIO.decode(data), record.repository.apps.count <= 24 else { continue }
-            directLoadedRepos[target.urlStr] = record.repository
-            loadedCacheIdentities[target.urlStr] = target.file
+            if let size = (try? path.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+               size <= 524_288, let data = try? Data(contentsOf: path),
+               let record = try? XSignCatalogIO.decode(data), record.repository.apps.count <= 60 {
+                directLoadedRepos[target.urlStr] = record.repository
+                loadedCacheIdentities[target.urlStr] = target.file
+                continue
+            }
+            let canonical = XSignCatalogIO.canonicalURL(url).absoluteString
+            if let encoded = Self.bundledLaunchSeedPayloads[target.urlStr] ?? Self.bundledLaunchSeedPayloads[canonical],
+               let seedData = Data(base64Encoded: encoded),
+               seedData.count <= 524_288,
+               let record = try? XSignCatalogIO.decode(seedData),
+               record.repository.apps.count <= 60 {
+                directLoadedRepos[target.urlStr] = record.repository
+                loadedCacheIdentities[target.urlStr] = target.file
+            }
         }
     }
 
@@ -1235,7 +1248,10 @@ final class AppStoreCacheManager: ObservableObject {
         todaySourceIDs = XSignRemoteManager.shared.config?.dashboard?.today_source_ids.map { Set($0) }
         if !preview.isEmpty,
            let snapshot = Self.buildSnapshot(snapshot: preview, studioCategories: studioCategories,
-                                             todaySourceIDs: todaySourceIDs, launchPreview: true) { catalog = snapshot }
+                                             todaySourceIDs: todaySourceIDs, launchPreview: true) {
+            catalog = snapshot
+            prefetchVisibleIcons(from: snapshot)
+        }
         loadInstantDiskSnapshot()
     }
 
@@ -1486,7 +1502,7 @@ final class AppStoreCacheManager: ObservableObject {
         let worker = Task.detached(priority: priority) { [weak self] () -> XSignCatalogSnapshot? in
             if hadVisibleItems {
                 // Several feeds often finish together. Keep the current rows while coalescing those rebuilds.
-                do { try await Task.sleep(nanoseconds: 120_000_000) } catch { return nil }
+                do { try await Task.sleep(nanoseconds: 60_000_000) } catch { return nil }
             }
             if needsLaunchPreview, let preview = Self.buildSnapshot(snapshot: input, studioCategories: categories,
                     todaySourceIDs: todayIDs, launchPreview: true) {
@@ -1509,7 +1525,7 @@ final class AppStoreCacheManager: ObservableObject {
 
     private func prefetchVisibleIcons(from snapshot: XSignCatalogSnapshot) {
         let requests = snapshot.allCombinedItems
-            .prefix(28)
+            .prefix(36)
             .compactMap { $0.app.iconURL.flatMap(xsignImageRequest) }
         guard !requests.isEmpty else { return }
         iconPrefetcher.startPrefetching(with: requests)

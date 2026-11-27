@@ -69,29 +69,31 @@ final class UpdateManager: ObservableObject {
 		guard !indexedSources.isEmpty else { return [] }
 
 		let maxConcurrent = 5
-		var fetched: [(Int, AltSource, ASRepository)] = []
-		fetched.reserveCapacity(indexedSources.count)
+		let sourceByIndex: [Int: AltSource] = Dictionary(uniqueKeysWithValues: indexedSources.map { ($0.0, $0.1) })
+		let urlJobs: [(Int, URL)] = indexedSources.map { ($0.0, $0.2) }
+		var fetched: [(Int, ASRepository)] = []
+		fetched.reserveCapacity(urlJobs.count)
 
-		await withTaskGroup(of: (Int, AltSource, ASRepository?).self) { group in
-			var iterator = indexedSources.makeIterator()
+		await withTaskGroup(of: (Int, ASRepository?).self) { group in
+			var iterator = urlJobs.makeIterator()
 
-			for _ in 0..<min(maxConcurrent, indexedSources.count) {
-				if let (index, source, url) = iterator.next() {
+			for _ in 0..<min(maxConcurrent, urlJobs.count) {
+				if let (index, url) = iterator.next() {
 					group.addTask(priority: .userInitiated) {
 						let repo = try? await XSignCatalogIO.shared.fetch(url).repository
-						return (index, source, repo)
+						return (index, repo)
 					}
 				}
 			}
 
-			while let (index, source, repo) = await group.next() {
+			while let (index, repo) = await group.next() {
 				if let repo {
-					fetched.append((index, source, repo))
+					fetched.append((index, repo))
 				}
-				if let (nextIndex, nextSource, nextURL) = iterator.next() {
+				if let (nextIndex, nextURL) = iterator.next() {
 					group.addTask(priority: .userInitiated) {
 						let repo = try? await XSignCatalogIO.shared.fetch(nextURL).repository
-						return (nextIndex, nextSource, repo)
+						return (nextIndex, repo)
 					}
 				}
 			}
@@ -99,7 +101,10 @@ final class UpdateManager: ObservableObject {
 
 		return fetched
 			.sorted { $0.0 < $1.0 }
-			.map { ($0.1, $0.2) }
+			.compactMap { index, repo in
+				guard let source = sourceByIndex[index] else { return nil }
+				return (source, repo)
+			}
 	}
 
 	private func _fetchRepository(from url: URL) async -> ASRepository? {

@@ -1249,7 +1249,7 @@ final class AppStoreCacheManager: ObservableObject {
                     guard let url = URL(string: targets[index].urlStr) else { return (index, nil) }
                     return (index, await io.cached(url))
                 }
-                let count = min(3, targets.count)
+                let count = min(6, targets.count)
                 for index in 0..<count { group.addTask { await load(index) } }
                 var next = count
                 for await (index, record) in group {
@@ -1361,7 +1361,7 @@ final class AppStoreCacheManager: ObservableObject {
                 async let coreSucceeded = self.fetchCoreRepositories()
                 // This path already passed the refresh deadline. Refresh custom URLs too,
                 // even when a previous response is visible; otherwise they never update automatically.
-                await viewModel.fetchSources(custom, refresh: true, batchSize: 3)
+                await viewModel.fetchSources(custom, refresh: true, batchSize: 6)
                 let succeeded = await coreSucceeded
                 self.rebuildCacheIfNeeded(sources: self.requestedSources, repositoriesMap: viewModel.sources)
                 await self.publicationTask?.value
@@ -1409,7 +1409,7 @@ final class AppStoreCacheManager: ObservableObject {
         }
         await withTaskGroup(of: (URL, XSignRepositoryRecord?, String?).self) { group in
             var next = 0
-            for url in urls.prefix(3) {
+            for url in urls.prefix(6) {
                 next += 1
                 group.addTask { await load(url) }
             }
@@ -1486,7 +1486,7 @@ final class AppStoreCacheManager: ObservableObject {
         let worker = Task.detached(priority: priority) { [weak self] () -> XSignCatalogSnapshot? in
             if hadVisibleItems {
                 // Several feeds often finish together. Keep the current rows while coalescing those rebuilds.
-                do { try await Task.sleep(nanoseconds: 55_000_000) } catch { return nil }
+                do { try await Task.sleep(nanoseconds: 120_000_000) } catch { return nil }
             }
             if needsLaunchPreview, let preview = Self.buildSnapshot(snapshot: input, studioCategories: categories,
                     todaySourceIDs: todayIDs, launchPreview: true) {
@@ -1501,7 +1501,18 @@ final class AppStoreCacheManager: ObservableObject {
             self.catalogRevision &+= 1
             self.isPreparing = false
             self.indexTask = nil
+            self.prefetchVisibleIcons(from: next)
         }
+    }
+
+    private let iconPrefetcher = ImagePrefetcher()
+
+    private func prefetchVisibleIcons(from snapshot: XSignCatalogSnapshot) {
+        let requests = snapshot.allCombinedItems
+            .prefix(28)
+            .compactMap { $0.app.iconURL.flatMap(xsignImageRequest) }
+        guard !requests.isEmpty else { return }
+        iconPrefetcher.startPrefetching(with: requests)
     }
 
     private func publishLaunchPreview(_ preview: XSignCatalogSnapshot, generation: UInt64) {
@@ -1509,6 +1520,7 @@ final class AppStoreCacheManager: ObservableObject {
               !preview.allCombinedItems.isEmpty else { return }
         catalog = preview
         catalogRevision &+= 1
+        prefetchVisibleIcons(from: preview)
     }
 
     private nonisolated static func launchApps(in repo: ASRepository, scanLimit: Int? = nil) -> [ASRepository.App] {

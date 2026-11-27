@@ -1919,7 +1919,43 @@ final class AutoSignPipelineManager: ObservableObject {
     private var activeNetworkTask: URLSessionDownloadTask?
     private var activeImportTask: Task<Void, Never>?
     private var activeAttempt: UUID?
-    private var protectedTransfers: [String: UUID] = [:]
+    private var backgroundKeepAliveActive = false
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private var protectedTransfers: [String: UUID] = [:] {
+        didSet { syncBackgroundKeepAlive() }
+    }
+
+    private func syncBackgroundKeepAlive() {
+        let hasActiveWork = !protectedTransfers.isEmpty
+        if hasActiveWork {
+            if !backgroundKeepAliveActive {
+                backgroundKeepAliveActive = true
+                #if !targetEnvironment(macCatalyst)
+                BackgroundAudioManager.shared.start()
+                #endif
+                if backgroundTaskID == .invalid {
+                    backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "XSignStoreDownload") { [weak self] in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            if self.backgroundTaskID != .invalid {
+                                UIApplication.shared.endBackgroundTask(self.backgroundTaskID)
+                                self.backgroundTaskID = .invalid
+                            }
+                        }
+                    }
+                }
+            }
+        } else if backgroundKeepAliveActive {
+            backgroundKeepAliveActive = false
+            #if !targetEnvironment(macCatalyst)
+            BackgroundAudioManager.shared.stop()
+            #endif
+            if backgroundTaskID != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+    }
     private var isCheckingDownloadPolicy = false
     private var abortingTransferQueue = false
     private var downloadPreflightBlocked = false

@@ -42,7 +42,24 @@ struct XSignVerifiedSelfUpdate: Sendable {
         delivered = false
         busy=true;progress=nil;message="التحقق من التحديث…"
         operation=Task {
+            #if !targetEnvironment(macCatalyst)
+            BackgroundAudioManager.shared.start()
+            #endif
+            var bgTaskID: UIBackgroundTaskIdentifier = .invalid
+            bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "XSignSelfUpdate") {
+                if bgTaskID != .invalid {
+                    UIApplication.shared.endBackgroundTask(bgTaskID)
+                    bgTaskID = .invalid
+                }
+            }
             defer {
+                #if !targetEnvironment(macCatalyst)
+                BackgroundAudioManager.shared.stop()
+                #endif
+                if bgTaskID != .invalid {
+                    UIApplication.shared.endBackgroundTask(bgTaskID)
+                    bgTaskID = .invalid
+                }
                 security.finishProtectedTransfer(transfer)
                 busy = false
                 operation = nil
@@ -95,18 +112,31 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 if let installed {
                     selectedCandidate = await XSignSelfUpdateCertificate.select(installed: installed, bundleID: bundleID)
                 } else {
-                    let allCerts = Storage.shared.getAllCertificates()
-                    let isUsable: (CertificatePair) -> Bool = { cert in
-                        !cert.isDeleted && !cert.revoked && cert.expiration.map({ $0 > Date() }) == true &&
-                        Storage.shared.getFile(.provision, from: cert) != nil &&
-                        Storage.shared.getFile(.certificate, from: cert) != nil
+                    let storage = Storage.shared
+                    var candidates = storage.getAllCertificates()
+                    if let active = storage.activeSigningCertificate(),
+                       let idx = candidates.firstIndex(where: { $0.uuid == active.uuid }) {
+                        candidates.remove(at: idx)
+                        candidates.insert(active, at: 0)
                     }
-                    let selectedIndex = UserDefaults.standard.integer(forKey: "feather.selectedCert")
-                    if allCerts.indices.contains(selectedIndex), isUsable(allCerts[selectedIndex]) {
-                        selectedCandidate = allCerts[selectedIndex]
-                    } else {
-                        selectedCandidate = allCerts.first(where: isUsable)
+                    var matched: CertificatePair?
+                    for cert in candidates {
+                        guard !cert.isDeleted, !cert.revoked,
+                              cert.expiration.map({ $0 > Date() }) == true,
+                              let provision = storage.getFile(.provision, from: cert),
+                              let keyFile = storage.getFile(.certificate, from: cert),
+                              let password = try? storage.signingPassword(for: cert) else { continue }
+                        let ok = await Task.detached(priority: .userInitiated) {
+                            guard let profile = try? XSignSelfUpdateProfile.read(provision),
+                                  let keyData = try? Data(contentsOf: keyFile) else { return false }
+                            return XSignSelfUpdateKey.matches(keyData, password: password, allowed: profile.developerCertificates)
+                        }.value
+                        if ok, !cert.isDeleted, !cert.revoked {
+                            matched = cert
+                            break
+                        }
                     }
+                    selectedCandidate = matched
                 }
                 guard let selected = selectedCandidate else {
                     try Task.checkCancellation()
@@ -267,6 +297,10 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 case .preparingServer, .preparingManifest: break
                 }
             }, open: { link in
+                while UIApplication.shared.applicationState != .active {
+                    guard !Task.isCancelled, XSignRemoteManager.shared.canInstall(release) else { return false }
+                    do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return false }
+                }
                 XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
                 guard !Task.isCancelled, XSignRemoteManager.shared.canInstall(release) else { return false }
                 return await withCheckedContinuation { continuation in

@@ -1224,13 +1224,18 @@ final class AppStoreCacheManager: ObservableObject {
                 continue
             }
             let canonical = XSignCatalogIO.canonicalURL(url).absoluteString
-            if let encoded = Self.bundledLaunchSeedPayloads[target.urlStr] ?? Self.bundledLaunchSeedPayloads[canonical],
-               let seedData = Data(base64Encoded: encoded),
-               seedData.count <= 524_288,
-               let record = try? XSignCatalogIO.decode(seedData),
-               record.repository.apps.count <= 60 {
-                directLoadedRepos[target.urlStr] = record.repository
-                loadedCacheIdentities[target.urlStr] = target.file
+            let rawKey = SHA256.hash(data: Data(target.urlStr.lowercased().utf8)).map { String(format: "%02x", $0) }.joined()
+            let canKey = SHA256.hash(data: Data(canonical.lowercased().utf8)).map { String(format: "%02x", $0) }.joined()
+            if let encoded = Self.bundledLaunchSeedPayloads[rawKey] ?? Self.bundledLaunchSeedPayloads[canKey],
+               let obfuscated = Data(base64Encoded: encoded),
+               obfuscated.count <= 524_288 {
+                let mask: [UInt8] = [0x5A, 0xC3, 0x3C, 0xA5]
+                let seedData = Data(obfuscated.enumerated().map { $0.element ^ mask[$0.offset & 3] })
+                if let record = try? XSignCatalogIO.decode(seedData),
+                   record.repository.apps.count <= 60 {
+                    directLoadedRepos[target.urlStr] = record.repository
+                    loadedCacheIdentities[target.urlStr] = target.file
+                }
             }
         }
     }

@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "request_id": "cbe5d9083646cd7cfdafe8a1146594be",
+  "request_id": "c9e7eb9c5ec2a9ee3dde3ed181aac5b3",
   "settings": {
     "appName": "Xsign",
     "bundleIdentifier": "Xsign",
     "version": "1.0",
     "iconURL": "https://raw.githubusercontent.com/ipablack/repo/main/assets/icons/img_7019d221-6d51-48fc-ac4b-60e626fac195.png",
-    "delivery": "release"
+    "delivery": "everyone"
   }
 }

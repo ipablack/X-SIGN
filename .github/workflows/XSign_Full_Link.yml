@@ -91,10 +91,8 @@ jobs:
             return changes
 
         helper_hash = digest(helper)
-        if helper_hash == current_helper:
-            subprocess.run([sys.executable, '-u', str(helper)], check=True)
-        elif any(digest(local_path(name)) != expected for name, expected in basis):
-            if helper_hash not in payload['previous_helpers']:
+        if any(digest(local_path(name)) != expected for name, expected in basis):
+            if helper_hash != current_helper and helper_hash not in payload['previous_helpers']:
                 raise SystemExit('This checkout requires the matching XSign_Reviewed_Update.py at the repository root.')
             subprocess.run([sys.executable, '-u', str(helper)], check=True)
 
@@ -293,10 +291,8 @@ jobs:
             return changes
 
         helper_hash = digest(helper)
-        if helper_hash == current_helper:
-            subprocess.run([sys.executable, '-u', str(helper)], check=True)
-        elif any(digest(local_path(name)) != expected for name, expected in basis):
-            if helper_hash not in payload['previous_helpers']:
+        if any(digest(local_path(name)) != expected for name, expected in basis):
+            if helper_hash != current_helper and helper_hash not in payload['previous_helpers']:
                 raise SystemExit('This checkout requires the matching XSign_Reviewed_Update.py at the repository root.')
             subprocess.run([sys.executable, '-u', str(helper)], check=True)
 
@@ -490,10 +486,8 @@ jobs:
             return changes
 
         helper_hash = digest(helper)
-        if helper_hash == current_helper:
-            subprocess.run([sys.executable, '-u', str(helper)], check=True)
-        elif any(digest(local_path(name)) != expected for name, expected in basis):
-            if helper_hash not in payload['previous_helpers']:
+        if any(digest(local_path(name)) != expected for name, expected in basis):
+            if helper_hash != current_helper and helper_hash not in payload['previous_helpers']:
                 raise SystemExit('This checkout requires the matching XSign_Reviewed_Update.py at the repository root.')
             subprocess.run([sys.executable, '-u', str(helper)], check=True)
 

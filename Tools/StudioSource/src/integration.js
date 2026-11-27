@@ -334,6 +334,20 @@ function refreshPushStatus(){
   try{if(pushCampaign)doPushRequest(pushCredentials(),'/status?id='+encodeURIComponent(pushCampaign));}
   catch(error){$('studioPushStatus').textContent=error.message;}
 }
+async function checkPushHealth(){
+  const status=$('studioPushStatus'),btn=$('studioPushHealthButton');
+  const endpoint=pushServiceURL(state.xsign_config.push_endpoint||'');
+  if(!endpoint){status.textContent='أدخل رابط Cloudflare Worker (HTTPS) أولاً.';return;}
+  btn.disabled=true;status.textContent='جارٍ فحص اتصال Cloudflare Worker…';
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+  try{
+    const res=await fetch(endpoint+'/health',{method:'GET',credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+    if(!res.ok)throw Error('استجاب الخادم برمز HTTP '+res.status+'.');
+    const data=await res.json().catch(()=>null);
+    status.textContent=data?.ok?'متصل بنجاح بخدمة إشعارات Cloudflare Workers.':'استجاب الخادم، لكن تأكد من نشر ملف worker.js الصحيح.';
+  }catch(error){status.textContent=controller.signal.aborted?'انتهت مهلة الفحص. تحقق من رابط الـ Worker.':error.message;}
+  finally{clearTimeout(timer);btn.disabled=false;}
+}
 function usageServiceURL(value){
   try{
     const raw=value.trim(),url=new URL(raw);
@@ -1408,6 +1422,7 @@ const integrationBind=bindStoreEvents;
 bindStoreEvents=function(){integrationBind();
   $('studioPushForm').addEventListener('submit',reviewPushCampaign);
   $('studioPushStatusButton').addEventListener('click',refreshPushStatus);
+  $('studioPushHealthButton')?.addEventListener('click',checkPushHealth);
   $('studioPushTarget').addEventListener('focus',renderPushTargets);
   $('studioPushKind').addEventListener('change',()=>{$('studioPushTarget').value='';renderPushTargets();});
   window.addEventListener('pagehide',()=>{pushRequest?.abort();$('studioPushToken').value='';});

@@ -211,7 +211,7 @@
           <div class="card-head"><div><h2>إشعارات XSign</h2><p>إرسال للأجهزة التي فعّلت الإشعارات.</p></div></div>
           <div class="card-body stack">
             <div class="grid-2">
-              <div class="field"><label for="studioPushEndpoint">عنوان خدمة الإشعارات</label><input id="studioPushEndpoint" type="url" dir="ltr" data-path="xsign_config.push_endpoint" placeholder="https://…cloudfunctions.net/push"><span class="field-hint">انشر الإعدادات بعد إضافة العنوان حتى تسجل الأجهزة.</span></div>
+              <div class="field"><label for="studioPushEndpoint">عنوان خدمة الإشعارات (Cloudflare Workers)</label><input id="studioPushEndpoint" type="url" dir="ltr" data-path="xsign_config.push_endpoint" placeholder="https://xsign-push.example.workers.dev"><span class="field-hint">انشر Cloudflare Worker المرفق وألصق رابطه هنا، ثم انشر الإعدادات حتى تسجل الأجهزة.</span></div>
               <div class="field"><label for="studioPushToken">رمز الإرسال الخاص</label><input id="studioPushToken" type="password" dir="ltr" autocomplete="off" spellcheck="false"></div>
             </div>
             <form id="studioPushForm" class="stack">
@@ -231,7 +231,7 @@
                 <div class="field"><label for="studioPushTitle-ckb">العنوان</label><input id="studioPushTitle-ckb" required maxlength="120"></div>
                 <div class="field"><label for="studioPushBody-ckb">النص</label><textarea id="studioPushBody-ckb" required rows="2" maxlength="500"></textarea></div>
               </div></fieldset>
-              <div class="row"><button id="studioPushSend" type="submit" class="btn btn-primary">مراجعة وإرسال</button><button id="studioPushStatusButton" type="button" class="btn" disabled>حالة الإرسال</button></div>
+              <div class="row wrap"><button id="studioPushSend" type="submit" class="btn btn-primary">مراجعة وإرسال</button><button id="studioPushStatusButton" type="button" class="btn" disabled>حالة الإرسال</button><button id="studioPushHealthButton" type="button" class="btn">فحص اتصال Cloudflare</button></div>
               <p id="studioPushStatus" class="tiny muted" role="status" aria-live="polite"></p>
             </form>
           </div>

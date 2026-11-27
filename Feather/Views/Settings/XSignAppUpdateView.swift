@@ -349,7 +349,8 @@ struct XSignAppUpdateView: View {
                     let install = { if actionAvailable { updater.start(release) } }
                     XSignUpdateHTML(html: custom ?? XSignInstallPageHTML.page(heading: heading, name: name, version: version,
                         details: info, canInstall: actionAvailable, button: xsignText("تثبيت"), tintHex: tintHex), onInstall: install)
-                        .frame(height: custom == nil ? 330 : 390)
+                        .frame(minHeight: 330, idealHeight: custom == nil ? 360 : 440, maxHeight: 540)
+						.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     if custom != nil && !hasCustomAction {
                         Button(action: install) { Text(xsignText("تثبيت")).frame(maxWidth: .infinity) }
                             .buttonStyle(XSignInstallButtonStyle())
@@ -452,6 +453,10 @@ struct XSignUpdateHTML: UIViewRepresentable {
         let view=WKWebView(frame:.zero,configuration:config)
         view.isOpaque=false;view.backgroundColor = .clear;view.navigationDelegate=context.coordinator
         view.allowsLinkPreview=false
+		view.scrollView.backgroundColor = .clear
+		view.scrollView.isScrollEnabled = true
+		view.scrollView.bounces = true
+		view.scrollView.showsVerticalScrollIndicator = false
         return view
     }
     func updateUIView(_ view:WKWebView,context:Context) {

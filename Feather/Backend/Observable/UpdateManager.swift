@@ -1,8 +1,9 @@
 //
-//  UpdateManager.swift
-//  Feather
+// UpdateManager.swift
+// Feather
 //
-//  Created by Dominic on 24.05.2026.
+// Created by Dominic on 24.05.2026.
+// Optimized with bounded parallel repository fetching for X-SIGN.
 //
 
 import AltSourceKit
@@ -25,60 +26,86 @@ struct AppUpdate: Identifiable, Equatable {
 @MainActor
 final class UpdateManager: ObservableObject {
 	static let shared = UpdateManager()
-	
+
 	typealias RepositoryDataHandler = Result<ASRepository, Error>
-	
+
 	@Published private(set) var updates: [String: AppUpdate] = [:]
 	@Published private(set) var isChecking = false
 	@Published private(set) var lastCheckedDate: Date?
-	
+
 	private let _dataService = NBFetchService()
-	
+
 	private init() {}
-	
+
 	func update(for app: AppInfoPresentable) -> AppUpdate? {
 		guard let uuid = app.uuid else { return nil }
 		return updates[uuid]
 	}
-	
+
 	func checkForUpdates(
 		sources: [AltSource],
 		localApps: [AppInfoPresentable]
 	) async {
 		guard !isChecking else { return }
-		
+
 		isChecking = true
 		defer {
 			isChecking = false
 			lastCheckedDate = Date()
 		}
-		
+
 		let repositories = await _fetchRepositories(from: sources)
 		updates = _findUpdates(repositories: repositories, localApps: localApps)
 	}
-	
+
 	private func _fetchRepositories(from sources: [AltSource]) async -> [(AltSource, ASRepository)] {
-		var repositories: [(AltSource, ASRepository)] = []
-		
-		for source in sources {
-			guard let url = source.sourceURL else {
-				continue
+		let indexedSources: [(Int, AltSource, URL)] = sources.enumerated().compactMap { index, source in
+			guard let url = source.sourceURL, !ProtectedSourcesVault.isRetiredSource(url) else {
+				return nil
 			}
-			
-			guard let repository = await _fetchRepository(from: url) else {
-				continue
-			}
-			
-			repositories.append((source, repository))
+			return (index, source, url)
 		}
-		
-		return repositories
+
+		guard !indexedSources.isEmpty else { return [] }
+
+		let maxConcurrent = 5
+		var fetched: [(Int, AltSource, ASRepository)] = []
+		fetched.reserveCapacity(indexedSources.count)
+
+		await withTaskGroup(of: (Int, AltSource, ASRepository?).self) { group in
+			var iterator = indexedSources.makeIterator()
+
+			for _ in 0..<min(maxConcurrent, indexedSources.count) {
+				if let (index, source, url) = iterator.next() {
+					group.addTask(priority: .userInitiated) {
+						let repo = try? await XSignCatalogIO.shared.fetch(url).repository
+						return (index, source, repo)
+					}
+				}
+			}
+
+			while let (index, source, repo) = await group.next() {
+				if let repo {
+					fetched.append((index, source, repo))
+				}
+				if let (nextIndex, nextSource, nextURL) = iterator.next() {
+					group.addTask(priority: .userInitiated) {
+						let repo = try? await XSignCatalogIO.shared.fetch(nextURL).repository
+						return (nextIndex, nextSource, repo)
+					}
+				}
+			}
+		}
+
+		return fetched
+			.sorted { $0.0 < $1.0 }
+			.map { ($0.1, $0.2) }
 	}
-	
-    private func _fetchRepository(from url: URL) async -> ASRepository? {
-        guard !ProtectedSourcesVault.isRetiredSource(url) else { return nil }
-        return try? await XSignCatalogIO.shared.fetch(url).repository
-    }
+
+	private func _fetchRepository(from url: URL) async -> ASRepository? {
+		guard !ProtectedSourcesVault.isRetiredSource(url) else { return nil }
+		return try? await XSignCatalogIO.shared.fetch(url).repository
+	}
 
 	private func _findUpdates(
 		repositories: [(AltSource, ASRepository)],
@@ -97,16 +124,16 @@ final class UpdateManager: ObservableObject {
 			}
 			return SourceMetadataCandidate(appUUID: uuid, app: app, metadata: metadata)
 		}
-		
+
 		for localApp in localApps {
 			guard let localUUID = localApp.uuid else {
 				continue
 			}
-			
+
 			let sourceAppIdentifier: String
 			let sourceAppVersion: String?
 			let sourceDownloadFingerprint: String?
-            let sourceAppName: String?
+			let sourceAppName: String?
 			let storedSourceURL: URL
 			let storedSourceID: String?
 			if let directMetadata = metadataByUUID[localUUID] {
@@ -116,11 +143,11 @@ final class UpdateManager: ObservableObject {
 				else {
 					continue
 				}
-				
+
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = directMetadata.sourceAppVersion
 				sourceDownloadFingerprint = directMetadata.downloadFingerprint
-                sourceAppName = directMetadata.sourceAppName
+				sourceAppName = directMetadata.sourceAppName
 				storedSourceURL = metadataSourceURL
 				storedSourceID = directMetadata.sourceRepositoryIdentifier
 			} else if let fallback = _fallbackMetadataCandidate(
@@ -134,11 +161,11 @@ final class UpdateManager: ObservableObject {
 				else {
 					continue
 				}
-				
+
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = fallback.metadata.sourceAppVersion
 				sourceDownloadFingerprint = fallback.metadata.downloadFingerprint
-                sourceAppName = fallback.metadata.sourceAppName
+				sourceAppName = fallback.metadata.sourceAppName
 				storedSourceURL = metadataSourceURL
 				storedSourceID = fallback.metadata.sourceRepositoryIdentifier
 				Storage.shared.copySourceMetadata(
@@ -153,41 +180,45 @@ final class UpdateManager: ObservableObject {
 				sourceAppIdentifier = localIdentifier
 				sourceAppVersion = localApp.version
 				sourceDownloadFingerprint = nil
-                sourceAppName = localApp.name
+				sourceAppName = localApp.name
 				storedSourceURL = localSourceURL
 				storedSourceID = nil
 			} else {
 				continue
 			}
-			
+
 			for (source, repository) in repositories {
 				guard let sourceURL = source.sourceURL else {
 					continue
 				}
-				
+
 				let migratedOwner = sourceURL == XSignCatalogueEndpoint.ownerURL &&
 					storedSourceID == XSignCatalogueEndpoint.ownerID
 				guard migratedOwner || _matchesStoredRepository(storedSourceURL: storedSourceURL, sourceURL: sourceURL) else {
 					continue
 				}
-				
+
 				let candidates = repository.apps.filter { $0.catalogID == sourceAppIdentifier || $0.id == sourceAppIdentifier }
-                let named = candidates.filter { $0.currentName == (sourceAppName ?? localApp.name ?? "") }
-                guard let remoteApp = candidates.count == 1 ? candidates.first : (named.count == 1 ? named.first : nil) else {
+				let named = candidates.filter { $0.currentName == (sourceAppName ?? localApp.name ?? "") }
+				guard let remoteApp = candidates.count == 1 ? candidates.first : (named.count == 1 ? named.first : nil) else {
 					continue
 				}
-				
+
 				guard let remoteVersion = remoteApp.currentVersion, !remoteVersion.isEmpty else {
 					continue
 				}
-				
+
 				guard let downloadURL = remoteApp.currentDownloadUrl else {
 					continue
 				}
-                guard XSignReleaseVersion.catalogNeedsUpdate(currentVersion:sourceAppVersion,targetVersion:remoteVersion,
-                    currentFingerprint:sourceDownloadFingerprint, targetURL:downloadURL,
-                    isProtectedPackage:false) else { continue }
-				
+				guard XSignReleaseVersion.catalogNeedsUpdate(
+					currentVersion: sourceAppVersion,
+					targetVersion: remoteVersion,
+					currentFingerprint: sourceDownloadFingerprint,
+					targetURL: downloadURL,
+					isProtectedPackage: false
+				) else { continue }
+
 				guard let provenance = SourceAppProvenance(
 					sourceURL: sourceURL,
 					repository: repository,
@@ -195,7 +226,7 @@ final class UpdateManager: ObservableObject {
 				) else {
 					continue
 				}
-				
+
 				foundUpdates[localUUID] = AppUpdate(
 					id: localUUID,
 					localUUID: localUUID,
@@ -210,17 +241,17 @@ final class UpdateManager: ObservableObject {
 				break
 			}
 		}
-		
+
 		return foundUpdates
 	}
-	
+
 	private func _matchesStoredRepository(
 		storedSourceURL: URL,
 		sourceURL: URL
 	) -> Bool {
 		_normalizedSourceURL(storedSourceURL) == _normalizedSourceURL(sourceURL)
 	}
-	
+
 	private func _normalizedSourceURL(_ url: URL) -> String {
 		var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
 		let scheme = components?.scheme?.lowercased()
@@ -228,12 +259,12 @@ final class UpdateManager: ObservableObject {
 		components?.scheme = scheme
 		components?.host = host
 		components?.fragment = nil
-		
+
 		let normalized = components?.url ?? url
 		let absoluteString = normalized.absoluteString
 		return absoluteString.hasSuffix("/") ? String(absoluteString.dropLast()) : absoluteString
 	}
-	
+
 	private func _fallbackMetadataCandidate(
 		for localApp: AppInfoPresentable,
 		localUUID: String,
@@ -246,7 +277,7 @@ final class UpdateManager: ObservableObject {
 		else {
 			return nil
 		}
-		
+
 		return candidates.first {
 			$0.appUUID != localUUID &&
 			!$0.app.isSigned &&

@@ -327,6 +327,7 @@ struct ApprovedSourceChecks {
         let typed = try JSONDecoder().decode(ASRepository.self, from: typedData)
         precondition(typed.apps[0].category == "7013" && typed.apps[0].isGame == true && typed.apps[1].isGame == false)
         try checkCatalogueCategories()
+        try await checkManagedCatalogueCache()
         let existingLayout = try JSONDecoder().decode(XSignDashboardConfig.self, from: Data(#"{"sections":[{"id":"apps-sources","title":"مصادري","page":"apps","kind":"sources"},{"id":"games-list","title":"الألعاب","page":"games","kind":"apps"}]}"#.utf8))
         precondition(existingLayout.sections(for: "apps").isEmpty)
         precondition(existingLayout.sections(for: "games").map(\.id) == ["games-list"])
@@ -551,7 +552,6 @@ struct ApprovedSourceChecks {
         let emptyStore = XSignTestCatalogue.buildSnapshot(snapshot: [], studioCategories: curatedStudio)!
         precondition(emptyStore.appCategories.count == 2 && emptyStore.gameCategories.count == 1)
         print("PASS: source category variants, Studio ordering and aliases, exclusive complete app/game lists, Today artwork and badges")
-        try await checkManagedCatalogueCache()
     }
 
     static func checkManagedCatalogueCache() async throws {

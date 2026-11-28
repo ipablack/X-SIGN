@@ -4,15 +4,14 @@ import os
 view = Path('Feather/Views/Sources/SourcesView.swift').read_text()
 transport = Path('Feather/Views/Sources/SourcesViewModel.swift').read_text()
 vault = view[view.index('enum ProtectedSourcesVault {'):view.index('// MARK: - Rich Apple App Store')]
-canonical = transport[transport.index('    nonisolated static func canonicalURL'):transport.index('    nonisolated static func cacheIdentity')]
-selection = view[view.index('    private nonisolated static let defaultCoreTargets:'):view.index('    private nonisolated static var coreTargets:')]
+catalog_io = transport[transport.index('struct XSignRepositoryRecord:'):].replace('AppStoreCacheManager.', 'SourceSelection.')
+selection = view[view.index('    private nonisolated static let defaultCoreTargets:'):view.index('    @discardableResult\n    func configureManagedSources')]
 support = '''import Foundation
 struct AltSource { var sourceURL: URL?; var identifier: String? }
 struct XSignCoreSourceItem { let name: String; let id: String; let url: String }
 '''
 output = Path(os.environ['RUNNER_TEMP'])/'xsign-source-policy.swift'
 policy=Path('Feather/Utilities/XSignDashboardPolicy.swift').read_text()
-errors=transport[transport.index('enum XSignCatalogError:'):transport.index('actor XSignCatalogIO {')]
 item = view[view.index('struct AppStoreAppItem:'):view.index('// MARK: - Editorial Instruction Model')]
 # Use the production value type without compiling the surrounding Core Data code.
 source_metadata = Path('Feather/Backend/Storage/Storage+SourceMetadata.swift').read_text()
@@ -38,7 +37,7 @@ layout_end = store_layout.index('private struct XSignClassicStoreSection:', layo
 layout = store_layout[layout_start:layout_end].replace('private struct XSignStore', 'struct XSignStore')
 queue_start = view.index('struct XSignSerialQueue<Element>')
 queue_end = view.index('// Collapse byte-level KVO callbacks', queue_start)
-output.write_text(support + provenance + errors + policy + '\nenum XSignCatalogIO {\n' + canonical + '}\n' + vault +
+output.write_text(support + provenance + policy + '\n' + catalog_io + vault +
     'enum SourceSelection {\n' + selection + '}\n' + search.read_text() + '\n' + bilingual + item + news +
     view[category_start:category_end].replace('private struct XSignCatalogSnapshot', 'struct XSignCatalogSnapshot') + 'enum XSignTestCatalogue {\n' +
     view[launch_start:launch_end] + view[builder_start:builder_end].replace('    private nonisolated static func buildSnapshot', '    static func buildSnapshot', 1)

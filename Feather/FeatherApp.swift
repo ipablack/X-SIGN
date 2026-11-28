@@ -222,6 +222,7 @@ final class XSignSecurityEnforcer: ObservableObject {
 	)
 	@Published var isVPNOrProxyDetected: Bool = false
     @Published private(set) var hasInterceptingNetwork = false
+    @Published private(set) var isNetworkReachable = false
 	@Published var didCompleteOnlineHandshake: Bool = false
     @Published private(set) var installationFailure: String?
 
@@ -335,7 +336,8 @@ final class XSignSecurityEnforcer: ObservableObject {
 
     func evaluateNetworkSecurity() {
         let path = pathMonitor.currentPath
-        let activeInterfaces = path.status == .satisfied
+        let connected = path.status == .satisfied
+        let activeInterfaces = connected
             ? Set(path.availableInterfaces.filter { path.usesInterfaceType($0.type) }.map(\.name))
             : []
         let detected = Self.isVPNOrProxyActiveOnDevice(activeInterfaces: activeInterfaces)
@@ -344,6 +346,7 @@ final class XSignSecurityEnforcer: ObservableObject {
         let overlayChanged = isVPNOrProxyDetected != blocked
         if interceptionChanged { hasInterceptingNetwork = detected }
         if overlayChanged { isVPNOrProxyDetected = blocked }
+        if isNetworkReachable != connected { isNetworkReachable = connected }
         if blocked { stopProtectedTransfers(Self.vpnFailure) }
         if interceptionChanged || overlayChanged {
             NotificationCenter.default.post(name: .xsignPolicyChanged, object: nil)
@@ -624,7 +627,6 @@ final class XSignRemoteManager: ObservableObject {
         cache.applyStudioCategories(root.categories)
         cache.applyTodaySources(next.dashboard?.today_source_ids)
         let sourcePolicyChanged = XSignDashboardSources.apply(next.dashboard, legacy: next.app_control?.core_sources)
-        if sourcePolicyChanged { cache.invalidateNetworkCache() }
         let commandChanged = cache.configureManagedSources(next.app_control?.core_sources, resetAdapters: sourcePolicyChanged) || sourcePolicyChanged
         var needsRefresh = changedRevision || commandChanged
         if let flush = next.app_control?.cache_flush_id,
@@ -766,6 +768,11 @@ struct FeatherApp: App {
 	@StateObject private var remoteManager = XSignRemoteManager.shared
 	@StateObject private var securityEnforcer = XSignSecurityEnforcer.shared
 	@StateObject private var storage = Storage.shared
+
+    private var canSyncPanel: Bool { scenePhase == .active && securityEnforcer.isNetworkReachable }
+    private var canRefreshCatalogue: Bool {
+        canSyncPanel && storage.isStoreLoaded && !gateIsVisible && !securityEnforcer.isVPNOrProxyDetected
+    }
 
 	@AppStorage("Feather.userTintColor") private var userTintHex: String = "#005BBB"
     @AppStorage("Feather.userInterfaceStyle")
@@ -920,8 +927,10 @@ struct FeatherApp: App {
             .tint(activeTintColor)
             .accentColor(activeTintColor)
 			.environment(\.managedObjectContext, storage.context)
-            .task(id: scenePhase == .active && !gateIsVisible && !securityEnforcer.isVPNOrProxyDetected) {
-                guard scenePhase == .active, !gateIsVisible, !securityEnforcer.isVPNOrProxyDetected else { return }
+            .task(id: canRefreshCatalogue) {
+                guard canRefreshCatalogue else { return }
+                await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel)
+                guard !Task.isCancelled, canRefreshCatalogue else { return }
                 await storeCache.runAutomaticUpdates(sources: { storage.getSources() }, viewModel: sourcesViewModel)
             }
             .sheet(isPresented: $showOptionalUpdate) {
@@ -1033,8 +1042,13 @@ struct FeatherApp: App {
             } message: {
                 Text(xsignText(securityEnforcer.installationFailure ?? ""))
             }
-            .task(id: scenePhase) {
-                guard scenePhase == .active else { return }
+            .task(id: canSyncPanel) {
+                guard canSyncPanel else {
+                    if !Task.isCancelled, !securityEnforcer.isNetworkReachable {
+                        await XSignCatalogIO.shared.cancelRequests()
+                    }
+                    return
+                }
                 securityEnforcer.evaluateNetworkSecurity()
                 await remoteManager.fetchRemoteConfig(storeCache: storeCache, sourcesViewModel: sourcesViewModel, force: true)
                 presentOptionalUpdate()

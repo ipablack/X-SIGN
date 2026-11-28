@@ -376,6 +376,11 @@ enum XSignDashboardSources {
     static let historyKey = "xsign.managedSourceHistory.v2"
     static let userKey = "xsign.explicitUserSources.v2"
     static let hiddenKey = "xsign.hiddenManagedSources.v1"
+    private static let cachePolicyKey = "xsign.managedCachePolicy.v1"
+
+    static var cachePolicyID: String {
+        UserDefaults.standard.string(forKey: cachePolicyKey) ?? ""
+    }
 
     nonisolated static let owned = XSignManagedSource(id: XSignCatalogueEndpoint.ownerID, name: "IPA BLACK",
         url: XSignCatalogueEndpoint.ownerURL.absoluteString)
@@ -392,6 +397,7 @@ enum XSignDashboardSources {
 
     static func resetManaged() {
         UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(UUID().uuidString, forKey: cachePolicyKey)
     }
 
     nonisolated static func sourceKey(_ url: URL) -> String {
@@ -481,6 +487,7 @@ enum XSignDashboardSources {
         valid.forEach { history.insert($0.url) }
         UserDefaults.standard.set(Array(history), forKey: historyKey)
         UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.set(UUID().uuidString, forKey: cachePolicyKey)
         return true
     }
 }

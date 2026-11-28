@@ -338,9 +338,14 @@ bool ZArchO::BuildCodeSignature(ZSignAsset* pSignAsset,
 	string strDerEntitlementsSlot;
 
 	string strEmptyEntitlements = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict/>\n</plist>\n";
+	string executableEntitlements;
+	if (IsExecute() && !pSignAsset->EntitlementsForBundle(strBundleId, executableEntitlements)) {
+		ZLog::ErrorV(">>> Provisioning entitlements do not match bundle ID: %s\n", strBundleId.c_str());
+		return false;
+	}
 	ZSign::SlotBuildRequirements(strBundleId, pSignAsset->m_strSubjectCN, strRequirementsSlot);
-	ZSign::SlotBuildEntitlements(IsExecute() ? pSignAsset->m_strEntitleData : strEmptyEntitlements, strEntitlementsSlot);
-	ZSign::SlotBuildDerEntitlements(IsExecute() ? pSignAsset->m_strEntitleData : "", strDerEntitlementsSlot);
+	ZSign::SlotBuildEntitlements(IsExecute() ? executableEntitlements : strEmptyEntitlements, strEntitlementsSlot);
+	ZSign::SlotBuildDerEntitlements(executableEntitlements, strDerEntitlementsSlot);
 
 	string strRequirementsSlotSHA1;
 	string strRequirementsSlotSHA256;
@@ -384,8 +389,9 @@ bool ZArchO::BuildCodeSignature(ZSignAsset* pSignAsset,
 		}
 	}
 
-	if (NULL != strstr(strEntitlementsSlot.data() + 8, "<key>get-task-allow</key>")) {
-		// TODO: Check if get-task-allow is actually set to true
+	jvalue entitlements;
+	if (!executableEntitlements.empty() && entitlements.read_plist(executableEntitlements) &&
+		entitlements.at("get-task-allow").as_bool()) {
 		uExecSegFlags |= CS_EXECSEG_MAIN_BINARY | CS_EXECSEG_ALLOW_UNSIGNED;
 	}
 
@@ -435,8 +441,9 @@ bool ZArchO::BuildCodeSignature(ZSignAsset* pSignAsset,
 	}
 
 	string strCMSSignatureSlot;
-	if (!pSignAsset->m_bAdhoc) { //adhoc remove cms signature slot
-		ZSign::SlotBuildCMSSignature(pSignAsset, strCodeDirectorySlot, strAltnateCodeDirectorySlot, strCMSSignatureSlot);
+	if (!pSignAsset->m_bAdhoc &&
+		!ZSign::SlotBuildCMSSignature(pSignAsset, strCodeDirectorySlot, strAltnateCodeDirectorySlot, strCMSSignatureSlot)) {
+		return false;
 	}
 
 	uint32_t uCodeDirectorySlotLength = (uint32_t)strCodeDirectorySlot.size();
@@ -563,8 +570,8 @@ bool ZArchO::Sign(ZSignAsset* pSignAsset,
 	}
 
 	string strCodeSignBlob;
-	BuildCodeSignature(pSignAsset, bForce, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResourcesSHA1, strCodeResourcesSHA256, strCodeSignBlob);
-	if (strCodeSignBlob.empty()) {
+	if (!BuildCodeSignature(pSignAsset, bForce, strBundleId, strInfoSHA1, strInfoSHA256,
+		strCodeResourcesSHA1, strCodeResourcesSHA256, strCodeSignBlob) || strCodeSignBlob.empty()) {
 		ZLog::Error(">>> Build CodeSignature failed!\n");
 		return false;
 	}

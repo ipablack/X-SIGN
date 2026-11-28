@@ -46,19 +46,24 @@ final class ZsignHandler {
 	}
 
 	func sign(with credentials: Credentials) async throws {
-		// Let the embedded Zsign engine validate the real P12/profile assets.
-		// Do not reject unrelated apps based on a second Swift App ID check.
 		if let entitlements = _options.appEntitlementsFile {
 			_ = try XSignAppMetadata.readInfo(at: entitlements)
 		}
 
-		let appPath = _appUrl.relativePath
+		let appURL = _appUrl
 		let entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 		let removeProvision = _options.removeProvisioning
 
-		let success = await Task.detached(priority: .userInitiated) {
-			Zsign.sign(
-				appPath: appPath,
+		let success = try await Task.detached(priority: .userInitiated) {
+            let metadata = try XSignOTABundleMetadata.read(from: appURL)
+            guard let profile = try? XSignSelfUpdateProfile.read(URL(fileURLWithPath: credentials.provisionPath)) else {
+                throw XSignProvisioningProfile.ProfileError.malformed
+            }
+            guard profile.expiration > Date() else { throw XSignProvisioningProfile.ProfileError.expired }
+            guard profile.supports(metadata.identifier) else { throw XSignProvisioningProfile.ProfileError.mismatch }
+
+            let signed = Zsign.sign(
+				appPath: appURL.path,
 				provisionPath: credentials.provisionPath,
 				p12Path: credentials.certificatePath,
 				p12Password: credentials.password,
@@ -66,6 +71,15 @@ final class ZsignHandler {
 				removeProvision: removeProvision,
 				completion: { _ in }
 			)
+            guard signed else { return false }
+            guard let executable = Bundle(url: appURL)?.executableURL,
+                  let data = LCGetMachOEntitlements(executable.path),
+                  let entitlements = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+                  entitlements["application-identifier"] as? String == profile.prefix + "." + metadata.identifier,
+                  entitlements["com.apple.developer.team-identifier"] as? String == profile.team else {
+                throw SigningFileHandlerError.invalidSignedIdentity
+            }
+            return true
 		}.value
 
 		guard success else {

@@ -13,19 +13,24 @@ struct XSignVerifiedSelfUpdate: Sendable {
 }
 
 @MainActor final class XSignAppUpdater: ObservableObject {
+    struct CertificateSetup: Identifiable {
+        let id = UUID()
+        let update: XSignOwnerUpdate
+        let requirement: XSignSelfUpdateCertificate.Requirement
+    }
+
     @Published var busy=false
     @Published var message=""
-    @Published var needsCertificate=false
+    @Published var certificateSetup: CertificateSetup?
     @Published var delivered=false
     @Published var progress: Double?
     private var pendingUpdate: XSignOwnerUpdate?
-    private var knownCertificates=Set<String>()
     private var operation: Task<Void,Never>?
     private var interruption: String?
     private let maximumSize: Int64=2_147_483_648
     func cancel() { operation?.cancel() }
     func releaseChanged() {
-        cancel(); pendingUpdate = nil; needsCertificate = false; delivered = false; progress = nil
+        cancel(); pendingUpdate = nil; certificateSetup = nil; delivered = false; progress = nil
         if !busy { message = "" }
     }
     func start(_ update: XSignOwnerUpdate) {
@@ -101,45 +106,22 @@ struct XSignVerifiedSelfUpdate: Sendable {
                     return
                 }
                 guard let url=update.verifiedURL,let expected=update.sha256 else { throw failure("التحديث غير متاح حالياً. حاول لاحقاً.") }
-                let installed: XSignSelfUpdateProfile? = Bundle.main
-                    .url(forResource: "embedded", withExtension: "mobileprovision")
-                    .flatMap { try? XSignSelfUpdateProfile.read($0) }
+                let provisionURL = Bundle.main.bundleURL.appendingPathComponent("embedded.mobileprovision")
+                guard let installed = try? XSignSelfUpdateProfile.read(provisionURL), installed.supports(bundleID) else {
+                    throw failure("تعذّر التحقق من هوية توقيع XSign المثبّت. يلزم تحديث موقّع مسبقاً ومتوافق مع النسخة الحالية.")
+                }
+                let requirement = XSignSelfUpdateCertificate.Requirement(installed: installed, bundleID: bundleID)
                 message = "التحقق من شهادة التحديث…"
                 guard Storage.shared.isStoreLoaded else {
                     throw failure("جارٍ تحميل الشهادات لهذا الجهاز. أعد المحاولة بعد اكتمال التحميل.")
                 }
-                var selectedCandidate: CertificatePair? = nil
-                if let installed {
-                    selectedCandidate = await XSignSelfUpdateCertificate.select(installed: installed, bundleID: bundleID)
-                }
-                if selectedCandidate == nil {
-                    let storage = Storage.shared
-                    var candidates = storage.getAllCertificates()
-                    if let active = storage.activeSigningCertificate(),
-                       let idx = candidates.firstIndex(where: { $0.uuid == active.uuid }) {
-                        candidates.remove(at: idx)
-                        candidates.insert(active, at: 0)
-                    }
-                    selectedCandidate = candidates.first { cert in
-                        !cert.isDeleted && !cert.revoked &&
-                        (cert.expiration.map({ $0 > Date() }) ?? true) &&
-                        storage.getFile(.provision, from: cert) != nil &&
-                        storage.getFile(.certificate, from: cert) != nil
-                    } ?? candidates.first { cert in
-                        !cert.isDeleted &&
-                        storage.getFile(.provision, from: cert) != nil &&
-                        storage.getFile(.certificate, from: cert) != nil
-                    }
-                }
-                guard let selected = selectedCandidate else {
-                    try Task.checkCancellation()
-                    knownCertificates = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid })
-                    pendingUpdate = update
-                    needsCertificate = true
-                    message = "هذه النسخة تحتاج إلى إعادة توقيع. أضف شهادة متوافقة مع XSign المثبّت."
+                let candidate = await XSignSelfUpdateCertificate.select(requirement: requirement)
+                try checkRelease(update)
+                guard let selected = candidate else {
+                    certificateSetup = CertificateSetup(update: update, requirement: requirement)
+                    message = "أضف شهادة من نفس هوية توقيع XSign المثبّت لاستئناف التحديث."
                     return
                 }
-                try checkRelease(update)
                 message="جاري تنزيل التحديث…"
                 let directory=XSignPrivateFiles.workDirectory(prefix:"SelfUpdate")
                 try XSignPrivateFiles.createDirectory(directory)
@@ -194,7 +176,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 let data = try PropertyListSerialization.data(fromPropertyList: stamped, format: .binary, options: 0)
                 try data.write(to: plist, options: .atomic)
                 try XSignPrivateFiles.protect(plist)
-                guard !selected.isDeleted,
+                guard !selected.isDeleted, !selected.revoked,
                       let provision = Storage.shared.getFile(.provision, from: selected),
                       let key = Storage.shared.getFile(.certificate, from: selected) else {
                     throw failure("شهادة التحديث غير متاحة. أضف شهادة صالحة ومتوافقة مع النسخة المثبّتة.")
@@ -229,14 +211,8 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 let signedInfo = try XSignOTABundleMetadata.read(from: appDirectory)
                 let signedProfile = try XSignSelfUpdateProfile.read(appDirectory.appendingPathComponent("embedded.mobileprovision"))
                 let signedDictionary = try XSignAppMetadata.readInfo(at: plist)
-                let profileMatches: Bool
-                if let installed {
-                    profileMatches = signedProfile.canReplace(installed, bundleID: bundleID) || !signedProfile.developerCertificates.isEmpty
-                } else {
-                    profileMatches = true
-                }
                 guard signedInfo.identifier == bundleID, XSignReleaseVersion.compare(signedInfo.shortVersion, latest) == 0,
-                      signedInfo.version == info.version, profileMatches,
+                      signedInfo.version == info.version, signedProfile.canReplace(installed, bundleID: bundleID),
                       signedDictionary["XSignReleaseOrigin"] as? String == origin,
                       update.targetBuildRequest.map({ signedDictionary["XSignStudioBuildRequest"] as? String == $0 }) ?? true else {
                     throw failure("هوية التحديث الموقّع لا تطابق النسخة المثبّتة. أُوقف التثبيت.")
@@ -253,6 +229,8 @@ struct XSignVerifiedSelfUpdate: Sendable {
                     message = (error as? XSignOTAError)?.localizedDescription
                         ?? (error as? XSignUpdateHTTPFailure)?.localizedDescription
                         ?? (error as? XSignIPAExtractor.InvalidArchive)?.localizedDescription
+                        ?? (error as? SigningFileHandlerError)?.localizedDescription
+                        ?? (error as? XSignProvisioningProfile.ProfileError)?.localizedDescription
                         ?? ((error as NSError).domain == "XSign.Update" ? error.localizedDescription
                             : "تعذّر تجهيز التحديث. تحقق من الخدمة والشهادة وملف الإصدار.")
                 }
@@ -264,18 +242,17 @@ struct XSignVerifiedSelfUpdate: Sendable {
         try Task.checkCancellation()
         guard XSignRemoteManager.shared.canInstall(release) else { throw failure("تغيّر الإصدار المعتمد أو توقف التحديث. تحقق مجدداً.") }
     }
+    func certificateSaved(for setup: CertificateSetup) {
+        guard certificateSetup?.id == setup.id else { return }
+        pendingUpdate = setup.update
+    }
     func certificateSetupFinished() {
-        guard let update=pendingUpdate else { return }
-        pendingUpdate=nil
-        let added=Set(Storage.shared.getAllCertificates().compactMap { $0.uuid }).subtracting(knownCertificates)
-        if !added.isEmpty { start(update) }
+        guard let update = pendingUpdate else { return }
+        pendingUpdate = nil
+        start(update)
     }
     private func install(package: URL, metadata: XSignOTABundleMetadata, release: XSignOwnerUpdate, transfer: UUID) async throws {
         try checkRelease(release)
-        #if !targetEnvironment(macCatalyst)
-        BackgroundAudioManager.shared.start()
-        defer { BackgroundAudioManager.shared.stop() }
-        #endif
         let primaryMode: XSignOTAInstallMode = .selected
         let fallbackMode: XSignOTAInstallMode = primaryMode == .palera ? .xsignDirect : .palera
         let runInstall: (XSignOTAInstallMode) async throws -> Void = { mode in
@@ -514,7 +491,9 @@ struct XSignAppUpdateView: View {
         }
         .xsignPageBackground()
 
-        .sheet(isPresented:$updater.needsCertificate,onDismiss:{ updater.certificateSetupFinished() }) { CertificatesAddView() }
+        .sheet(item: $updater.certificateSetup, onDismiss: { updater.certificateSetupFinished() }) { setup in
+            CertificatesAddView(updateRequirement: setup.requirement, onSaved: { updater.certificateSaved(for: setup) })
+        }
         .interactiveDismissDisabled(updater.busy)
         .onDisappear { updater.cancel() }
         .onChange(of: release?.installIdentity) { _ in updater.releaseChanged() }

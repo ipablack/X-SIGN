@@ -566,6 +566,63 @@ ZSignAsset::ZSignAsset()
 	m_bSHA256Only = false;
 }
 
+static bool provisionAllows(const string& pattern, const string& identifier)
+{
+	if (pattern == identifier) return true;
+	size_t wildcard = pattern.find('*');
+	return wildcard != string::npos && wildcard > 0 && wildcard == pattern.size() - 1 &&
+		pattern[wildcard - 1] == '.' && identifier.size() > wildcard &&
+		identifier.compare(0, wildcard, pattern, 0, wildcard) == 0;
+}
+
+bool ZSignAsset::ApplicationIdentifierForBundle(const string& bundleId, string& identifier) const
+{
+	size_t separator = m_strApplicationId.find('.');
+	if (separator == string::npos || separator == 0 || bundleId.empty()) return false;
+	identifier = m_strApplicationId.substr(0, separator + 1) + bundleId;
+	return provisionAllows(m_strApplicationId, identifier);
+}
+
+bool ZSignAsset::EntitlementsForBundle(const string& bundleId, string& entitlements) const
+{
+	if (m_bAdhoc) {
+		entitlements = m_strEntitleData;
+		return true;
+	}
+	string identifier;
+	jvalue requested;
+	if (!ApplicationIdentifierForBundle(bundleId, identifier) ||
+		!requested.read_plist(m_strEntitleData) || !requested.is_object()) return false;
+
+	requested["application-identifier"] = identifier;
+	if (requested.has("com.apple.application-identifier")) {
+		requested["com.apple.application-identifier"] = identifier;
+	}
+	requested["com.apple.developer.team-identifier"] = m_strTeamId;
+	const jvalue& allowed = m_provisionEntitlements["keychain-access-groups"];
+	const jvalue& groups = requested.at("keychain-access-groups");
+	if (groups.is_array()) {
+		jvalue concrete(jvalue::E_ARRAY);
+		for (size_t i = 0; i < groups.size(); ++i) {
+			string group = groups[i].as_string();
+			if (group.find('*') != string::npos) {
+				if (!provisionAllows(group, identifier)) continue;
+				group = identifier;
+			}
+			for (size_t j = 0; j < allowed.size(); ++j) {
+				if (provisionAllows(allowed[j].as_string(), group)) {
+					concrete.push_back(group);
+					break;
+				}
+			}
+		}
+		if (concrete.size()) requested["keychain-access-groups"] = concrete;
+		else requested.erase("keychain-access-groups");
+	}
+	entitlements = requested.style_write_plist();
+	return !entitlements.empty();
+}
+
 bool ZSignAsset::Init(
 	const string& strCertFile,
 	const string& strPKeyFile, 
@@ -601,10 +658,14 @@ bool ZSignAsset::Init(
 	string strProvContent;
 	if (GetCMSContent(m_strProvData, strProvContent)) {
 		if (jvProv.read_plist(strProvContent)) {
-			m_strApplicationId = jvProv["Entitlements"]["application-identifier"].as_cstr();
+			m_provisionEntitlements = jvProv["Entitlements"];
+			m_strApplicationId = m_provisionEntitlements["application-identifier"].as_cstr();
+			if (m_strApplicationId.empty()) {
+				m_strApplicationId = m_provisionEntitlements["com.apple.application-identifier"].as_cstr();
+			}
 			m_strTeamId = jvProv["TeamIdentifier"][0].as_cstr();
 			if (m_strEntitleData.empty()) {
-				jvProv["Entitlements"].style_write_plist(m_strEntitleData);
+				m_provisionEntitlements.style_write_plist(m_strEntitleData);
 			}
 		}
 	}
@@ -683,6 +744,23 @@ bool ZSignAsset::Init(
 
 	if (NULL == x509Cert) {
 		ZLog::Error(">>> Can't find paired certificate and private key!\n");
+		return false;
+	}
+
+	bool allowedCertificate = false;
+	const jvalue& allowed = jvProv["DeveloperCertificates"];
+	for (size_t i = 0; i < allowed.size(); ++i) {
+		string der = allowed[i].as_data();
+		const unsigned char* bytes = reinterpret_cast<const unsigned char*>(der.data());
+		X509* candidate = d2i_X509(NULL, &bytes, der.size());
+		allowedCertificate = candidate && X509_cmp(candidate, x509Cert) == 0;
+		X509_free(candidate);
+		if (allowedCertificate) break;
+	}
+	if (!allowedCertificate) {
+		X509_free(x509Cert);
+		EVP_PKEY_free(evpPKey);
+		ZLog::Error(">>> The signing certificate is missing from the provisioning profile.\n");
 		return false;
 	}
 

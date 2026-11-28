@@ -2,7 +2,7 @@ import Foundation
 
 @main
 struct ApprovedSourceChecks {
-    static func main() throws {
+    static func main() async throws {
         let manifestURL = URL(string: "https://example.test/setup.plist?key=a+b")!
         let payloadURL = URL(string: "https://example.test/package.ipa")!
         let wrapper = "itms-services://?action=download-manifest&url=https%3A%2F%2Fexample.test%2Fsetup.plist%3Fkey%3Da%2Bb"
@@ -551,6 +551,73 @@ struct ApprovedSourceChecks {
         let emptyStore = XSignTestCatalogue.buildSnapshot(snapshot: [], studioCategories: curatedStudio)!
         precondition(emptyStore.appCategories.count == 2 && emptyStore.gameCategories.count == 1)
         print("PASS: source category variants, Studio ordering and aliases, exclusive complete app/game lists, Today artwork and badges")
+        try await checkManagedCatalogueCache()
     }
 
+    static func checkManagedCatalogueCache() async throws {
+        let defaults = UserDefaults.standard
+        let keys = [XSignDashboardSources.key, XSignDashboardSources.historyKey,
+                    "xsign.managedCachePolicy.v1", "xsign.managedCatalogFiles.v1"]
+        let saved = keys.map { defaults.object(forKey: $0) }
+        defer { for (key, value) in zip(keys, saved) { defaults.set(value, forKey: key) } }
+        keys.forEach { defaults.removeObject(forKey: $0) }
+
+        let fm = FileManager.default
+        let folder = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let catalogues = folder.appendingPathComponent("catalogues")
+        let previews = folder.appendingPathComponent("previews")
+        try fm.createDirectory(at: catalogues, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: folder) }
+        let io = XSignCatalogIO(directory: catalogues, previewDirectory: previews)
+        let kept = XSignManagedSource(id: "stay", name: "Stay", url: "https://cache.test/stay.json")
+        let removed = XSignManagedSource(id: "remove", name: "Remove", url: "https://cache.test/remove.json")
+
+        func select(_ sources: [XSignManagedSource]) -> Bool {
+            XSignDashboardSources.apply(.init(schema_version: 2, sources: sources, sections: nil, tab_order: nil,
+                allow_user_sources: nil, signing_enabled: nil, update: nil))
+        }
+        precondition(select([kept]))
+        let keptFiles = XSignCatalogIO.managedCacheFiles()
+        let keptPreviews = SourceSelection.managedPreviewFiles
+        precondition(select([kept, removed]))
+        let selectedFiles = XSignCatalogIO.managedCacheFiles()
+        let selectedPreviews = SourceSelection.managedPreviewFiles
+        let discardedFile = selectedFiles.subtracting(keptFiles).first!
+        let discardedPreview = selectedPreviews.subtracting(keptPreviews).first!
+        let oldAccess = XSignCatalogIO.ManagedAccess(policyID: XSignDashboardSources.cachePolicyID)
+        await io.reconcileManagedCache()
+
+        let fixture = Data(#"{"apps":[{"name":"Cached app","bundleIdentifier":"cache.app","version":"2.0"}]}"#.utf8)
+        for name in selectedFiles {
+            let url = catalogues.appendingPathComponent(name)
+            try fixture.write(to: url)
+            try Data("etag".utf8).write(to: url.appendingPathExtension("etag"))
+        }
+        for name in selectedPreviews { await io.storeLaunchPreview(fixture, name: name, managed: oldAccess) }
+        let personal = catalogues.appendingPathComponent(String(repeating: "a", count: 64) + ".json")
+        try fixture.write(to: personal)
+        let cached = await io.cached(removed.safeURL!, managed: oldAccess)
+        precondition(cached?.repository.apps.first?.currentVersion == "2.0")
+        precondition(fm.fileExists(atPath: previews.appendingPathComponent(discardedPreview).path))
+
+        precondition(select([kept]))
+        await io.reconcileManagedCache()
+        let obsolete = catalogues.appendingPathComponent(discardedFile)
+        precondition(!fm.fileExists(atPath: obsolete.path))
+        precondition(!fm.fileExists(atPath: obsolete.appendingPathExtension("etag").path))
+        precondition(!fm.fileExists(atPath: previews.appendingPathComponent(discardedPreview).path))
+        precondition(fm.fileExists(atPath: personal.path))
+        let remaining = await io.cached(kept.safeURL!)
+        precondition(remaining?.repository.apps.count == 1)
+
+        precondition(select([kept, removed]))
+        precondition(!oldAccess.isCurrent)
+        await io.storeLaunchPreview(fixture, name: discardedPreview, managed: oldAccess)
+        precondition(!fm.fileExists(atPath: previews.appendingPathComponent(discardedPreview).path))
+        do {
+            _ = try await io.fetch(removed.safeURL!, managed: oldAccess)
+            preconditionFailure("A request from the previous selection must not fetch or write again")
+        } catch is CancellationError {}
+        print("PASS: managed cache loads without networking, prunes catalogue data, validators and previews, and rejects stale requests after re-add")
+    }
 }

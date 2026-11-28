@@ -60,4 +60,69 @@ int main(int argc,char** argv) {
         subprocess.run(['c++','-std=c++17',str(root/'check.cpp'),'-o',str(root/'check')], check=True)
         subprocess.run([str(root/'check'),str(root)],check=True)
 
-if __name__ == '__main__': main()
+
+def check_application_identifiers():
+    native = Path('Zsign/src')
+    common = native / 'common'
+    source = (native / 'openssl.cpp').read_text()
+    policy = source[source.index('static bool provisionAllows('):source.index('bool ZSignAsset::Init(')]
+    program = r'''
+#include <ctime>
+#include <cassert>
+#include <cstdio>
+#include "json.h"
+
+struct ZSignAsset {
+    bool m_bAdhoc = false;
+    string m_strApplicationId, m_strEntitleData, m_strTeamId;
+    jvalue m_provisionEntitlements;
+    bool ApplicationIdentifierForBundle(const string&, string&) const;
+    bool EntitlementsForBundle(const string&, string&) const;
+};
+''' + policy + r'''
+int main() {
+    ZSignAsset asset;
+    asset.m_strTeamId = "TEAM";
+    asset.m_strApplicationId = "PREFIX.com.example.*";
+    jvalue requested;
+    requested["application-identifier"] = "PREVIOUS.com.original";
+    requested["keychain-access-groups"].push_back("PREFIX.com.example.*");
+    requested["keychain-access-groups"].push_back("PREFIX.com.example.shared");
+    requested["keychain-access-groups"].push_back("PREVIOUS.com.original");
+    asset.m_strEntitleData = requested.style_write_plist();
+    asset.m_provisionEntitlements["keychain-access-groups"].push_back("PREFIX.com.example.*");
+    for (const string bundle : {"com.example.changed", "com.example.changed.extension"}) {
+        string signedEntitlements;
+        assert(asset.EntitlementsForBundle(bundle, signedEntitlements));
+        jvalue actual;
+        assert(actual.read_plist(signedEntitlements));
+        assert(actual.at("application-identifier").as_string() == "PREFIX." + bundle);
+        assert(actual.at("com.apple.developer.team-identifier").as_string() == "TEAM");
+        const auto& groups = actual.at("keychain-access-groups");
+        assert(groups.size() == 2);
+        assert(groups.at(0).as_string() == "PREFIX." + bundle);
+        assert(groups.at(1).as_string() == "PREFIX.com.example.shared");
+    }
+    string identifier;
+    assert(!asset.ApplicationIdentifierForBundle("com.unrelated", identifier));
+    assert(!asset.ApplicationIdentifierForBundle("com.example.", identifier));
+    asset.m_strApplicationId = "PREFIX.com.example.app";
+    assert(asset.ApplicationIdentifierForBundle("com.example.app", identifier));
+    assert(!asset.ApplicationIdentifierForBundle("com.example.app.extension", identifier));
+    asset.m_strApplicationId = "PREFIX.*";
+    assert(asset.ApplicationIdentifierForBundle("Xsign", identifier) && identifier == "PREFIX.Xsign");
+    puts("PASS: actual Zsign entitlements preserve exact app IDs, scope wildcards and validate keychain access groups");
+}
+'''
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        (root / 'identity.cpp').write_text(program)
+        sources = [common / filename for filename in ('json.cpp', 'base64.cpp', 'fs.cpp', 'util.cpp', 'log.cpp')]
+        subprocess.run(['c++', '-std=c++17', '-I', str(common), str(root / 'identity.cpp'),
+                        *map(str, sources), '-o', str(root / 'identity')], check=True)
+        subprocess.run([str(root / 'identity')], check=True)
+
+
+if __name__ == '__main__':
+    main()
+    check_application_identifiers()

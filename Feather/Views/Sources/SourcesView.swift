@@ -1104,6 +1104,7 @@ final class AppStoreCacheManager: ObservableObject {
     private var requestedSources: [AltSource] = []
     private var customFingerprints: [String: Data] = [:]
     private let catalogIO: XSignCatalogIO
+    private var managedDiskFiles: Set<String>
 
     func shouldSkipStoreLookup(_ bundleID: String?) -> Bool {
         guard let bundleID else { return false }
@@ -1137,6 +1138,13 @@ final class AppStoreCacheManager: ObservableObject {
             .map { XSignCoreSourceItem(name: $0.name, id: $0.id, url: $0.url) }
     }
 
+    nonisolated static func managesCatalogue(_ url: URL) -> Bool {
+        let key = XSignDashboardSources.sourceKey(url)
+        return resolvedManagedSources(nil).contains { source in
+            URL(string: source.url).map(XSignDashboardSources.sourceKey) == key
+        }
+    }
+
     private nonisolated static var coreTargets: [(urlStr: String, id: String, file: String)] {
         resolvedManagedSources(nil).compactMap { source in
             guard let url = URL(string: source.url) else { return nil }
@@ -1144,6 +1152,10 @@ final class AppStoreCacheManager: ObservableObject {
                 .map { String(format: "%02x", $0) }.joined() + ".json"
             return (source.url, source.id, file)
         }
+    }
+
+    nonisolated static var managedPreviewFiles: Set<String> {
+        Set(coreTargets.map { "preview_" + $0.file })
     }
 
     @discardableResult
@@ -1159,8 +1171,12 @@ final class AppStoreCacheManager: ObservableObject {
             identities[$0.key] == loadedCacheIdentities[$0.key]) }
         repoFingerprints = repoFingerprints.filter { directLoadedRepos[$0.key] != nil }
         loadedCacheIdentities = identities
+        let previousFiles = managedDiskFiles
+        managedDiskFiles = XSignCatalogIO.managedCacheFiles()
+        Task { await catalogIO.reconcileManagedCache(previousFiles: previousFiles) }
         rebuildCustomSnapshot(sources: requestedSources, repositories: SourcesViewModel.shared.sources, viewModel: .shared)
         let liveURLs = Set(valid.compactMap { URL(string: $0.url) } + customSnapshot.compactMap { $0.0 })
+        sourceFailures.formIntersection(liveURLs)
         if allCombinedItems.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) ||
             catalog.todayItems.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) ||
             catalog.todayNews.contains(where: { $0.sourceURL.map(liveURLs.contains) != true }) {
@@ -1202,40 +1218,21 @@ final class AppStoreCacheManager: ObservableObject {
         Task { await AppStoreLiveMetadataBridge.shared.invalidateCache() }
     }
 
-    private nonisolated static var diskCacheDirectory: URL {
-        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("XSignApprovedStoreCache_v2", isDirectory: true)
-        try? XSignPrivateFiles.createDirectory(dir)
-        return dir
-    }
-
-    private nonisolated static let bundledLaunchSeedPayloads: [String: String] = [:] // __XSIGN_BUNDLE_SEED__
-
     private func restoreBoundedLaunchPreviews() {
-        // Bound synchronous launch work; use fresh device previews first, then ultra-light build-time seed for 0ms first launch.
-        for target in Self.coreTargets.prefix(6) where directLoadedRepos[target.urlStr] == nil {
-            guard let url = URL(string: target.urlStr) else { continue }
-            let path = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
+        // Keep synchronous launch work small. The full catalogues load on the disk worker.
+        let targets = Self.coreTargets
+        let prioritized = Set(todayTargets.map(XSignDashboardSources.sourceKey))
+        let isTodayTarget: ((urlStr: String, id: String, file: String)) -> Bool = {
+            URL(string: $0.urlStr).map { prioritized.contains(XSignDashboardSources.sourceKey($0)) } ?? false
+        }
+        let visibleFirst = targets.filter(isTodayTarget) + targets.filter { !isTodayTarget($0) }
+        for target in visibleFirst.prefix(6) where directLoadedRepos[target.urlStr] == nil {
+            let path = XSignCatalogIO.launchPreviewDirectory.appendingPathComponent("preview_" + target.file)
             if let size = (try? path.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
                size <= 524_288, let data = try? Data(contentsOf: path),
                let record = try? XSignCatalogIO.decode(data), record.repository.apps.count <= 60 {
                 directLoadedRepos[target.urlStr] = record.repository
                 loadedCacheIdentities[target.urlStr] = target.file
-                continue
-            }
-            let canonical = XSignCatalogIO.canonicalURL(url).absoluteString
-            let rawKey = SHA256.hash(data: Data(target.urlStr.lowercased().utf8)).map { String(format: "%02x", $0) }.joined()
-            let canKey = SHA256.hash(data: Data(canonical.lowercased().utf8)).map { String(format: "%02x", $0) }.joined()
-            if let encoded = Self.bundledLaunchSeedPayloads[rawKey] ?? Self.bundledLaunchSeedPayloads[canKey],
-               let obfuscated = Data(base64Encoded: encoded),
-               obfuscated.count <= 524_288 {
-                let mask: [UInt8] = [0x5A, 0xC3, 0x3C, 0xA5]
-                let seedData = Data(obfuscated.enumerated().map { $0.element ^ mask[$0.offset & 3] })
-                if let record = try? XSignCatalogIO.decode(seedData),
-                   record.repository.apps.count <= 60 {
-                    directLoadedRepos[target.urlStr] = record.repository
-                    loadedCacheIdentities[target.urlStr] = target.file
-                }
             }
         }
     }
@@ -1244,37 +1241,41 @@ final class AppStoreCacheManager: ObservableObject {
     init(catalogIO: XSignCatalogIO = .shared) {
         ProtectedSourcesVault.migrateOldSourceCaches()
         self.catalogIO = catalogIO
+        let remote = XSignRemoteManager.shared
+        managedDiskFiles = XSignCatalogIO.managedCacheFiles()
+        studioCategories = remote.catalogueCategories
+        todaySourceIDs = remote.config?.dashboard?.today_source_ids.map { Set($0) }
         restoreBoundedLaunchPreviews()
         let preview = Self.coreTargets.compactMap { target -> (URL?, String?, ASRepository)? in
             guard let repo = directLoadedRepos[target.urlStr] else { return nil }
             return (URL(string: target.urlStr).map(XSignCatalogIO.canonicalURL), target.id, repo)
         }
-        studioCategories = XSignRemoteManager.shared.catalogueCategories
-        todaySourceIDs = XSignRemoteManager.shared.config?.dashboard?.today_source_ids.map { Set($0) }
         if !preview.isEmpty,
            let snapshot = Self.buildSnapshot(snapshot: preview, studioCategories: studioCategories,
                                              todaySourceIDs: todaySourceIDs, launchPreview: true) {
             catalog = snapshot
             prefetchVisibleIcons(from: snapshot)
         }
+        Task { await catalogIO.reconcileManagedCache() }
         loadInstantDiskSnapshot()
     }
 
     private func loadInstantDiskSnapshot() {
         diskSnapshotTask?.cancel()
         let targets = Self.coreTargets
+        let access = XSignCatalogIO.ManagedAccess(policyID: XSignDashboardSources.cachePolicyID)
         diskSnapshotTask = Task { @MainActor [weak self] in
             await withTaskGroup(of: (Int, XSignRepositoryRecord?).self) { group in
                 guard let io = self?.catalogIO else { return }
                 let load: @Sendable (Int) async -> (Int, XSignRepositoryRecord?) = { index in
                     guard let url = URL(string: targets[index].urlStr) else { return (index, nil) }
-                    return (index, await io.cached(url))
+                    return (index, await io.cached(url, managed: access))
                 }
                 let count = min(6, targets.count)
                 for index in 0..<count { group.addTask { await load(index) } }
                 var next = count
                 for await (index, record) in group {
-                    guard !Task.isCancelled else { group.cancelAll(); return }
+                    guard !Task.isCancelled, access.isCurrent else { group.cancelAll(); return }
                     let target = targets[index]
                     if let self, let record, let url = URL(string: target.urlStr),
                        self.repoFingerprints[target.urlStr] == nil,
@@ -1290,6 +1291,7 @@ final class AppStoreCacheManager: ObservableObject {
             }
             guard !Task.isCancelled, let self else { return }
             await self.publicationTask?.value
+            self.finishedInitialLoad = true
         }
     }
 
@@ -1308,12 +1310,12 @@ final class AppStoreCacheManager: ObservableObject {
         loadedCacheIdentities[target.urlStr] = target.file
         scheduleSnapshot(priority: key == XSignCatalogueEndpoint.iosBoomCatalogue.absoluteString ? .utility : .userInitiated)
         let repo = record.repository
-        let path = Self.diskCacheDirectory.appendingPathComponent("preview_" + target.file)
-        Task.detached(priority: .utility) {
-            if let preview = Self.makeLaunchPreview(repo) {
-                try? preview.write(to: path, options: .atomic)
-                try? XSignPrivateFiles.protect(path)
-            }
+        Task { @MainActor [weak self] in
+            let encoded = await Task.detached(priority: .utility) { Self.makeLaunchPreview(repo) }.value
+            guard let self, let encoded, self.repoFingerprints[target.urlStr] == record.fingerprint,
+                  self.loadedCacheIdentities[target.urlStr] == target.file else { return }
+            let access = XSignCatalogIO.ManagedAccess(policyID: XSignDashboardSources.cachePolicyID)
+            await self.catalogIO.storeLaunchPreview(encoded, name: "preview_" + target.file, managed: access)
         }
     }
 
@@ -1334,9 +1336,12 @@ final class AppStoreCacheManager: ObservableObject {
     }
 
     func runAutomaticUpdates(sources: @escaping @MainActor () -> [AltSource], viewModel: SourcesViewModel) async {
+        await catalogIO.revalidateFeeds()
+        guard !Task.isCancelled else { return }
+        await forceRefresh(sources: sources(), viewModel: viewModel)
         while !Task.isCancelled {
-            await ensureFetched(sources: sources(), viewModel: viewModel)
             do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+            await ensureFetched(sources: sources(), viewModel: viewModel)
         }
     }
 
@@ -1356,6 +1361,11 @@ final class AppStoreCacheManager: ObservableObject {
                 guard let self, let viewModel else { return }
                 self.rebuildCustomSnapshot(sources: self.requestedSources, repositories: repositories, viewModel: viewModel)
             }
+        }
+        guard !Task.isCancelled, XSignSecurityEnforcer.shared.isNetworkReachable,
+              XSignDashboardSources.managed != nil || XSignRemoteManager.shared.initialSyncSettled else {
+            rebuildCacheIfNeeded(sources: sources, repositoriesMap: viewModel.sources)
+            return
         }
         if let running = refreshTask {
             if force { refreshAgain = true }
@@ -1391,14 +1401,14 @@ final class AppStoreCacheManager: ObservableObject {
                     self.catalogErrorMessage = "تعذّر تحديث أحد المصادر. ستتم إعادة المحاولة تلقائيًا."
                 }
                 self.nextRefreshAllowed = Date().addingTimeInterval(succeeded && !customSourceFailed ? 300 : 30)
-            } while self.refreshAgain && !Task.isCancelled
+            } while self.refreshAgain && !Task.isCancelled && XSignSecurityEnforcer.shared.isNetworkReachable
         }
         refreshTask = task
         await task.value
     }
 
     func refreshToday() async {
-        guard !isRefreshingToday else { return }
+        guard !isRefreshingToday, XSignSecurityEnforcer.shared.isNetworkReachable else { return }
         isRefreshingToday = true
         defer { isRefreshingToday = false }
         await XSignRemoteManager.shared.fetchRemoteConfig(force: true)
@@ -1423,10 +1433,11 @@ final class AppStoreCacheManager: ObservableObject {
         var failures: [String] = []
         var successes = 0
         let identities = Dictionary(uniqueKeysWithValues: urls.map { ($0, XSignCatalogIO.cacheIdentity($0)) })
+        let access = XSignCatalogIO.ManagedAccess(policyID: XSignDashboardSources.cachePolicyID)
         let io = catalogIO
         let load: @Sendable (URL) async -> (URL, XSignRepositoryRecord?, String?) = { url in
-            do { return (url, try await io.fetch(url, ownerRevision: ownerRevision), nil) }
-            catch { return (url, await io.cached(url), error.localizedDescription) }
+            do { return (url, try await io.fetch(url, ownerRevision: ownerRevision, managed: access), nil) }
+            catch { return (url, await io.cached(url, managed: access), error.localizedDescription) }
         }
         await withTaskGroup(of: (URL, XSignRepositoryRecord?, String?).self) { group in
             var next = 0
@@ -1435,7 +1446,7 @@ final class AppStoreCacheManager: ObservableObject {
                 group.addTask { await load(url) }
             }
             for await (url, record, message) in group {
-                guard !Task.isCancelled else { group.cancelAll(); break }
+                guard !Task.isCancelled, access.isCurrent else { group.cancelAll(); break }
                 if identities[url] == XSignCatalogIO.cacheIdentity(url) {
                     if let message {
                         sourceFailures.insert(url)

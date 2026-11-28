@@ -21,6 +21,8 @@ public:
 						const string& strCodeDirectorySlotSHA1, 
 						const string& strAltnateCodeDirectorySlot256, 
 						string& strCMSOutput);
+	bool ApplicationIdentifierForBundle(const string& bundleId, string& identifier) const;
+	bool EntitlementsForBundle(const string& bundleId, string& entitlements) const;
 
 private:
 	bool GenerateCMS(void* pscert, 
@@ -33,6 +35,7 @@ private:
 
 	bool GetCertSubjectCN(void* cert, string& strSubjectCN);
 	bool GetCertSubjectCN(const string& strCertData, string& strSubjectCN);
+	jvalue m_provisionEntitlements;
 
 public:
 	static bool		CMSError();

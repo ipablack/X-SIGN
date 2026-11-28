@@ -590,6 +590,7 @@ enum SigningFileHandlerError: Error, LocalizedError {
 	case missingCertifcate
 	case disinjectFailed
 	case signFailed
+    case invalidSignedIdentity
 	
 	var errorDescription: String? {
 		switch self {
@@ -597,7 +598,8 @@ enum SigningFileHandlerError: Error, LocalizedError {
 		case .infoPlistNotFound: "Unable to locate info.plist path."
 		case .missingCertifcate: "No certificate was specified."
 		case .disinjectFailed: "Removing mach-O load paths failed."
-		case .signFailed: "Signing failed."
+		case .signFailed: "تعذّر توقيع الحزمة. تحقق من صلاحية الشهادة وتوافقها مع التطبيق وملحقاته، ومن سلامة الملفات المضافة."
+        case .invalidSignedIdentity: "التوقيع الناتج لا يطابق بندل التطبيق وفريق الشهادة. أُوقف طلب التثبيت."
 		}
 	}
 }

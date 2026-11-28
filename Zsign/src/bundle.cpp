@@ -113,15 +113,17 @@ bool ZBundle::GetObjectsToSign(const string& strFolder, jvalue& jvInfo)
 		return depthA > depthB;
 	});
 	
+	set<string> bundleExecutables = {strFolder + "/" + jvInfo["bundle_executable"].as_string()};
 	for (const string& bundlePath : allBundles) {
 		jvalue jvNode;
 		if (GetSignFolderInfo(bundlePath, jvNode)) {
+			bundleExecutables.insert(bundlePath + "/" + jvNode["bundle_executable"].as_string());
 			jvInfo["folders"].push_back(jvNode);
 		}
 	}
 	
 	ZFile::EnumFolder(strFolder.c_str(), true, NULL, [&](bool bFolder, const string& strPath) {
-		if (bFolder || string::npos != strPath.find(".dSYM") ||
+		if (bFolder || bundleExecutables.count(strPath) || string::npos != strPath.find(".dSYM") ||
 			string::npos != strPath.find("_WatchKitStub")) {
 			return false;
 		}
@@ -302,7 +304,7 @@ bool ZBundle::SignNode(jvalue& jvNode)
 			ZLog::PrintV(">>> SignFile: \t%s\n", strFile.c_str());
 			ZMachO macho;
 			if (macho.InitV("%s/%s", m_strAppFolder.c_str(), strFile.c_str())) {
-				macho.Sign(m_pSignAsset, m_bForceSign, "", "", "", "");
+				if (!macho.Sign(m_pSignAsset, m_bForceSign, "", "", "", "")) return false;
 			} else {
 				ZLog::WarnV(">>> Warning: Skipping non-Mach-O file: \t%s\n", strFile.c_str());
 			}
@@ -348,11 +350,29 @@ bool ZBundle::SignNode(jvalue& jvNode)
 	ZMachO macho;
 	if (!macho.Init(strExePath.c_str())) {
 		ZLog::ErrorV(">>> Can't parse BundleExecute file! %s\n", strExePath.c_str());
-#if !TARGET_OS_IOS
 		return false;
-#else
-		return true;
-#endif
+	}
+
+	ZSignAsset* signAsset = m_pSignAsset;
+	bool nestedApplication = ZFile::IsPathSuffix(strFolder, ".app") || ZFile::IsPathSuffix(strFolder, ".appex");
+	if (nestedApplication && !signAsset->m_bAdhoc && !m_bRemoveProvision) {
+		string identity;
+		if (m_pSignAssets) {
+			for (auto it = m_pSignAssets->rbegin(); it != m_pSignAssets->rend(); ++it) {
+				if (it->ApplicationIdentifierForBundle(strBundleId, identity)) {
+					signAsset = &(*it);
+					break;
+				}
+			}
+		}
+		if (!signAsset->ApplicationIdentifierForBundle(strBundleId, identity)) {
+			ZLog::ErrorV(">>> Provisioning profile does not cover nested bundle ID: %s\n", strBundleId.c_str());
+			return false;
+		}
+		if (!ZFile::WriteFileV(signAsset->m_strProvData, "%s/embedded.mobileprovision", strBaseFolder.c_str())) {
+			ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
+			return false;
+		}
 	}
 
 	bool bForceSign = m_bForceSign;
@@ -420,41 +440,7 @@ bool ZBundle::SignNode(jvalue& jvNode)
 		return false;
 	}
 
-	if (m_pSignAssets) {
-		auto endsWith = [](const string& str, const string& suffix) {
-			return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-		};
-
-		for (auto it = m_pSignAssets->rbegin(); it != m_pSignAssets->rend(); ++it) {
-			m_pSignAsset = &(*it);
-			if (endsWith(m_pSignAsset->m_strApplicationId, strBundleId)) {
-				if (!ZFile::WriteFileV(m_pSignAsset->m_strProvData, "%s/%s/embedded.mobileprovision", m_strAppFolder.c_str(), strFolder.c_str())) {
-					ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
-					return false;
-				}
-				break;
-			}
-		}
-	}
-
-	if (m_pSignAssets) {
-		auto endsWith = [](const string& str, const string& suffix) {
-			return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-		};
-
-		for (auto it = m_pSignAssets->rbegin(); it != m_pSignAssets->rend(); ++it) {
-			m_pSignAsset = &(*it);
-			if (endsWith(m_pSignAsset->m_strApplicationId, strBundleId)) {
-				if (!ZFile::WriteFileV(m_pSignAsset->m_strProvData, "%s/%s/embedded.mobileprovision", m_strAppFolder.c_str(), strFolder.c_str())) {
-					ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
-					return false;
-				}
-				break;
-			}
-		}
-	}
-
-	if (!macho.Sign(m_pSignAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData)) {
+	if (!macho.Sign(signAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData)) {
 		return false;
 	}
 

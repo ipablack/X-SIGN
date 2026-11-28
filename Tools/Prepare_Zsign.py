@@ -6,11 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'Zsign/src/bundle.cpp'
 BEFORE = '3a2c3c807951394a9ce0ee8d7f4aec0164d3c0b09ec78474b929833b5cce25ab'
 AFTER = '77ccf5e704f93172499f4cd57fab1ab7bd3a091a0eb9306d2c8d03a19d84c8d9'
+IDENTITY_FIXED = '19d19dcc406a699f3c19bc0420883d41e12def89e00c131f543625a4defc5011'
 
 def prepare(path=PATH):
     raw = path.read_bytes()
     current = hashlib.sha256(raw).hexdigest()
-    if current == AFTER:
+    if current in (AFTER, IDENTITY_FIXED):
         return False
     if current != BEFORE:
         raise RuntimeError('Zsign dependency differs from the reviewed revision; existing source was preserved.')

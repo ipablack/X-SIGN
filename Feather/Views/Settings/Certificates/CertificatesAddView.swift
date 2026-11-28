@@ -12,6 +12,13 @@ import UniformTypeIdentifiers
 // MARK: - View
 struct CertificatesAddView: View {
 	@Environment(\.dismiss) private var dismiss
+    private let updateRequirement: XSignSelfUpdateCertificate.Requirement?
+    private let onSaved: (() -> Void)?
+
+    init(updateRequirement: XSignSelfUpdateCertificate.Requirement? = nil, onSaved: (() -> Void)? = nil) {
+        self.updateRequirement = updateRequirement
+        self.onSaved = onSaved
+    }
 	
     @State private var _isSaving = false
 	@State private var _p12URL: URL? = nil
@@ -31,7 +38,9 @@ struct CertificatesAddView: View {
 		NBNavigationView(.localized("New Certificate"), displayMode: .inline) {
 			Form {
                 Section {
-                    Text("أضف P12 وملف MobileProvision وكلمة المرور مرة واحدة. بعدها يوقّع XSign ملفات IPA على جهازك مباشرة.")
+                    Text(updateRequirement == nil
+                         ? "أضف P12 وملف MobileProvision وكلمة المرور مرة واحدة. بعدها يوقّع XSign ملفات IPA على جهازك مباشرة."
+                         : "أضف P12 وMobileProvision متوافقين مع النسخة المثبّتة من XSign لاستئناف التحديث.")
                         .font(.footnote).foregroundStyle(.secondary)
                     if _isSaving { ProgressView("جارٍ التحقق وحفظ الشهادة…") }
                 }
@@ -120,6 +129,7 @@ extension CertificatesAddView {
         _isSaving = true
         let password = _p12Password
         let name = _certificateName
+        let requirement = updateRequirement
         // Password/profile decoding runs off the UI thread. Saving errors keep this form open.
         Task {
             let validationError: String? = await Task.detached(priority: .userInitiated) { () -> String? in
@@ -128,6 +138,9 @@ extension CertificatesAddView {
                 defer {
                     if keyAccess { p12URL.stopAccessingSecurityScopedResource() }
                     if profileAccess { provisionURL.stopAccessingSecurityScopedResource() }
+                }
+                if let requirement {
+                    return requirement.validationError(provision: provisionURL, key: p12URL, password: password)
                 }
                 guard let profile = CertificateReader(provisionURL).decoded else {
                     return "ملف MobileProvision غير صالح. اختر ملفاً صحيحاً."
@@ -153,6 +166,7 @@ extension CertificatesAddView {
                 // Certificate storage is sorted newest first; reuse the newly imported identity.
                 UserDefaults.standard.set(0, forKey: "feather.selectedCert")
                 AutoSignPipelineManager.shared.refreshCertificateCache()
+                onSaved?()
                 dismiss()
             }
         }

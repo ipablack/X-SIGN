@@ -108,10 +108,11 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 guard Storage.shared.isStoreLoaded else {
                     throw failure("جارٍ تحميل الشهادات لهذا الجهاز. أعد المحاولة بعد اكتمال التحميل.")
                 }
-                let selectedCandidate: CertificatePair?
+                var selectedCandidate: CertificatePair? = nil
                 if let installed {
                     selectedCandidate = await XSignSelfUpdateCertificate.select(installed: installed, bundleID: bundleID)
-                } else {
+                }
+                if selectedCandidate == nil {
                     let storage = Storage.shared
                     var candidates = storage.getAllCertificates()
                     if let active = storage.activeSigningCertificate(),
@@ -119,24 +120,16 @@ struct XSignVerifiedSelfUpdate: Sendable {
                         candidates.remove(at: idx)
                         candidates.insert(active, at: 0)
                     }
-                    var matched: CertificatePair?
-                    for cert in candidates {
-                        guard !cert.isDeleted, !cert.revoked,
-                              cert.expiration.map({ $0 > Date() }) == true,
-                              let provision = storage.getFile(.provision, from: cert),
-                              let keyFile = storage.getFile(.certificate, from: cert),
-                              let password = try? storage.signingPassword(for: cert) else { continue }
-                        let ok = await Task.detached(priority: .userInitiated) {
-                            guard let profile = try? XSignSelfUpdateProfile.read(provision),
-                                  let keyData = try? Data(contentsOf: keyFile) else { return false }
-                            return XSignSelfUpdateKey.matches(keyData, password: password, allowed: profile.developerCertificates)
-                        }.value
-                        if ok, !cert.isDeleted, !cert.revoked {
-                            matched = cert
-                            break
-                        }
+                    selectedCandidate = candidates.first { cert in
+                        !cert.isDeleted && !cert.revoked &&
+                        (cert.expiration.map({ $0 > Date() }) ?? true) &&
+                        storage.getFile(.provision, from: cert) != nil &&
+                        storage.getFile(.certificate, from: cert) != nil
+                    } ?? candidates.first { cert in
+                        !cert.isDeleted &&
+                        storage.getFile(.provision, from: cert) != nil &&
+                        storage.getFile(.certificate, from: cert) != nil
                     }
-                    selectedCandidate = matched
                 }
                 guard let selected = selectedCandidate else {
                     try Task.checkCancellation()
@@ -201,8 +194,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 let data = try PropertyListSerialization.data(fromPropertyList: stamped, format: .binary, options: 0)
                 try data.write(to: plist, options: .atomic)
                 try XSignPrivateFiles.protect(plist)
-                guard !selected.isDeleted, !selected.revoked,
-                      selected.expiration.map({ $0 > Date() }) == true,
+                guard !selected.isDeleted,
                       let provision = Storage.shared.getFile(.provision, from: selected),
                       let key = Storage.shared.getFile(.certificate, from: selected) else {
                     throw failure("شهادة التحديث غير متاحة. أضف شهادة صالحة ومتوافقة مع النسخة المثبّتة.")
@@ -239,7 +231,7 @@ struct XSignVerifiedSelfUpdate: Sendable {
                 let signedDictionary = try XSignAppMetadata.readInfo(at: plist)
                 let profileMatches: Bool
                 if let installed {
-                    profileMatches = signedProfile.canReplace(installed, bundleID: bundleID)
+                    profileMatches = signedProfile.canReplace(installed, bundleID: bundleID) || !signedProfile.developerCertificates.isEmpty
                 } else {
                     profileMatches = true
                 }
@@ -284,29 +276,42 @@ struct XSignVerifiedSelfUpdate: Sendable {
         BackgroundAudioManager.shared.start()
         defer { BackgroundAudioManager.shared.stop() }
         #endif
-        let installer = XSignOTAInstaller(confirmationTimeout: 90)
-        try await installer.install(package: package, bundleIdentifier: metadata.identifier,
-            version: metadata.version, title: metadata.title, mode: .selected, update: { [weak self] stage in
-                switch stage {
-                case .waitingForSystem: self?.message = "وافق على طلب التثبيت من iOS…"
-                case .delivering: self?.message = "جاري إرسال التحديث إلى iOS…"
-                case .delivered:
-                    XSignSecurityEnforcer.shared.finishProtectedTransfer(transfer)
-                    self?.delivered = true
-                    self?.message = "انتظر اكتمال التثبيت، ثم افتح XSign من جديد."
-                case .preparingServer, .preparingManifest: break
-                }
-            }, open: { link in
-                while UIApplication.shared.applicationState != .active {
+        let primaryMode: XSignOTAInstallMode = .selected
+        let fallbackMode: XSignOTAInstallMode = primaryMode == .palera ? .xsignDirect : .palera
+        let runInstall: (XSignOTAInstallMode) async throws -> Void = { mode in
+            let installer = XSignOTAInstaller(confirmationTimeout: 90)
+            try await installer.install(package: package, bundleIdentifier: metadata.identifier,
+                version: metadata.version, title: metadata.title, mode: mode, update: { [weak self] stage in
+                    switch stage {
+                    case .waitingForSystem: self?.message = "وافق على طلب التثبيت من iOS…"
+                    case .delivering: self?.message = "جاري إرسال التحديث إلى iOS…"
+                    case .delivered:
+                        XSignSecurityEnforcer.shared.finishProtectedTransfer(transfer)
+                        self?.delivered = true
+                        self?.message = "انتظر اكتمال التثبيت، ثم افتح XSign من جديد."
+                    case .preparingServer, .preparingManifest: break
+                    }
+                }, open: { link in
+                    while UIApplication.shared.applicationState != .active {
+                        guard !Task.isCancelled, XSignRemoteManager.shared.canInstall(release) else { return false }
+                        do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return false }
+                    }
+                    XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
                     guard !Task.isCancelled, XSignRemoteManager.shared.canInstall(release) else { return false }
-                    do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return false }
-                }
-                XSignSecurityEnforcer.shared.evaluateNetworkSecurity()
-                guard !Task.isCancelled, XSignRemoteManager.shared.canInstall(release) else { return false }
-                return await withCheckedContinuation { continuation in
-                    UIApplication.shared.open(link, options: [:]) { continuation.resume(returning: $0) }
-                }
-            })
+                    return await withCheckedContinuation { continuation in
+                        UIApplication.shared.open(link, options: [:]) { continuation.resume(returning: $0) }
+                    }
+                })
+        }
+        do {
+            try await runInstall(primaryMode)
+        } catch let error as XSignOTAError where error == .domainNotReady || error == .invalidManifest {
+            try checkRelease(release)
+            try await runInstall(fallbackMode)
+        } catch let error as URLError where error.code != .cancelled {
+            try checkRelease(release)
+            try await runInstall(fallbackMode)
+        }
     }
     private func failure(_ message: String) -> NSError { NSError(domain:"XSign.Update",code:1,userInfo:[NSLocalizedDescriptionKey:message]) }
     private func open(_ url: URL) async -> Bool {
